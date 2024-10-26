@@ -1,15 +1,7 @@
-[package]
-name = "htmx-ssr"
-description = "HTMX server-side rendering framework for Rust, based on Axum."
-version = "0.1.0"
-edition = "2021"
-authors = ["Julien Kauffmann"]
-repository = "https://github.com/ereOn/htmx-ssr.rs"
-license-file = "LICENSE"
-keywords = ["htmx", "ssr", "web", "html", "axum"]
-categories = ["web-programming"]
+[workspace]
+members = ["htmx-ssr", "examples/*"]
+default-members = ["htmx-ssr"]
+resolver = "2"
 
-[badges]
-maintenance = { status = "actively-developed" }
-
-[dependencies]
+[workspace.dependencies]
+htmx-ssr = { path = "./htmx-ssr" }
