@@ -1,6 +1,6 @@
 //! HTMX-SSR
 //!
-//! This crate provides a simple way to render HTMX pages on the server side.
+//! Server-side rendering framework for Rust, using HTMX.
 
-/// A dummy placeholder struct to keep rust-analyzer happy.
-pub struct Dummy {}
+#[cfg(feature = "auto-reload")]
+pub mod auto_reload;

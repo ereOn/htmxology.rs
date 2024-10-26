@@ -1,7 +1,15 @@
 [workspace]
 members = ["htmx-ssr", "examples/*"]
-default-members = ["htmx-ssr"]
+#default-members = ["htmx-ssr"]
 resolver = "2"
 
 [workspace.dependencies]
 htmx-ssr = { path = "./htmx-ssr" }
+
+anyhow = "1"
+axum = "0.7"
+listenfd = "1"
+thiserror = "1"
+tokio = { version = "1", features = ["macros"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3" }

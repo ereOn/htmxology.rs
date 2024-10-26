@@ -12,7 +12,24 @@ categories = ["web-programming"]
 [badges]
 maintenance = { status = "actively-developed" }
 
+[features]
+default = []
+auto-reload = ["dep:listenfd", "tokio/net"]
+examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow"]
+
 [lib]
 name = "htmx_ssr"
 
+[[example]]
+name = "basic"
+path = "../examples/basic.rs"
+required-features = ["auto-reload", "examples"]
+
 [dependencies]
+anyhow = { workspace = true, optional = true }
+axum.workspace = true
+listenfd = { workspace = true, optional = true }
+thiserror = "1"
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, optional = true }
