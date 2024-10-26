@@ -1,7 +1,7 @@
 //! Run with
 //!
 //! ```not_rust
-//! just example basic
+//! just example fuul
 //! ```
 
 use axum::{response::Html, routing::get, Router};
