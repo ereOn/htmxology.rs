@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>HTMX SSR full example</title>
+        <meta charset="UTF-8">
+        <meta name="description" value="HTMX SSR full example">
+        <meta name="keywords" value="htmx, ssr, example">
+        <script src="https://unpkg.com/htmx.org@2.0.3"
+                integrity="sha384-0895/pl2MU10Hqc6jd4RvrthNlDiE9U1tWmX7WRESftEDRosgxNsQG/Ze9YMRzHq"
+                crossorigin="anonymous"></script>
+    </head>
+    <body>
+        <h1>Hello, HTMX SSR!</h1>
+        <p>Click the button below to change its state:</p>
+        <button hx-get="/api/toggle" hx-trigger="click">{{ button }}</button>
+    </body>
+</html>

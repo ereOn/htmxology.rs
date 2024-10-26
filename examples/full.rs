@@ -4,13 +4,17 @@
 //! just example fuul
 //! ```
 
+use std::sync::Arc;
+
 use askama::Template;
 use axum::{extract::State, routing::get, Router};
 use htmx_ssr::ArcState as HtmxState;
+use tokio::sync::Mutex;
 use tracing::info;
 
 struct CustomState {
-    foo: String,
+    current_text: Arc<Mutex<usize>>,
+    texts: Vec<&'static str>,
 }
 
 #[tokio::main]
@@ -25,7 +29,8 @@ async fn main() -> anyhow::Result<()> {
     //
     // It just has to be `Send + Sync + 'static`.
     let user_state = CustomState {
-        foo: "bar".to_string(),
+        current_text: Default::default(),
+        texts: vec!["Alpha", "Beta", "Gamma", "Delta"],
     };
 
     // Create a new server with auto-reload enabled by attempting to get a TCP listener from the
@@ -35,19 +40,45 @@ async fn main() -> anyhow::Result<()> {
         // Set the options on the server from the environment.
         .with_options_from_env()?;
 
-    *server.router() = Router::new().route("/", get(handler));
+    *server.router() = Router::new()
+        .route("/", get(handler))
+        .route("/api/toggle", get(toggle_handler));
 
     server.serve().await.map_err(Into::into)
 }
 
 #[derive(Template)]
-#[template(path = "full.html.jinja")]
-struct CustomTemplate {
-    state: HtmxState<CustomState>,
+#[template(path = "full/index.html.jinja")]
+struct IndexView {
+    button: ButtonView,
 }
 
-async fn handler(State(state): State<HtmxState<CustomState>>) -> CustomTemplate {
-    CustomTemplate {
-        state: state.clone(),
+#[derive(Template)]
+#[template(path = "full/button.html.jinja")]
+struct ButtonView {
+    text: String,
+}
+
+async fn handler(State(state): State<HtmxState<CustomState>>) -> IndexView {
+    let text = {
+        let current_text = state.user_state.current_text.lock().await;
+        state.user_state.texts[*current_text % state.user_state.texts.len()]
     }
+    .to_string();
+
+    IndexView {
+        button: ButtonView { text },
+    }
+}
+
+async fn toggle_handler(State(state): State<HtmxState<CustomState>>) -> ButtonView {
+    let text = {
+        let mut current_text = state.user_state.current_text.lock().await;
+        let text = state.user_state.texts[*current_text % state.user_state.texts.len()];
+        *current_text += 1;
+        text
+    }
+    .to_string();
+
+    ButtonView { text }
 }
