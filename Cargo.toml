@@ -1,6 +1,6 @@
 [package]
 name = "htmx-ssr"
-description = "Server-side rendering for HTMX"
+description = "HTMX server-side rendering framework for Rust, based on Axum."
 version = "0.1.0"
 edition = "2021"
 authors = ["Julien Kauffmann"]
