@@ -1,5 +1,8 @@
 use std::{future::Future, pin::Pin, sync::Arc};
 
+#[cfg(feature = "auto-reload")]
+pub mod auto_reload;
+
 mod state;
 
 /// The options for the server.
@@ -123,7 +126,7 @@ pub struct Server<T = ()> {
 pub enum NewWithAutoReloadError {
     /// An error occurred while trying to get a TCP listener.
     #[error("failed to get a TCP listener: {0}")]
-    GetTcpListener(#[from] super::auto_reload::GetTcpListenerError),
+    GetTcpListener(#[from] auto_reload::GetTcpListenerError),
 }
 
 /// An error that can occur when trying to serve the application.
@@ -221,7 +224,7 @@ impl<T: Send + Sync + 'static> Server<T> {
         addr: impl tokio::net::ToSocketAddrs,
         user_state: T,
     ) -> Result<Self, NewWithAutoReloadError> {
-        let listener = super::auto_reload::get_or_bind_tcp_listener(addr).await?;
+        let listener = auto_reload::get_or_bind_tcp_listener(addr).await?;
 
         Ok(Self::new(listener, user_state).with_ctrl_c_graceful_shutdown())
     }

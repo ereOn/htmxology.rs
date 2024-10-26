@@ -9,9 +9,6 @@
 //! - `interfaces`: Enrich the local base URL guessing logic with the ability to inspect the
 //!   workstation's network interfaces. Useful for development. **Not enabled by default.**
 
-#[cfg(feature = "auto-reload")]
-pub mod auto_reload;
-
 mod server;
 
 pub use server::{ServeError, Server, ServerOptions, ServerOptionsFromEnvError, ServerState};
