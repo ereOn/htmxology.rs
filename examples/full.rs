@@ -13,14 +13,10 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Starting example `{}`...", env!("CARGO_BIN_NAME"));
 
-    let app = Router::new().route("/", get(handler));
+    let router = Router::new().route("/", get(handler));
+    let server = htmx_ssr::Server::new_with_auto_reload("127.0.0.1:3000", router).await?;
 
-    let listener = htmx_ssr::auto_reload::get_or_bind_tcp_listener("127.0.0.1:3000").await?;
-    let local_addr = listener.local_addr()?;
-
-    info!("Listening on {local_addr}.");
-
-    axum::serve(listener, app).await.map_err(Into::into)
+    server.serve().await.map_err(Into::into)
 }
 
 async fn handler() -> Html<&'static str> {
