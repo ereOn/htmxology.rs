@@ -14,7 +14,9 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = []
+full = ["auto-reload", "interfaces"]
 auto-reload = ["dep:listenfd", "tokio/net"]
+interfaces = ["dep:netdev"]
 examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow"]
 
 [lib]
@@ -23,12 +25,14 @@ name = "htmx_ssr"
 [[example]]
 name = "full"
 path = "../examples/full.rs"
-required-features = ["auto-reload", "examples"]
+required-features = ["auto-reload", "interfaces", "examples"]
 
 [dependencies]
 anyhow = { workspace = true, optional = true }
 axum.workspace = true
 listenfd = { workspace = true, optional = true }
+http.workspace = true
+netdev = { workspace = true, optional = true }
 thiserror = "1"
 tokio.workspace = true
 tracing.workspace = true

@@ -13,8 +13,14 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Starting example `{}`...", env!("CARGO_BIN_NAME"));
 
-    let router = Router::new().route("/", get(handler));
-    let server = htmx_ssr::Server::new_with_auto_reload("127.0.0.1:3000", router).await?;
+    // Create a new server with auto-reload enabled by attempting to get a TCP listener from the
+    // `listenfd` environment variable, falling back to binding to a local address if that fails.
+    let mut server = htmx_ssr::Server::new_with_auto_reload("127.0.0.1:3000")
+        .await?
+        // Set the options on the server from the environment.
+        .with_options_from_env()?;
+
+    *server.router() = Router::new().route("/", get(handler));
 
     server.serve().await.map_err(Into::into)
 }

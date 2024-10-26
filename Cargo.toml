@@ -9,6 +9,8 @@ htmx-ssr = { path = "./htmx-ssr" }
 anyhow = "1"
 axum = "0.7"
 listenfd = "1"
+http = "1"
+netdev = "0.31"
 thiserror = "1"
 tokio = { version = "1", features = ["macros"] }
 tracing = "0.1"
