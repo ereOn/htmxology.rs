@@ -1,6 +1,15 @@
 [package]
 name = "htmx-ssr"
+description = "Server-side rendering for HTMX"
 version = "0.1.0"
 edition = "2021"
+authors = ["Julien Kauffmann"]
+repository = "https://github.com/ereOn/htmx-ssr.rs"
+license-file = "LICENSE"
+keywords = ["htmx", "ssr", "web", "html", "axum"]
+categories = ["web-programming"]
+
+[badges]
+maintenance = { status = "actively-developed" }
 
 [dependencies]
