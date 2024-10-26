@@ -2,8 +2,6 @@ use std::{future::Future, pin::Pin, sync::Arc};
 
 mod state;
 
-pub use state::ServerState;
-
 /// The options for the server.
 #[derive(Debug, Clone, Default)]
 pub struct ServerOptions {
@@ -93,24 +91,30 @@ impl ServerOptions {
     }
 }
 
+/// The server state type.
+pub type ServerState<T> = Arc<state::ServerState<T>>;
+
 /// The Axum router type for the HTMX-SSR server.
-pub type Router = axum::Router<Arc<ServerState>>;
+pub type Router<T> = axum::Router<ServerState<T>>;
 
 /// The main struct for the HTMX-SSR framework.
 ///
 /// Represents a running HTMX-SSR server.
-pub struct Server {
+pub struct Server<T = ()> {
     /// The TCP listener that the server is using.
     listener: tokio::net::TcpListener,
 
     /// The Axum router that the server is using.
-    router: Router,
+    router: Router<T>,
 
     /// The graceful shutdown signal.
     graceful_shutdown: Option<Pin<Box<dyn Future<Output = ()> + Send>>>,
 
     /// The options for the server.
     options: ServerOptions,
+
+    /// The user-defined state.
+    user_state: T,
 }
 
 /// An error that can occur when instantiating a new HTMX-SSR server with auto-reload features.
@@ -134,30 +138,16 @@ pub enum ServeError {
     LocalAddr(std::io::Error),
 }
 
-impl Server {
-    /// Instantiate a new HTMX-SSR server.
-    pub fn new(listener: tokio::net::TcpListener) -> Self {
-        let router = Default::default();
-        let graceful_shutdown = None;
-        let options = Default::default();
-
-        Self {
-            listener,
-            router,
-            graceful_shutdown,
-            options,
-        }
-    }
-
+impl<T> Server<T> {
     /// Get mutable access to the router.
     ///
     /// This is useful for adding routes to the server at a lower level.
-    pub fn router(&mut self) -> &mut Router {
+    pub fn router(&mut self) -> &mut Router<T> {
         &mut self.router
     }
 
     /// Set the router on the server.
-    pub fn with_router(mut self, router: Router) -> Self {
+    pub fn with_router(mut self, router: Router<T>) -> Self {
         self.router = router;
         self
     }
@@ -178,21 +168,6 @@ impl Server {
         self.options = ServerOptions::from_env()?;
 
         Ok(self)
-    }
-
-    /// Instantiate a new HTMX-SSR server with all the auto-reload features enabled.
-    ///
-    /// Attempts to get a TCP listener from the environment if run through `listenfd`, falling
-    /// back to binding to a local address if that fails.
-    ///
-    /// Also sets the graceful shutdown signal to `ctrl-c`.
-    #[cfg(feature = "auto-reload")]
-    pub async fn new_with_auto_reload(
-        addr: impl tokio::net::ToSocketAddrs,
-    ) -> Result<Self, NewWithAutoReloadError> {
-        let listener = super::auto_reload::get_or_bind_tcp_listener(addr).await?;
-
-        Ok(Self::new(listener).with_ctrl_c_graceful_shutdown())
     }
 
     /// Set the graceful shutdown signal.
@@ -217,14 +192,46 @@ impl Server {
             tracing::info!("Received `ctrl-c` signal, shutting down gracefully.");
         })
     }
+}
 
+impl<T: Send + Sync + 'static> Server<T> {
+    /// Instantiate a new HTMX-SSR server.
+    pub fn new(listener: tokio::net::TcpListener, user_state: T) -> Self {
+        let router = Default::default();
+        let graceful_shutdown = None;
+        let options = Default::default();
+
+        Self {
+            listener,
+            router,
+            graceful_shutdown,
+            options,
+            user_state,
+        }
+    }
+
+    /// Instantiate a new HTMX-SSR server with all the auto-reload features enabled.
+    ///
+    /// Attempts to get a TCP listener from the environment if run through `listenfd`, falling
+    /// back to binding to a local address if that fails.
+    ///
+    /// Also sets the graceful shutdown signal to `ctrl-c`.
+    #[cfg(feature = "auto-reload")]
+    pub async fn new_with_auto_reload(
+        addr: impl tokio::net::ToSocketAddrs,
+        user_state: T,
+    ) -> Result<Self, NewWithAutoReloadError> {
+        let listener = super::auto_reload::get_or_bind_tcp_listener(addr).await?;
+
+        Ok(Self::new(listener, user_state).with_ctrl_c_graceful_shutdown())
+    }
     /// Serve the application.
     pub async fn serve(self) -> Result<(), ServeError> {
         let local_addr = self.listener.local_addr().map_err(ServeError::LocalAddr)?;
 
         tracing::info!("HTMX SSR server listening on TCP/{local_addr}.");
 
-        let state = ServerState::new(self.options, local_addr);
+        let state = state::ServerState::new(self.options, local_addr, self.user_state);
 
         tracing::info!("Now serving HTMX SSR server at `{}`...", state.base_url);
 

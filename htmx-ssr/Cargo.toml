@@ -17,7 +17,7 @@ default = []
 full = ["auto-reload", "interfaces"]
 auto-reload = ["dep:listenfd", "tokio/net"]
 interfaces = ["dep:netdev"]
-examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow"]
+examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros"]
 
 [lib]
 name = "htmx_ssr"

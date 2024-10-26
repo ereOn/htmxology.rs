@@ -4,12 +4,15 @@ use super::ServerOptions;
 
 /// The server state.
 #[derive(Debug)]
-pub struct ServerState {
+pub struct ServerState<T> {
     /// The base URL of the server.
     pub base_url: http::Uri,
+
+    /// The user-defined state.
+    pub user_state: T,
 }
 
-impl ServerState {
+impl<T> ServerState<T> {
     /// Get the base URL.
     fn base_url(options: ServerOptions, local_addr: SocketAddr) -> http::Uri {
         match options.base_url {
@@ -74,9 +77,12 @@ impl ServerState {
     }
 
     /// Create a new server state from the given options and local address.
-    pub(super) fn new(options: ServerOptions, local_addr: SocketAddr) -> Self {
+    pub(super) fn new(options: ServerOptions, local_addr: SocketAddr, user_state: T) -> Self {
         let base_url = Self::base_url(options, local_addr);
 
-        Self { base_url }
+        Self {
+            base_url,
+            user_state,
+        }
     }
 }
