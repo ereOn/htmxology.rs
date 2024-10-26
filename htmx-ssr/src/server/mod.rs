@@ -1,4 +1,4 @@
-use std::{future::Future, pin::Pin, sync::Arc};
+use std::{future::Future, net::SocketAddr, pin::Pin, sync::Arc};
 
 #[cfg(feature = "auto-reload")]
 pub mod auto_reload;
@@ -232,7 +232,15 @@ impl<T: Send + Sync + 'static> Server<T> {
 
         tracing::info!("HTMX SSR server listening on TCP/{local_addr}.");
 
-        let state = super::State::new(self.options, local_addr, self.user_state);
+        let base_url = match self.options.base_url {
+            Some(base_url) => base_url,
+            None => Self::guess_base_url(local_addr),
+        };
+
+        let state = super::State {
+            base_url,
+            user_state: self.user_state,
+        };
 
         tracing::info!("Now serving HTMX SSR server at `{}`...", state.base_url);
 
@@ -244,5 +252,63 @@ impl<T: Send + Sync + 'static> Server<T> {
             None => serve.await,
         }
         .map_err(Into::into)
+    }
+
+    /// Guess the base URL from the local address.
+    fn guess_base_url(local_addr: SocketAddr) -> http::Uri {
+        tracing::info!("No base URL set, guessing from local address `{local_addr}`...");
+
+        if local_addr.ip().is_unspecified() {
+            // If the local address is unspecified, we have to enumerate the network
+            // interfaces and take an address from one of them.
+            tracing::warn!("Local address is unspecified, guessing from network interfaces... This is likely not what you want.");
+
+            let localhost_base_url = format!("http://localhost:{}", local_addr.port())
+                .parse()
+                .expect("hardcoded URL is valid");
+
+            #[cfg(feature = "interfaces")]
+            match netdev::get_default_interface() {
+                Ok(interface) => {
+                    tracing::info!(
+                        "Using default network interface `{}` for the base URL.",
+                        interface.friendly_name.unwrap_or(interface.name)
+                    );
+
+                    match interface
+                        .ipv4
+                        .into_iter()
+                        .map(|ip_v4| ip_v4.addr().to_string())
+                        .chain(
+                            interface
+                                .ipv6
+                                .into_iter()
+                                .map(|ip_v6| ip_v6.addr().to_string()),
+                        )
+                        .next()
+                    {
+                        Some(ip) => {
+                            return format!("http://{}:{}", ip, local_addr.port())
+                                .parse()
+                                .expect("hardcoded URL is valid");
+                        }
+                        None => {
+                            tracing::error!(
+                                "No IP address found for the default network interface."
+                            );
+                        }
+                    };
+                }
+                Err(err) => {
+                    tracing::error!("Failed to determine default network interface: {err}");
+                }
+            }
+
+            localhost_base_url
+        } else {
+            format!("http://{}:{}", local_addr.ip(), local_addr.port())
+                .parse()
+                .expect("hardcoded URL is valid")
+        }
     }
 }
