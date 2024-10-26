@@ -10,5 +10,10 @@
 //!   workstation's network interfaces. Useful for development. **Not enabled by default.**
 
 mod server;
+mod state;
 
-pub use server::{ServeError, Server, ServerOptions, ServerOptionsFromEnvError, ServerState};
+pub use server::{ServeError, Server, ServerOptions, ServerOptionsFromEnvError};
+pub use state::State;
+
+/// A cloneable, thread-safe reference-counted pointer to the server state.
+pub type ArcState<T> = std::sync::Arc<State<T>>;

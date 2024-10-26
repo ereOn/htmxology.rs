@@ -5,7 +5,7 @@
 //! ```
 
 use axum::{extract::State, response::Html, routing::get, Router};
-use htmx_ssr::ServerState;
+use htmx_ssr::ArcState as HtmxState;
 use tracing::info;
 
 struct CustomState {
@@ -39,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
     server.serve().await.map_err(Into::into)
 }
 
-async fn handler(State(state): State<ServerState<CustomState>>) -> Html<String> {
+async fn handler(State(state): State<HtmxState<CustomState>>) -> Html<String> {
     Html(format!(
         r#"<h1>Hello, HTMX SSR!</h1>
 <p>Our base URL is: <a href="{0}">{0}</a></p>

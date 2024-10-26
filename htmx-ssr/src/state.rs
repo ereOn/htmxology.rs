@@ -2,9 +2,9 @@ use std::net::SocketAddr;
 
 use super::ServerOptions;
 
-/// The server state.
+/// The HTMX state.
 #[derive(Debug)]
-pub struct ServerState<T> {
+pub struct State<T> {
     /// The base URL of the server.
     pub base_url: http::Uri,
 
@@ -12,7 +12,7 @@ pub struct ServerState<T> {
     pub user_state: T,
 }
 
-impl<T> ServerState<T> {
+impl<T> State<T> {
     /// Get the base URL.
     fn base_url(options: ServerOptions, local_addr: SocketAddr) -> http::Uri {
         match options.base_url {

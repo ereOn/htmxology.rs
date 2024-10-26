@@ -3,8 +3,6 @@ use std::{future::Future, pin::Pin, sync::Arc};
 #[cfg(feature = "auto-reload")]
 pub mod auto_reload;
 
-mod state;
-
 /// The options for the server.
 #[derive(Debug, Clone, Default)]
 pub struct ServerOptions {
@@ -95,10 +93,10 @@ impl ServerOptions {
 }
 
 /// The server state type.
-pub type ServerState<T> = Arc<state::ServerState<T>>;
+pub type State<T> = Arc<super::State<T>>;
 
 /// The Axum router type for the HTMX-SSR server.
-pub type Router<T> = axum::Router<ServerState<T>>;
+pub type Router<T> = axum::Router<State<T>>;
 
 /// The main struct for the HTMX-SSR framework.
 ///
@@ -234,7 +232,7 @@ impl<T: Send + Sync + 'static> Server<T> {
 
         tracing::info!("HTMX SSR server listening on TCP/{local_addr}.");
 
-        let state = state::ServerState::new(self.options, local_addr, self.user_state);
+        let state = super::State::new(self.options, local_addr, self.user_state);
 
         tracing::info!("Now serving HTMX SSR server at `{}`...", state.base_url);
 
