@@ -17,7 +17,7 @@ default = []
 full = ["auto-reload", "interfaces"]
 auto-reload = ["dep:listenfd", "tokio/net"]
 interfaces = ["dep:netdev"]
-examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros"]
+examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros", "dep:askama"]
 
 [lib]
 name = "htmx_ssr"
@@ -30,6 +30,8 @@ required-features = ["auto-reload", "interfaces", "examples"]
 [dependencies]
 anyhow = { workspace = true, optional = true }
 axum.workspace = true
+askama = { workspace = true, optional = true }
+askama_axum = { workspace = true, optional = true }
 listenfd = { workspace = true, optional = true }
 http.workspace = true
 netdev = { workspace = true, optional = true }

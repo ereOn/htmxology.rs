@@ -1,5 +1,5 @@
 [workspace]
-members = ["htmx-ssr", "examples/*"]
+members = ["htmx-ssr"]
 #default-members = ["htmx-ssr"]
 resolver = "2"
 
@@ -7,6 +7,8 @@ resolver = "2"
 htmx-ssr = { path = "./htmx-ssr" }
 
 anyhow = "1"
+askama = { version = "0.12", features = ["with-axum"] }
+askama_axum = { version = "0.4" }
 axum = "0.7"
 listenfd = "1"
 http = "1"

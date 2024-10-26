@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>HTMX SSR full example</title>
+        <meta charset="UTF-8">
+        <meta name="description" value="HTMX SSR full example">
+        <meta name="keywords" value="htmx, ssr, example">
+    </head>
+    <body>
+        <h1>Hello, HTMX SSR!</h1>
+        <p>
+            Our base URL is: <a href="{{ state.base_url }}">{{ state.base_url }}</a>
+        </p>
+        <p>
+            My <code>foo</code> is: <code>{{ state.user_state.foo }}</code>
+        </p>
+    </body>
+</html>

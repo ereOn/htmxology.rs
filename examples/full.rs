@@ -4,7 +4,8 @@
 //! just example fuul
 //! ```
 
-use axum::{extract::State, response::Html, routing::get, Router};
+use askama::Template;
+use axum::{extract::State, routing::get, Router};
 use htmx_ssr::ArcState as HtmxState;
 use tracing::info;
 
@@ -39,12 +40,14 @@ async fn main() -> anyhow::Result<()> {
     server.serve().await.map_err(Into::into)
 }
 
-async fn handler(State(state): State<HtmxState<CustomState>>) -> Html<String> {
-    Html(format!(
-        r#"<h1>Hello, HTMX SSR!</h1>
-<p>Our base URL is: <a href="{0}">{0}</a></p>
-<p>My <code>foo</code> is: <code>{1}</code></p>
-"#,
-        state.base_url, state.user_state.foo,
-    ))
+#[derive(Template)]
+#[template(path = "full.html.jinja")]
+struct CustomTemplate {
+    state: HtmxState<CustomState>,
+}
+
+async fn handler(State(state): State<HtmxState<CustomState>>) -> CustomTemplate {
+    CustomTemplate {
+        state: state.clone(),
+    }
 }
