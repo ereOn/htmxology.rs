@@ -1,0 +1,22 @@
+<div class="grid grid-flow-row-dense grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 md:gap-6 xl:gap-8">
+    {% for (id, food) in items %}
+        <!-- image - start -->
+        <a href=""
+           hx-get="/food/{{ id }}"
+           hx-push-url="true"
+           hx-target="#page"
+           class="group relative flex h-48 items-end overflow-hidden rounded-lg bg-gray-100 shadow-lg md:h-80 sm:col-span-{{ food.width }}">
+            <img src="{{ food.image_src }}"
+                 loading="lazy"
+                 alt="{{ food.description }}"
+                 title="{{ food.title }}"
+                 width="auto"
+                 height="auto"
+                 class="absolute inset-0 h-full w-full object-cover object-center transition duration-200 group-hover:scale-110" />
+            <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-gray-800 via-transparent to-transparent opacity-50">
+            </div>
+            <span class="relative p-3 w-full text-sm text-white group-hover:bg-black/50 md:p-5 md:text-lg">{{ food.title }}</span>
+        </a>
+        <!-- image - end -->
+    {% endfor %}
+</div>

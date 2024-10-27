@@ -1,0 +1,17 @@
+<div class="text-white">
+    <p>{{ id }}</p>
+    <p>{{ item.title }}</p>
+    <p>{{ item.description }}</p>
+    <p>{{ item.image_src }}</p>
+    <p>{{ item.width }}</p>
+    <p>{{ item.comments_count }}</p>
+    <div id="comment">
+        {% if let Some(comments) = comments %}
+            {{ comments|safe }}
+        {% else %}
+            <button hx-get="/food/{{ id }}/comments"
+                    hx-target="#comment"
+                    hx-push-url="true">Load comments</button>
+        {% endif %}
+    </div>
+</div>

@@ -35,6 +35,7 @@ askama_axum = { workspace = true, optional = true }
 listenfd = { workspace = true, optional = true }
 http.workspace = true
 netdev = { workspace = true, optional = true }
+serde.workspace = true
 thiserror = "1"
 tokio.workspace = true
 tracing.workspace = true
