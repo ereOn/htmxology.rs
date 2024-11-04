@@ -1,15 +1,26 @@
 //! Run with
 //!
 //! ```not_rust
-//! just example fuul
+//! just example full
 //! ```
 
 use axum::{response::Redirect, routing::get, Router};
+use htmx_ssr_macros::View;
 use tracing::info;
+
+#[derive(View)]
+struct View {}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt().init();
+
+    let v = MyView {
+        name: "v".to_string(),
+        age: 42,
+    };
+
+    tracing::warn!("foo: {v:?}");
 
     info!("Starting example `{}`...", env!("CARGO_BIN_NAME"));
 
@@ -43,7 +54,8 @@ async fn main() -> anyhow::Result<()> {
         .route(
             "/food/:food_id/comments",
             get(handlers::food::comments::list),
-        );
+        )
+        .route("/ws", get(handlers::ws_handler));
 
     server.serve().await.map_err(Into::into)
 }
@@ -176,7 +188,7 @@ mod views {
     //    Comment(Comment),
     // }
 
-    /// The food model.
+    /// The food view model.
     ///
     /// Not auto-generated.
     pub struct Food {
@@ -216,12 +228,32 @@ mod views {
         }
     }
 
+    /// The debug panel.
+    ///
+    /// Auto-generated.
+    #[derive(Template)]
+    #[template(path = "full/debug-panel.html.jinja")]
+    pub(super) struct DebugPanel {
+        pub(super) unique_id: uuid::Uuid,
+        pub(super) ws_connected: bool,
+    }
+
+    impl Default for DebugPanel {
+        fn default() -> Self {
+            Self {
+                unique_id: uuid::Uuid::new_v4(),
+                ws_connected: false,
+            }
+        }
+    }
+
     /// The root page.
     ///
     /// Auto-generated.
     #[derive(Template)]
     #[template(path = "full/index.html.jinja")]
     pub(super) struct Root {
+        pub(super) debug_panel: DebugPanel,
         pub(super) page: RootContent,
     }
 
@@ -305,6 +337,16 @@ mod views {
 }
 
 mod handlers {
+    use askama::Template;
+    use askama_axum::IntoResponse;
+    use axum::extract::{
+        ws::{Message, WebSocket},
+        State, WebSocketUpgrade,
+    };
+    use tracing::{error, info};
+
+    use crate::{models::AppState, views::DebugPanel};
+
     pub mod food {
         use super::super::{models::AppState, views};
         use askama_axum::IntoResponse;
@@ -328,7 +370,10 @@ mod handlers {
                     .collect(),
             });
 
-            views::Root { page: content }
+            views::Root {
+                debug_panel: views::DebugPanel::default(),
+                page: content,
+            }
         }
 
         pub async fn create(State(state): State<HtmxState<AppState>>) -> views::Root {
@@ -347,7 +392,10 @@ mod handlers {
                     .collect(),
             });
 
-            views::Root { page: content }
+            views::Root {
+                debug_panel: views::DebugPanel::default(),
+                page: content,
+            }
         }
 
         pub struct HxTarget(Option<String>);
@@ -391,6 +439,7 @@ mod handlers {
 
                     match hx_target.as_deref() {
                         None => views::Root {
+                            debug_panel: views::DebugPanel::default(),
                             page: views::RootContent::FoodSingle(page),
                         }
                         .into_response(),
@@ -474,7 +523,11 @@ mod handlers {
                             )),
                         });
 
-                        views::Root { page: content }.into_response()
+                        views::Root {
+                            debug_panel: views::DebugPanel::default(),
+                            page: content,
+                        }
+                        .into_response()
                     }
                     Some("page") => {
                         let item = state
@@ -486,7 +539,13 @@ mod handlers {
                             .cloned()
                             .unwrap();
 
-                        let comments = item.comments.clone().into_iter().map(Into::into).enumerate().collect();
+                        let comments = item
+                            .comments
+                            .clone()
+                            .into_iter()
+                            .map(Into::into)
+                            .enumerate()
+                            .collect();
 
                         views::FoodSingle {
                             id: food_id,
@@ -507,7 +566,13 @@ mod handlers {
                             .cloned()
                             .unwrap();
 
-                        let comments = item.comments.clone().into_iter().map(Into::into).enumerate().collect();
+                        let comments = item
+                            .comments
+                            .clone()
+                            .into_iter()
+                            .map(Into::into)
+                            .enumerate()
+                            .collect();
 
                         views::FoodCommentList { items: comments }.into_response()
                     }
@@ -515,5 +580,48 @@ mod handlers {
                 }
             }
         }
+    }
+
+    use htmx_ssr::ArcState as HtmxState;
+
+    pub async fn ws_handler(
+        ws: WebSocketUpgrade,
+        State(state): State<HtmxState<AppState>>,
+    ) -> impl IntoResponse {
+        ws.on_upgrade(move |socket| ws_connection(socket, state))
+    }
+
+    async fn ws_connection(mut socket: WebSocket, state: HtmxState<AppState>) {
+        info!("WebSocket connection established.");
+
+        if let Err(err) = socket
+            .send(Message::Text(
+                DebugPanel {
+                    unique_id: uuid::Uuid::new_v4(),
+                    ws_connected: true,
+                }
+                .render()
+                .unwrap(),
+            ))
+            .await
+        {
+            error!("Failed to send message: {}", err);
+        }
+
+        while let Some(msg) = socket.recv().await {
+            match msg {
+                Ok(Message::Text(text)) => {
+                    info!("Received message: {}", text);
+                }
+                Ok(_) => {
+                    info!("Received non-text message");
+                }
+                Err(err) => {
+                    error!("Failed to receive message: {}", err);
+                }
+            }
+        }
+
+        info!("WebSocket connection closed.");
     }
 }

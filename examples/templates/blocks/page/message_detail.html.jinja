@@ -1,0 +1,8 @@
+<p>
+    <a href="/messages">Back to messages</a>
+</p>
+<h1 class="text-2xl font-bold {% if red %}text-rose-700{% endif %}">
+    Message <code>{{ message.id }}</code>
+</h1>
+<p class="mt-2 text-gray-600">Title: {{ message.title }}</p>
+<pre class="mt-2 text-gray-600">{{ message.content }}</pre>

@@ -1,9 +1,21 @@
+use std::sync::Arc;
+
+use axum::extract::FromRef;
+
+use crate::server::ServerInfo;
+
 /// The HTMX state.
-#[derive(Debug)]
-pub struct State<T> {
-    /// The base URL of the server.
-    pub base_url: http::Uri,
+#[derive(Debug, Clone)]
+pub struct State<Model> {
+    /// The server information.
+    pub server: Arc<ServerInfo>,
 
     /// The user-defined state.
-    pub user_state: T,
+    pub model: Model,
+}
+
+impl<T> FromRef<State<T>> for Arc<ServerInfo> {
+    fn from_ref(state: &State<T>) -> Arc<ServerInfo> {
+        state.server.clone()
+    }
 }

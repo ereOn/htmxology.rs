@@ -1,0 +1,22 @@
+<h1 class="text-2xl font-bold">The messages</h1>
+<p class="mt-2 text-gray-600">The is the messages page. It contains {{ messages.len() }} message(s).</p>
+<ul class="bg-white shadow overflow-hidden sm:rounded-md max-w-sm mx-auto mt-16">
+    {% for message in messages %}
+        <li>
+            <div class="px-4 py-5 sm:px-6">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg leading-6 font-medium text-gray-900">{{ message.title }}</h3>
+                    <p class="mt-1 max-w-2xl text-sm text-gray-500">{{ message.content }}</p>
+                </div>
+                <div class="mt-4 flex items-center justify-between">
+                    <p class="text-sm font-medium text-gray-500">
+                        Status: <span class="text-green-600">Unread</span>
+                    </p>
+                    <a href="/messages/{{ message.id }}"
+                       class="font-medium text-indigo-600 hover:text-indigo-500"
+                       preload="mouseover">View</a>
+                </div>
+            </div>
+        </li>
+    {% endfor %}
+</ul>

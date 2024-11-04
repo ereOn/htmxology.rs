@@ -16,6 +16,12 @@ example example:
 
   systemfd --no-pid -s ${SYSTEMFD_LISTEN_ADDR} -- cargo watch -x 'run --example {{example}} --all-features'
 
+doc:
+  cargo doc --all-features
+
+watch-doc:
+  cargo watch -x 'doc --all-features'
+
 dev-setup:
   # Install the required tools.
   cargo install just cargo-watch systemfd

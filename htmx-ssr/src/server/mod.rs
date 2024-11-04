@@ -3,6 +3,15 @@ use std::{future::Future, net::SocketAddr, pin::Pin, sync::Arc};
 #[cfg(feature = "auto-reload")]
 pub mod auto_reload;
 
+/// The server information.
+///
+/// This information is made available in the Axum router state.
+#[derive(Debug, Clone)]
+pub struct ServerInfo {
+    /// The base URL of the server.
+    pub base_url: http::Uri,
+}
+
 /// The options for the server.
 #[derive(Debug, Clone, Default)]
 pub struct ServerOptions {
@@ -92,21 +101,23 @@ impl ServerOptions {
     }
 }
 
+use crate::Controller;
+
 /// The server state type.
-pub type State<T> = Arc<super::State<T>>;
+pub use super::State;
 
 /// The Axum router type for the HTMX-SSR server.
-pub type Router<T> = axum::Router<State<T>>;
+pub type Router<Model> = axum::Router<State<Model>>;
 
 /// The main struct for the HTMX-SSR framework.
 ///
 /// Represents a running HTMX-SSR server.
-pub struct Server<T = ()> {
+pub struct Server<Model = ()> {
     /// The TCP listener that the server is using.
     listener: tokio::net::TcpListener,
 
     /// The Axum router that the server is using.
-    router: Router<T>,
+    router: Router<Model>,
 
     /// The graceful shutdown signal.
     graceful_shutdown: Option<Pin<Box<dyn Future<Output = ()> + Send>>>,
@@ -114,8 +125,8 @@ pub struct Server<T = ()> {
     /// The options for the server.
     options: ServerOptions,
 
-    /// The user-defined state.
-    user_state: T,
+    /// The user-defined model.
+    model: Model,
 }
 
 /// An error that can occur when instantiating a new HTMX-SSR server with auto-reload features.
@@ -195,9 +206,9 @@ impl<T> Server<T> {
     }
 }
 
-impl<T: Send + Sync + 'static> Server<T> {
+impl<Model: Send + Sync + Clone + 'static> Server<Model> {
     /// Instantiate a new HTMX-SSR server.
-    pub fn new(listener: tokio::net::TcpListener, user_state: T) -> Self {
+    pub fn new(listener: tokio::net::TcpListener, model: Model) -> Self {
         let router = Default::default();
         let graceful_shutdown = None;
         let options = Default::default();
@@ -207,7 +218,7 @@ impl<T: Send + Sync + 'static> Server<T> {
             router,
             graceful_shutdown,
             options,
-            user_state,
+            model,
         }
     }
 
@@ -220,11 +231,11 @@ impl<T: Send + Sync + 'static> Server<T> {
     #[cfg(feature = "auto-reload")]
     pub async fn new_with_auto_reload(
         addr: impl tokio::net::ToSocketAddrs,
-        user_state: T,
+        model: Model,
     ) -> Result<Self, NewWithAutoReloadError> {
         let listener = auto_reload::get_or_bind_tcp_listener(addr).await?;
 
-        Ok(Self::new(listener, user_state).with_ctrl_c_graceful_shutdown())
+        Ok(Self::new(listener, model).with_ctrl_c_graceful_shutdown())
     }
     /// Serve the application.
     pub async fn serve(self) -> Result<(), ServeError> {
@@ -237,14 +248,19 @@ impl<T: Send + Sync + 'static> Server<T> {
             None => Self::guess_base_url(local_addr),
         };
 
+        let server = Arc::new(ServerInfo { base_url });
+
         let state = super::State {
-            base_url,
-            user_state: self.user_state,
+            server,
+            model: self.model,
         };
 
-        tracing::info!("Now serving HTMX SSR server at `{}`...", state.base_url);
+        tracing::info!(
+            "Now serving HTMX SSR server at `{}`...",
+            state.server.base_url
+        );
 
-        let router = self.router.with_state(Arc::new(state));
+        let router = self.router.with_state(state);
         let serve = axum::serve(self.listener, router);
 
         match self.graceful_shutdown {
@@ -310,5 +326,11 @@ impl<T: Send + Sync + 'static> Server<T> {
                 .parse()
                 .expect("hardcoded URL is valid")
         }
+    }
+
+    /// Register a controller with the server.
+    pub fn with_controller<C: Controller<Model = Model>>(mut self) -> Self {
+        self.router = C::register_routes(self.router);
+        self
     }
 }

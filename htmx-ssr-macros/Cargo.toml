@@ -1,0 +1,23 @@
+[package]
+name = "htmx-ssr-macros"
+description = "Macros for the htmx-ssr crate"
+version = "0.1.0"
+edition = "2021"
+authors = ["Julien Kauffmann"]
+repository = "https://github.com/ereOn/htmx-ssr.rs"
+license-file = "LICENSE"
+keywords = ["htmx", "ssr", "web", "html", "axum"]
+categories = ["web-programming"]
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[lib]
+proc-macro = true
+name = "htmx_ssr_macros"
+
+[dependencies]
+convert_case.workspace = true
+proc-macro2.workspace = true
+quote.workspace = true
+syn.workspace = true

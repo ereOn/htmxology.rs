@@ -1,20 +1,26 @@
 [workspace]
-members = ["htmx-ssr"]
+members = ["htmx-ssr", "htmx-ssr-macros"]
 #default-members = ["htmx-ssr"]
 resolver = "2"
 
 [workspace.dependencies]
 htmx-ssr = { path = "./htmx-ssr" }
+htmx-ssr-macros = { path = "./htmx-ssr-macros" }
 
 anyhow = "1"
 askama = { version = "0.12", features = ["with-axum"] }
 askama_axum = { version = "0.4" }
 axum = "0.7"
+convert_case = "0.6"
 listenfd = "1"
 http = "1"
 netdev = "0.31"
+proc-macro2 = "1"
+quote = "1"
 serde = { version ="1", features = ["derive"] }
+syn = { version = "2" }
 thiserror = "1"
 tokio = { version = "1", features = ["macros"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3" }
+uuid = { version = "1", features = ["v4"] }

@@ -14,9 +14,11 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = []
-full = ["auto-reload", "interfaces"]
+full = ["auto-reload", "interfaces", "ws", "derive"]
 auto-reload = ["dep:listenfd", "tokio/net"]
 interfaces = ["dep:netdev"]
+ws = ["axum/ws", "dep:uuid"]
+derive = ["dep:htmx-ssr-macros"]
 examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros", "dep:askama"]
 
 [lib]
@@ -27,7 +29,14 @@ name = "full"
 path = "../examples/full.rs"
 required-features = ["auto-reload", "interfaces", "examples"]
 
+[[example]]
+name = "blocks"
+path = "../examples/blocks.rs"
+required-features = ["auto-reload", "interfaces", "examples"]
+
 [dependencies]
+htmx-ssr-macros = { workspace = true, optional = true }
+
 anyhow = { workspace = true, optional = true }
 axum.workspace = true
 askama = { workspace = true, optional = true }
@@ -40,3 +49,4 @@ thiserror = "1"
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, optional = true }
+uuid = { workspace = true, optional = true }
