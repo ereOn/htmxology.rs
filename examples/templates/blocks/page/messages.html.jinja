@@ -1,6 +1,7 @@
 <h1 class="text-2xl font-bold">The messages</h1>
 <p class="mt-2 text-gray-600">The is the messages page. It contains {{ messages.len() }} message(s).</p>
-<ul class="bg-white shadow overflow-hidden sm:rounded-md max-w-sm mx-auto mt-16">
+<ul class="bg-white shadow overflow-hidden sm:rounded-md max-w-sm mx-auto mt-16"
+    preload="mouseover">
     {% for message in messages %}
         <li>
             <div class="px-4 py-5 sm:px-6">
@@ -13,8 +14,7 @@
                         Status: <span class="text-green-600">Unread</span>
                     </p>
                     <a href="/messages/{{ message.id }}"
-                       class="font-medium text-indigo-600 hover:text-indigo-500"
-                       preload="mouseover">View</a>
+                       class="font-medium text-indigo-600 hover:text-indigo-500">View</a>
                 </div>
             </div>
         </li>

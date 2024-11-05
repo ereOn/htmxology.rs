@@ -303,14 +303,18 @@ mod controller {
             state: htmx_ssr::State<Self::Model>,
             htmx: HtmxRequest,
         ) -> axum::response::Response {
+            let caching = htmx_ssr::caching::CachingStrategy::default();
+
             match self {
                 Self::Dashboard => {
                     let menu = Self::make_menu(state.model.lock().await.deref(), 0);
                     let page = views::Page::Dashboard(views::PageDashboard {});
                     match htmx {
-                        HtmxRequest::Classic => views::Index { menu, page }.into_response(),
+                        HtmxRequest::Classic => {
+                            caching.add_caching_headers(views::Index { menu, page })
+                        }
                         HtmxRequest::Htmx { .. } => {
-                            page.into_htmx_response().with_oob(menu).into_response()
+                            caching.add_caching_headers(page.into_htmx_response().with_oob(menu))
                         }
                     }
                 }
@@ -321,9 +325,11 @@ mod controller {
                     let page = views::Page::Messages(views::PageMessages { messages });
 
                     match htmx {
-                        HtmxRequest::Classic => views::Index { menu, page }.into_response(),
+                        HtmxRequest::Classic => {
+                            caching.add_caching_headers(views::Index { menu, page })
+                        }
                         HtmxRequest::Htmx { .. } => {
-                            page.into_htmx_response().with_oob(menu).into_response()
+                            caching.add_caching_headers(page.into_htmx_response().with_oob(menu))
                         }
                     }
                 }
@@ -347,9 +353,11 @@ mod controller {
                         views::Page::MessageDetail(views::PageMessageDetail { message, red });
 
                     match htmx {
-                        HtmxRequest::Classic => views::Index { menu, page }.into_response(),
+                        HtmxRequest::Classic => {
+                            caching.add_caching_headers(views::Index { menu, page })
+                        }
                         HtmxRequest::Htmx { .. } => {
-                            page.into_htmx_response().with_oob(menu).into_response()
+                            caching.add_caching_headers(page.into_htmx_response().with_oob(menu))
                         }
                     }
                 }
@@ -358,9 +366,11 @@ mod controller {
                     let page = views::Page::Settings(views::PageSettings {});
 
                     match htmx {
-                        HtmxRequest::Classic => views::Index { menu, page }.into_response(),
+                        HtmxRequest::Classic => {
+                            caching.add_caching_headers(views::Index { menu, page })
+                        }
                         HtmxRequest::Htmx { .. } => {
-                            page.into_htmx_response().with_oob(menu).into_response()
+                            caching.add_caching_headers(page.into_htmx_response().with_oob(menu))
                         }
                     }
                 }

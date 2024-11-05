@@ -9,6 +9,7 @@
 //! - `interfaces`: Enrich the local base URL guessing logic with the ability to inspect the
 //!   workstation's network interfaces. Useful for development. **Not enabled by default.**
 
+pub mod caching;
 pub mod htmx;
 
 mod controller;
