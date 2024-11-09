@@ -2,26 +2,19 @@
 
 use axum::async_trait;
 
-pub trait Controller {
-    /// The model type associated with the controller.
-    type Model: Send + Sync + Clone + 'static;
-
-    /// Register the routes of the controller into the specified Axum router.
-    fn register_routes(
-        router: axum::Router<crate::State<Self::Model>>,
-    ) -> axum::Router<crate::State<Self::Model>>;
-}
-
-/// The view mapper trait is responsible for mapping the controller routes to the views, possibly
-/// by using the model.
+/// The controller trait is responsible for rendering views in an application, possibly from the
+/// server state and associated model.
 #[async_trait]
-pub trait ViewMapper {
+pub trait Controller: Send + Sync + 'static {
+    /// The route type associated with the controller.
+    type Route: super::Route;
+
     /// The model type associated with the controller.
     type Model: Send + Sync + Clone + 'static;
 
     /// Register the routes of the controller into the specified Axum router.
     async fn render_view(
-        self,
+        route: Self::Route,
         state: crate::State<Self::Model>,
         htmx: crate::htmx::Request,
     ) -> axum::response::Response;

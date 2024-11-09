@@ -1,4 +1,4 @@
-//! Controller derive macro.
+//! Route derive macro.
 
 use quote::{quote, quote_spanned};
 use syn::{punctuated::Punctuated, spanned::Spanned, Data, Error, Expr, Fields, Ident, Token};
@@ -22,14 +22,14 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
         Data::Struct(_) => {
             return Err(Error::new_spanned(
                 root_ident,
-                "can't derive Controller for a struct",
+                "can't derive Route for a struct",
             ));
         }
         Data::Enum(data_enum) => data_enum,
         Data::Union(_) => {
             return Err(Error::new_spanned(
                 root_ident,
-                "can't derive Controller for a union",
+                "can't derive Route for a union",
             ));
         }
     };
@@ -48,7 +48,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         axum::extract::State(state): axum::extract::State<htmx_ssr::State<_>>,
                         htmx: htmx_ssr::htmx::Request,
                     | async move {
-                        htmx_ssr::ViewMapper::render_view(#root_ident::#ident, state, htmx).await
+                        Controller::render_view(#root_ident::#ident, state, htmx).await
                     }
                 }
             }
@@ -59,7 +59,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         axum::extract::State(state): axum::extract::State<htmx_ssr::State<_>>,
                         htmx: htmx_ssr::htmx::Request,
                     | async move {
-                        htmx_ssr::ViewMapper::render_view(#root_ident::#ident{}, state, htmx).await
+                        Controller::render_view(#root_ident::#ident{}, state, htmx).await
                     }
                 }
             }
@@ -70,7 +70,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         axum::extract::State(state): axum::extract::State<htmx_ssr::State<_>>,
                         htmx: htmx_ssr::htmx::Request,
                     | async move {
-                        htmx_ssr::ViewMapper::render_view(#root_ident::#ident(), state, htmx).await
+                        Controller::render_view(#root_ident::#ident(), state, htmx).await
                     }
                 }
             }
@@ -183,7 +183,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         htmx: htmx_ssr::htmx::Request,
                         params: #params,
                     | async move {
-                        htmx_ssr::ViewMapper::render_view(#root_ident::from(params), state, htmx).await
+                        Controller::render_view(#root_ident::from(params), state, htmx).await
                     }
                 }
             }
@@ -202,7 +202,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         htmx: htmx_ssr::htmx::Request,
                         params: #params,
                     | async move{
-                        htmx_ssr::ViewMapper::render_view(#root_ident::from(params), state, htmx).await
+                        Controller::render_view(#root_ident::from(params), state, htmx).await
                     }
                 }
             }
@@ -225,12 +225,10 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
     Ok(quote! {
         #(#declarations)*
 
-        impl htmx_ssr::Controller for #root_ident {
-            type Model = <#root_ident as htmx_ssr::ViewMapper>::Model;
-
-            fn register_routes(
-                router: axum::Router<htmx_ssr::State<Self::Model>>,
-            ) -> axum::Router<htmx_ssr::State<Self::Model>> {
+        impl htmx_ssr::Route for #root_ident {
+            fn register_routes<Controller: htmx_ssr::Controller<Route=Self>>(
+                router: axum::Router<htmx_ssr::State<Controller::Model>>,
+            ) -> axum::Router<htmx_ssr::State<Controller::Model>> {
                 router
                     #(#routes)*
             }

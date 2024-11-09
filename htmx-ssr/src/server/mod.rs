@@ -101,7 +101,7 @@ impl ServerOptions {
     }
 }
 
-use crate::Controller;
+use crate::Route;
 
 /// The server state type.
 pub use super::State;
@@ -329,8 +329,8 @@ impl<Model: Send + Sync + Clone + 'static> Server<Model> {
     }
 
     /// Register a controller with the server.
-    pub fn with_controller<C: Controller<Model = Model>>(mut self) -> Self {
-        self.router = C::register_routes(self.router);
+    pub fn with_controller<Controller: super::Controller<Model = Model>>(mut self) -> Self {
+        self.router = Controller::Route::register_routes::<Controller>(self.router);
         self
     }
 }

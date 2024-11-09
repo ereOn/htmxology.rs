@@ -2,9 +2,9 @@
 
 use syn::parse_macro_input;
 
-mod controller;
 mod display_delegate;
 mod fragment;
+mod route;
 
 /// Create an HTMX fragment.
 ///
@@ -18,14 +18,14 @@ pub fn derive_insert(input: proc_macro::TokenStream) -> proc_macro::TokenStream 
         .into()
 }
 
-/// Create an HTMX controller.
+/// Derive a route type.
 ///
-/// Controllers are enum types that represent the possible routes in an HTMX application.
-#[proc_macro_derive(Controller, attributes(url, query))]
-pub fn derive_controller(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+/// Route types are enum types that represent the possible routes in an HTMX application.
+#[proc_macro_derive(Route, attributes(url, query))]
+pub fn derive_router(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut input = parse_macro_input!(input as syn::DeriveInput);
 
-    controller::derive(&mut input)
+    route::derive(&mut input)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }

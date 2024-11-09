@@ -13,12 +13,14 @@ pub mod caching;
 pub mod htmx;
 
 mod controller;
+mod route;
 mod server;
 mod state;
 
-pub use controller::{Controller, ViewMapper};
+pub use controller::Controller;
+pub use route::Route;
 pub use server::{ServeError, Server, ServerOptions, ServerOptionsFromEnvError};
 pub use state::State;
 
 #[cfg(feature = "derive")]
-pub use htmx_ssr_macros::{Controller, DisplayDelegate, Fragment};
+pub use htmx_ssr_macros::{DisplayDelegate, Fragment, Route};

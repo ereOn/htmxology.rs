@@ -258,16 +258,16 @@ mod controller {
     use super::views;
     use askama_axum::IntoResponse;
     use axum::async_trait;
-    use htmx_ssr::Controller;
+    use htmx_ssr::Route;
     use htmx_ssr::{
         htmx::{FragmentExt, Request as HtmxRequest},
-        ViewMapper,
+        Controller,
     };
     use tokio::sync::Mutex;
 
     /// The main controller.
-    #[derive(Debug, Clone, Controller)]
-    pub enum MainController {
+    #[derive(Debug, Clone, Route)]
+    pub enum AppRoute {
         /// The dashboard route.
         #[url("/")]
         #[url("/dashboard")]
@@ -293,20 +293,24 @@ mod controller {
         Settings,
     }
 
+    /// The main controller implementation.
+    pub struct MainController;
+
     /// Custom implementation.
     #[async_trait]
-    impl ViewMapper for MainController {
+    impl Controller for MainController {
         type Model = Arc<Mutex<super::model::Model>>;
+        type Route = AppRoute;
 
         async fn render_view(
-            self,
+            route: AppRoute,
             state: htmx_ssr::State<Self::Model>,
             htmx: HtmxRequest,
         ) -> axum::response::Response {
             let caching = htmx_ssr::caching::CachingStrategy::default();
 
-            match self {
-                Self::Dashboard => {
+            match route {
+                AppRoute::Dashboard => {
                     let menu = Self::make_menu(state.model.lock().await.deref(), 0);
                     let page = views::Page::Dashboard(views::PageDashboard {});
                     match htmx {
@@ -318,7 +322,7 @@ mod controller {
                         }
                     }
                 }
-                Self::Messages => {
+                AppRoute::Messages => {
                     let model = state.model.lock().await;
                     let menu = Self::make_menu(model.deref(), 1);
                     let messages = model.messages.clone();
@@ -333,7 +337,7 @@ mod controller {
                         }
                     }
                 }
-                Self::MessageDetail { id, red } => {
+                AppRoute::MessageDetail { id, red } => {
                     let model = state.model.lock().await;
                     let menu = Self::make_menu(model.deref(), 1);
                     let message = match model
@@ -361,7 +365,7 @@ mod controller {
                         }
                     }
                 }
-                Self::Settings => {
+                AppRoute::Settings => {
                     let menu = Self::make_menu(state.model.lock().await.deref(), 2);
                     let page = views::Page::Settings(views::PageSettings {});
 
