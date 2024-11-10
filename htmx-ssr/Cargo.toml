@@ -18,7 +18,7 @@ full = ["auto-reload", "interfaces", "ws", "derive"]
 auto-reload = ["dep:listenfd", "tokio/net"]
 interfaces = ["dep:netdev"]
 ws = ["axum/ws", "dep:uuid"]
-derive = ["dep:htmx-ssr-macros"]
+derive = ["dep:htmx-ssr-macros", "dep:urlencoding"]
 examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros", "dep:askama"]
 
 [lib]
@@ -50,3 +50,4 @@ tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
+urlencoding = { workspace = true, optional = true }

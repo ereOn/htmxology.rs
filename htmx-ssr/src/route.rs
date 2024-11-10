@@ -7,4 +7,7 @@ pub trait Route {
     fn register_routes<Controller: super::Controller<Route = Self>>(
         router: axum::Router<crate::State<Controller::Model>>,
     ) -> axum::Router<crate::State<Controller::Model>>;
+
+    /// Get the URL of the route.
+    fn to_url(&self) -> String;
 }

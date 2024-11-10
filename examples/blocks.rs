@@ -278,7 +278,7 @@ mod controller {
         Messages,
 
         /// The message detail route.
-        #[url("/messages/:id")]
+        #[url("/messages/{id}")]
         MessageDetail {
             /// The message ID.
             id: u8,
