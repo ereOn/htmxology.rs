@@ -285,7 +285,7 @@ mod controller {
 
             /// Show the message in red.
             #[query]
-            red: bool,
+            red: Option<bool>,
         },
 
         /// The settings route.
@@ -353,8 +353,10 @@ mod controller {
                         }
                     };
 
-                    let page =
-                        views::Page::MessageDetail(views::PageMessageDetail { message, red });
+                    let page = views::Page::MessageDetail(views::PageMessageDetail {
+                        message,
+                        red: red.unwrap_or_default(),
+                    });
 
                     match htmx {
                         HtmxRequest::Classic => {

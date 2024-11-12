@@ -66,7 +66,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                 let url = url.to_unparametered_string(variant)?;
 
                 to_urls.push(quote! {
-                    Self::#ident => #url.to_owned()
+                    Self::#ident => #url
                 });
 
                 quote_spanned! { variant.span() =>
@@ -84,7 +84,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                 let url = url.to_unparametered_string(variant)?;
 
                 to_urls.push(quote! {
-                    Self::#ident{} => #url.to_owned()
+                    Self::#ident{} => #url
                 });
 
                 quote_spanned! { variant.span() =>
@@ -102,7 +102,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                 let url = url.to_unparametered_string(variant)?;
 
                 to_urls.push(quote! {
-                    Self::#ident() => #url.to_owned()
+                    Self::#ident() => #url
                 });
 
                 quote_spanned! { variant.span() =>
@@ -151,7 +151,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                                 #[serde(default)]
                                 #field_ident: #field_ty
                             });
-                            query_args_names.insert(field_ident.clone(), field_ident.clone());
+                            query_args_names.insert(field_ident.to_string(), field_ident.clone());
                         }
                         None => {
                             path_args.push(quote_spanned! { field_ident.span() =>
@@ -164,21 +164,47 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
 
                 let url = &route_info.url;
 
-                if path_args_names.is_empty() {
-                    let url = url.to_unparametered_string(variant)?;
-
-                    // TODO: Handle query parameters.
-
-                    to_urls.push(quote! {
-                        Self::#ident{#(#args),*} => #url.to_owned()
-                    });
+                let url = if path_args_names.is_empty() {
+                    url.to_unparametered_string(variant)?
                 } else {
-                    let url = url.to_named_parameters_format(variant, path_args_names)?;
+                    url.to_named_parameters_format(variant, path_args_names)?
+                };
 
-                    to_urls.push(quote! {
-                        Self::#ident{#(#args),*} => #url
-                    });
-                }
+                let url = if query_args_names.is_empty() {
+                    url
+                } else {
+                    let mut queries = Vec::with_capacity(query_args_names.len());
+
+                    for (name, ident) in query_args_names {
+                        queries.push(quote_spanned! { ident.span() =>
+                            if let Some(#ident) = #ident {
+                                query_args.push(format!(concat!(#name, "={}"), urlencoding::encode(&#ident.to_string())));
+                            }
+                        });
+                    }
+
+                    let queries_len = queries.len();
+
+                    quote! {
+                        {
+                            let url = #url;
+
+                            let mut query_args = Vec::with_capacity(#queries_len);
+
+                            #(#queries)*
+
+                            if query_args.is_empty() {
+                                url
+                            } else {
+                                format!("{url}?{}", query_args.join("&"))
+                            }
+                        }
+                    }
+                };
+
+                to_urls.push(quote! {
+                    Self::#ident{#(#args),*} => #url
+                });
 
                 let params = Ident::new(&format!("{root_ident}{ident}Params"), ident.span());
 
