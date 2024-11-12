@@ -1,6 +1,6 @@
 # Contributing
 
-Development of `htmx-ssr` happens on GitHub. We appreciate your help!
+Development of `htmxology` happens on GitHub. We appreciate your help!
 
 ## Required Tools
 

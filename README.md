@@ -1,4 +1,4 @@
-# HTMX SSR
+# HTMXOLOGY
 
 A Server Side Rendering (SSR) framework written in
 [Rust](https://www.rust-lang.org/) using [HTMX](https://htmx.org/) and

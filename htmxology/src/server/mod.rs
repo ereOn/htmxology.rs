@@ -23,7 +23,7 @@ pub struct ServerOptions {
     /// If no base URL is set, the server will attempt to determine the base URL from its own TCP
     /// listener address.
     ///
-    /// If `HTMX_SSR_BASE_URL` is set in the environment, it will be read and used as the base URL
+    /// If `HTMXOLOGY_BASE_URL` is set in the environment, it will be read and used as the base URL
     /// when calling `ServerOptions::from_env`.
     pub base_url: Option<http::Uri>,
 }
@@ -55,7 +55,7 @@ pub enum ServerOptionsFromEnvError {
 
 impl ServerOptions {
     /// The environment variable name for the base URL.
-    pub const HTMX_SSR_BASE_URL: &'static str = "HTMX_SSR_BASE_URL";
+    pub const HTMXOLOGY_BASE_URL: &'static str = "HTMXOLOGY_BASE_URL";
 
     fn env_var(name: &'static str) -> Result<Option<String>, ServerOptionsFromEnvError> {
         match std::env::var(name) {
@@ -71,11 +71,11 @@ impl ServerOptions {
     pub fn from_env() -> Result<Self, ServerOptionsFromEnvError> {
         tracing::info!("Reading HTMX SSR server options from the environment...");
 
-        let base_url = Self::env_var(Self::HTMX_SSR_BASE_URL)?
+        let base_url = Self::env_var(Self::HTMXOLOGY_BASE_URL)?
             .map(|url| {
                 url.parse()
                     .map_err(|err| ServerOptionsFromEnvError::BaseUrl {
-                        name: Self::HTMX_SSR_BASE_URL,
+                        name: Self::HTMXOLOGY_BASE_URL,
                         url: url.clone(),
                         err,
                     })
@@ -86,13 +86,13 @@ impl ServerOptions {
             Some(base_url) => {
                 tracing::info!(
                     "{} was set: using `{base_url}` as the base URL.",
-                    Self::HTMX_SSR_BASE_URL
+                    Self::HTMXOLOGY_BASE_URL
                 );
             }
             None => {
                 tracing::warn!(
                     "{} was not set: base URL will be determined from the TCP listener address. This may not be what you want.",
-                    Self::HTMX_SSR_BASE_URL
+                    Self::HTMXOLOGY_BASE_URL
                 );
             }
         };

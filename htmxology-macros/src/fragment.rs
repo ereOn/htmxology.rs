@@ -40,7 +40,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
     let htmx_target = htmx.target;
 
     let insert = quote! {
-        impl htmx_ssr::htmx::Fragment for #ident {
+        impl htmxology::htmx::Fragment for #ident {
             fn htmx_target(&self) -> &'static str {
                 #htmx_target
             }

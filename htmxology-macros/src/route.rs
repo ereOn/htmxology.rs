@@ -71,8 +71,8 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
 
                 quote_spanned! { variant.span() =>
                     |
-                        axum::extract::State(state): axum::extract::State<htmx_ssr::State<_>>,
-                        htmx: htmx_ssr::htmx::Request,
+                        axum::extract::State(state): axum::extract::State<htmxology::State<_>>,
+                        htmx: htmxology::htmx::Request,
                     | async move {
                         Controller::render_view(#root_ident::#ident, state, htmx).await
                     }
@@ -89,8 +89,8 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
 
                 quote_spanned! { variant.span() =>
                     |
-                        axum::extract::State(state): axum::extract::State<htmx_ssr::State<_>>,
-                        htmx: htmx_ssr::htmx::Request,
+                        axum::extract::State(state): axum::extract::State<htmxology::State<_>>,
+                        htmx: htmxology::htmx::Request,
                     | async move {
                         Controller::render_view(#root_ident::#ident{}, state, htmx).await
                     }
@@ -107,8 +107,8 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
 
                 quote_spanned! { variant.span() =>
                     |
-                        axum::extract::State(state): axum::extract::State<htmx_ssr::State<_>>,
-                        htmx: htmx_ssr::htmx::Request,
+                        axum::extract::State(state): axum::extract::State<htmxology::State<_>>,
+                        htmx: htmxology::htmx::Request,
                     | async move {
                         Controller::render_view(#root_ident::#ident(), state, htmx).await
                     }
@@ -239,8 +239,8 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
 
                 quote_spanned! { variant.span() =>
                     |
-                        axum::extract::State(state): axum::extract::State<htmx_ssr::State<_>>,
-                        htmx: htmx_ssr::htmx::Request,
+                        axum::extract::State(state): axum::extract::State<htmxology::State<_>>,
+                        htmx: htmxology::htmx::Request,
                         params: #params,
                     | async move {
                         Controller::render_view(#root_ident::from(params), state, htmx).await
@@ -270,8 +270,8 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
 
                 quote_spanned! { variant.span() =>
                     |
-                        axum::extract::State(state): axum::extract::State<htmx_ssr::State<_>>,
-                        htmx: htmx_ssr::htmx::Request,
+                        axum::extract::State(state): axum::extract::State<htmxology::State<_>>,
+                        htmx: htmxology::htmx::Request,
                         params: #params,
                     | async move{
                         Controller::render_view(#root_ident::from(params), state, htmx).await
@@ -292,10 +292,10 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
     Ok(quote! {
         #(#declarations)*
 
-        impl htmx_ssr::Route for #root_ident {
-            fn register_routes<Controller: htmx_ssr::Controller<Route=Self>>(
-                router: axum::Router<htmx_ssr::State<Controller::Model>>,
-            ) -> axum::Router<htmx_ssr::State<Controller::Model>> {
+        impl htmxology::Route for #root_ident {
+            fn register_routes<Controller: htmxology::Controller<Route=Self>>(
+                router: axum::Router<htmxology::State<Controller::Model>>,
+            ) -> axum::Router<htmxology::State<Controller::Model>> {
                 router
                     #(#routes)*
             }

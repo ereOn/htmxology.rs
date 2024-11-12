@@ -1,11 +1,11 @@
 [package]
-name = "htmx-ssr-macros"
-description = "Macros for the htmx-ssr crate"
+name = "htmxology-macros"
+description = "Macros for the htmxology crate"
 version = "0.1.0"
 edition = "2021"
 authors = ["Julien Kauffmann"]
-repository = "https://github.com/ereOn/htmx-ssr.rs"
-license-file = "LICENSE"
+repository = "https://github.com/ereOn/htmxology.rs"
+license-file = "../LICENSE"
 keywords = ["htmx", "ssr", "web", "html", "axum"]
 categories = ["web-programming"]
 
@@ -14,7 +14,7 @@ maintenance = { status = "actively-developed" }
 
 [lib]
 proc-macro = true
-name = "htmx_ssr_macros"
+name = "htmxology_macros"
 
 [dependencies]
 convert_case.workspace = true

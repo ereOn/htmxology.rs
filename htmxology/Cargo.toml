@@ -1,11 +1,11 @@
 [package]
-name = "htmx-ssr"
+name = "htmxology"
 description = "HTMX server-side rendering framework for Rust, based on Axum."
 version = "0.1.0"
 edition = "2021"
 authors = ["Julien Kauffmann"]
-repository = "https://github.com/ereOn/htmx-ssr.rs"
-license-file = "LICENSE"
+repository = "https://github.com/ereOn/htmxology.rs"
+license-file = "../LICENSE"
 keywords = ["htmx", "ssr", "web", "html", "axum"]
 categories = ["web-programming"]
 
@@ -18,11 +18,11 @@ full = ["auto-reload", "interfaces", "ws", "derive"]
 auto-reload = ["dep:listenfd", "tokio/net"]
 interfaces = ["dep:netdev"]
 ws = ["axum/ws", "dep:uuid"]
-derive = ["dep:htmx-ssr-macros", "dep:urlencoding"]
+derive = ["dep:htmxology-macros", "dep:urlencoding"]
 examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros", "dep:askama"]
 
 [lib]
-name = "htmx_ssr"
+name = "htmxology"
 
 [[example]]
 name = "full"
@@ -35,7 +35,7 @@ path = "../examples/blocks.rs"
 required-features = ["auto-reload", "interfaces", "examples"]
 
 [dependencies]
-htmx-ssr-macros = { workspace = true, optional = true }
+htmxology-macros = { workspace = true, optional = true }
 
 anyhow = { workspace = true, optional = true }
 axum.workspace = true
@@ -45,7 +45,7 @@ listenfd = { workspace = true, optional = true }
 http.workspace = true
 netdev = { workspace = true, optional = true }
 serde.workspace = true
-thiserror = "1"
+thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, optional = true }

@@ -24,7 +24,7 @@ async fn main() -> anyhow::Result<()> {
 
     // Create a new server with auto-reload enabled by attempting to get a TCP listener from the
     // `listenfd` environment variable, falling back to binding to a local address if that fails.
-    let server = htmx_ssr::Server::new_with_auto_reload("127.0.0.1:3000", model)
+    let server = htmxology::Server::new_with_auto_reload("127.0.0.1:3000", model)
         .await?
         // Set the options on the server from the environment.
         .with_options_from_env()?;
@@ -45,7 +45,7 @@ async fn main() -> anyhow::Result<()> {
 /// which eases the rendering of the views in an HTMX context.
 mod views {
     use askama::Template;
-    use htmx_ssr::{DisplayDelegate, Fragment};
+    use htmxology::{DisplayDelegate, Fragment};
 
     /// The index page.
     #[derive(Template)]
@@ -258,8 +258,8 @@ mod controller {
     use super::views;
     use askama_axum::IntoResponse;
     use axum::async_trait;
-    use htmx_ssr::Route;
-    use htmx_ssr::{
+    use htmxology::Route;
+    use htmxology::{
         htmx::{FragmentExt, Request as HtmxRequest},
         Controller,
     };
@@ -304,10 +304,10 @@ mod controller {
 
         async fn render_view(
             route: AppRoute,
-            state: htmx_ssr::State<Self::Model>,
+            state: htmxology::State<Self::Model>,
             htmx: HtmxRequest,
         ) -> axum::response::Response {
-            let caching = htmx_ssr::caching::CachingStrategy::default();
+            let caching = htmxology::caching::CachingStrategy::default();
 
             match route {
                 AppRoute::Dashboard => {
