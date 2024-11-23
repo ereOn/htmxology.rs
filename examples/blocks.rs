@@ -4,9 +4,7 @@
 //! just example blocks
 //! ```
 
-use std::sync::Arc;
-
-use tokio::sync::Mutex;
+use controller::MainController;
 use tracing::info;
 
 #[tokio::main]
@@ -15,26 +13,18 @@ async fn main() -> anyhow::Result<()> {
 
     info!("Starting example `{}`...", env!("CARGO_BIN_NAME"));
 
-    // Create a new user state.
-    //
-    // This can be any type that you want to store in the server state.
-    //
-    // It just has to be `Send + Sync + 'static`.
-    let model: Arc<Mutex<model::Model>> = Arc::default();
-
     // Create a new server with auto-reload enabled by attempting to get a TCP listener from the
     // `listenfd` environment variable, falling back to binding to a local address if that fails.
-    let server = htmxology::Server::new_with_auto_reload("127.0.0.1:3000", model)
+    let server = htmxology::Server::builder_with_auto_reload("127.0.0.1:3000")
         .await?
         // Set the options on the server from the environment.
-        .with_options_from_env()?;
+        .with_options_from_env()?
+        .build();
 
-    // Register the main controller as a controller.
-    //
-    // This registers the routes in the server with handlers that render the views.
-    let server = server.with_controller::<controller::MainController>();
-
-    server.serve().await.map_err(Into::into)
+    server
+        .serve(MainController::default())
+        .await
+        .map_err(Into::into)
 }
 
 /// The views.
@@ -47,12 +37,15 @@ mod views {
     use askama::Template;
     use htmxology::{DisplayDelegate, Fragment};
 
+    use crate::controller::AppRoute;
+
     /// The index page.
     #[derive(Template)]
     #[template(path = "blocks/index.html.jinja")]
     pub(super) struct Index {
         pub menu: Menu,
         pub page: Page,
+        pub base_url: http::Uri,
     }
 
     /// The page fragment.
@@ -75,6 +68,8 @@ mod views {
         MessageDetail(PageMessageDetail),
         /// The settings page.
         Settings(PageSettings),
+        /// The advanced settings page.
+        AdvancedSettings(PageAdvancedSettings),
     }
 
     #[derive(Debug, Fragment, Template)]
@@ -91,7 +86,7 @@ mod views {
     #[derive(Debug)]
     pub(super) struct MenuItem {
         /// The URL of the menu item.
-        pub url: String,
+        pub url: AppRoute,
 
         /// The title of the menu item.
         pub title: String,
@@ -129,7 +124,7 @@ mod views {
     #[derive(Debug, Template)]
     #[template(path = "blocks/page/messages.html.jinja")]
     pub(super) struct PageMessages {
-        pub messages: Vec<super::model::Message>,
+        pub messages: Vec<(AppRoute, super::model::Message)>,
     }
 
     #[derive(Debug, Template)]
@@ -142,9 +137,15 @@ mod views {
     #[derive(Debug, Template)]
     #[template(path = "blocks/page/settings.html.jinja")]
     pub(super) struct PageSettings {}
+
+    #[derive(Debug, Template)]
+    #[template(path = "blocks/page/advanced_settings.html.jinja")]
+    pub(super) struct PageAdvancedSettings {}
 }
 
 mod model {
+    use crate::controller::{AppRoute, SettingsRoute};
+
     /// The model.
     ///
     /// This can be anything you need, and would typically hold one or many database-access layer
@@ -195,18 +196,23 @@ mod model {
         fn default() -> Self {
             let items = vec![
                 MenuItem {
-                    url: "/dashboard".to_string(),
+                    url: AppRoute::Dashboard,
                     title: "Dashboard".to_string(),
                     icon: MenuItemIcon::Dashboard,
                 },
                 MenuItem {
-                    url: "/messages".to_string(),
+                    url: AppRoute::Messages,
                     title: "Messages".to_string(),
                     icon: MenuItemIcon::Messages,
                 },
                 MenuItem {
-                    url: "/settings".to_string(),
+                    url: AppRoute::Settings(SettingsRoute::Home),
                     title: "Settings".to_string(),
+                    icon: MenuItemIcon::Settings,
+                },
+                MenuItem {
+                    url: AppRoute::Settings(SettingsRoute::Advanced),
+                    title: "Advanced settings".to_string(),
                     icon: MenuItemIcon::Settings,
                 },
             ];
@@ -218,7 +224,7 @@ mod model {
     #[derive(Debug, Clone)]
     pub(super) struct MenuItem {
         /// The URL of the menu item.
-        pub url: String,
+        pub url: AppRoute,
 
         /// The title of the menu item.
         pub title: String,
@@ -258,87 +264,129 @@ mod controller {
     use super::views;
     use askama_axum::IntoResponse;
     use axum::async_trait;
-    use htmxology::Route;
     use htmxology::{
         htmx::{FragmentExt, Request as HtmxRequest},
         Controller,
     };
+    use htmxology::{Route, ServerInfo};
+    use serde::{Deserialize, Serialize};
     use tokio::sync::Mutex;
 
-    /// The main controller.
+    /// The main application routes.
     #[derive(Debug, Clone, Route)]
     pub enum AppRoute {
+        /// The home route.
+        #[route("/")]
+        Home,
+
         /// The dashboard route.
-        #[url("/")]
-        #[url("/dashboard")]
+        #[route("/dashboard")]
         Dashboard,
 
         /// The messages route.
-        #[url("/messages")]
+        #[route("/messages")]
         Messages,
 
         /// The message detail route.
-        #[url("/messages/{id}")]
+        #[route("/messages/{id}")]
         MessageDetail {
             /// The message ID.
             id: u8,
 
-            /// Show the message in red.
             #[query]
-            red: Option<bool>,
+            query: MessageDetailQuery,
         },
 
         /// The settings route.
-        #[url("/settings")]
-        Settings,
+        #[subroute("/settings")]
+        Settings(#[subroute] SettingsRoute),
+    }
+
+    /// The settings application routes.
+    #[derive(Debug, Clone, Route)]
+    pub enum SettingsRoute {
+        /// The general settings route.
+        #[route("/")]
+        Home,
+
+        /// The advanced settings route.
+        #[route("/advanced")]
+        Advanced,
+    }
+
+    #[derive(Debug, Clone, Deserialize, Serialize)]
+    pub struct MessageDetailQuery {
+        /// Show the message in red.
+        red: Option<bool>,
     }
 
     /// The main controller implementation.
-    pub struct MainController;
+    #[derive(Debug, Clone, Default)]
+    pub struct MainController {
+        model: Arc<Mutex<super::model::Model>>,
+    }
 
     /// Custom implementation.
     #[async_trait]
     impl Controller for MainController {
-        type Model = Arc<Mutex<super::model::Model>>;
         type Route = AppRoute;
 
         async fn render_view(
+            &self,
             route: AppRoute,
-            state: htmxology::State<Self::Model>,
             htmx: HtmxRequest,
+            server_info: &ServerInfo,
         ) -> axum::response::Response {
             let caching = htmxology::caching::CachingStrategy::default();
+            let base_url = server_info.base_url.clone();
 
             match route {
-                AppRoute::Dashboard => {
-                    let menu = Self::make_menu(state.model.lock().await.deref(), 0);
+                AppRoute::Home | AppRoute::Dashboard => {
+                    let menu = Self::make_menu(self.model.lock().await.deref(), 0);
                     let page = views::Page::Dashboard(views::PageDashboard {});
                     match htmx {
-                        HtmxRequest::Classic => {
-                            caching.add_caching_headers(views::Index { menu, page })
-                        }
+                        HtmxRequest::Classic => caching.add_caching_headers(views::Index {
+                            menu,
+                            page,
+                            base_url,
+                        }),
                         HtmxRequest::Htmx { .. } => {
                             caching.add_caching_headers(page.into_htmx_response().with_oob(menu))
                         }
                     }
                 }
                 AppRoute::Messages => {
-                    let model = state.model.lock().await;
+                    let model = self.model.lock().await;
                     let menu = Self::make_menu(model.deref(), 1);
                     let messages = model.messages.clone();
-                    let page = views::Page::Messages(views::PageMessages { messages });
+                    let page = views::Page::Messages(views::PageMessages {
+                        messages: messages
+                            .into_iter()
+                            .map(|message| {
+                                (
+                                    AppRoute::MessageDetail {
+                                        id: message.id,
+                                        query: MessageDetailQuery { red: Some(true) },
+                                    },
+                                    message,
+                                )
+                            })
+                            .collect(),
+                    });
 
                     match htmx {
-                        HtmxRequest::Classic => {
-                            caching.add_caching_headers(views::Index { menu, page })
-                        }
+                        HtmxRequest::Classic => caching.add_caching_headers(views::Index {
+                            menu,
+                            page,
+                            base_url,
+                        }),
                         HtmxRequest::Htmx { .. } => {
                             caching.add_caching_headers(page.into_htmx_response().with_oob(menu))
                         }
                     }
                 }
-                AppRoute::MessageDetail { id, red } => {
-                    let model = state.model.lock().await;
+                AppRoute::MessageDetail { id, query } => {
+                    let model = self.model.lock().await;
                     let menu = Self::make_menu(model.deref(), 1);
                     let message = match model
                         .messages
@@ -355,26 +403,37 @@ mod controller {
 
                     let page = views::Page::MessageDetail(views::PageMessageDetail {
                         message,
-                        red: red.unwrap_or_default(),
+                        red: query.red.unwrap_or_default(),
                     });
 
                     match htmx {
-                        HtmxRequest::Classic => {
-                            caching.add_caching_headers(views::Index { menu, page })
-                        }
+                        HtmxRequest::Classic => caching.add_caching_headers(views::Index {
+                            menu,
+                            page,
+                            base_url,
+                        }),
                         HtmxRequest::Htmx { .. } => {
                             caching.add_caching_headers(page.into_htmx_response().with_oob(menu))
                         }
                     }
                 }
-                AppRoute::Settings => {
-                    let menu = Self::make_menu(state.model.lock().await.deref(), 2);
-                    let page = views::Page::Settings(views::PageSettings {});
+                AppRoute::Settings(settings) => {
+                    let (page, active_idx) = match settings {
+                        SettingsRoute::Home => (views::Page::Settings(views::PageSettings {}), 2),
+                        SettingsRoute::Advanced => (
+                            views::Page::AdvancedSettings(views::PageAdvancedSettings {}),
+                            3,
+                        ),
+                    };
+
+                    let menu = Self::make_menu(self.model.lock().await.deref(), active_idx);
 
                     match htmx {
-                        HtmxRequest::Classic => {
-                            caching.add_caching_headers(views::Index { menu, page })
-                        }
+                        HtmxRequest::Classic => caching.add_caching_headers(views::Index {
+                            menu,
+                            page,
+                            base_url,
+                        }),
                         HtmxRequest::Htmx { .. } => {
                             caching.add_caching_headers(page.into_htmx_response().with_oob(menu))
                         }

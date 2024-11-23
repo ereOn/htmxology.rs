@@ -18,7 +18,7 @@ full = ["auto-reload", "interfaces", "ws", "derive"]
 auto-reload = ["dep:listenfd", "tokio/net"]
 interfaces = ["dep:netdev"]
 ws = ["axum/ws", "dep:uuid"]
-derive = ["dep:htmxology-macros", "dep:urlencoding"]
+derive = ["dep:htmxology-macros", "dep:serde_urlencoded", "dep:regex"]
 examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros", "dep:askama"]
 
 [lib]
@@ -44,10 +44,12 @@ askama_axum = { workspace = true, optional = true }
 listenfd = { workspace = true, optional = true }
 http.workspace = true
 netdev = { workspace = true, optional = true }
+percent-encoding.workspace = true
+regex = { workspace = true, optional = true }
 serde.workspace = true
+serde_urlencoded = { workspace = true, optional = true }
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, optional = true }
 uuid = { workspace = true, optional = true }
-urlencoding = { workspace = true, optional = true }

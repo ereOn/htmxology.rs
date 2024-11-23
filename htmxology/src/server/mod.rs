@@ -101,32 +101,36 @@ impl ServerOptions {
     }
 }
 
-use crate::Route;
-
 /// The server state type.
-pub use super::State;
+pub use super::ServerState;
 
 /// The Axum router type for the HTMX-SSR server.
-pub type Router<Model> = axum::Router<State<Model>>;
+pub type ServerRouter<Controller> = axum::Router<ServerState<Controller>>;
 
-/// The main struct for the HTMX-SSR framework.
-///
-/// Represents a running HTMX-SSR server.
-pub struct Server<Model = ()> {
+/// A server builder.
+pub struct ServerBuilder {
     /// The TCP listener that the server is using.
     listener: tokio::net::TcpListener,
-
-    /// The Axum router that the server is using.
-    router: Router<Model>,
 
     /// The graceful shutdown signal.
     graceful_shutdown: Option<Pin<Box<dyn Future<Output = ()> + Send>>>,
 
     /// The options for the server.
     options: ServerOptions,
+}
 
-    /// The user-defined model.
-    model: Model,
+/// The main struct for the HTMX-SSR framework.
+///
+/// Represents a running HTMX-SSR server.
+pub struct Server {
+    /// The TCP listener that the server is using.
+    listener: tokio::net::TcpListener,
+
+    /// The graceful shutdown signal.
+    graceful_shutdown: Option<Pin<Box<dyn Future<Output = ()> + Send>>>,
+
+    /// The options for the server.
+    options: ServerOptions,
 }
 
 /// An error that can occur when instantiating a new HTMX-SSR server with auto-reload features.
@@ -150,25 +154,7 @@ pub enum ServeError {
     LocalAddr(std::io::Error),
 }
 
-impl<T> Server<T> {
-    /// Get mutable access to the router.
-    ///
-    /// This is useful for adding routes to the server at a lower level.
-    pub fn router(&mut self) -> &mut Router<T> {
-        &mut self.router
-    }
-
-    /// Set the router on the server.
-    pub fn with_router(mut self, router: Router<T>) -> Self {
-        self.router = router;
-        self
-    }
-
-    /// Get mutable access to the options.
-    pub fn options(&mut self) -> &mut ServerOptions {
-        &mut self.options
-    }
-
+impl ServerBuilder {
     /// Set the options on the server.
     pub fn with_options(mut self, options: ServerOptions) -> Self {
         self.options = options;
@@ -204,21 +190,24 @@ impl<T> Server<T> {
             tracing::info!("Received `ctrl-c` signal, shutting down gracefully.");
         })
     }
+
+    /// Build the server.
+    pub fn build(self) -> Server {
+        Server {
+            listener: self.listener,
+            graceful_shutdown: self.graceful_shutdown,
+            options: self.options,
+        }
+    }
 }
 
-impl<Model: Send + Sync + Clone + 'static> Server<Model> {
-    /// Instantiate a new HTMX-SSR server.
-    pub fn new(listener: tokio::net::TcpListener, model: Model) -> Self {
-        let router = Default::default();
-        let graceful_shutdown = None;
-        let options = Default::default();
-
-        Self {
+impl Server {
+    /// Get a builder for the server.
+    pub fn builder(listener: tokio::net::TcpListener) -> ServerBuilder {
+        ServerBuilder {
             listener,
-            router,
-            graceful_shutdown,
-            options,
-            model,
+            graceful_shutdown: None,
+            options: Default::default(),
         }
     }
 
@@ -229,16 +218,32 @@ impl<Model: Send + Sync + Clone + 'static> Server<Model> {
     ///
     /// Also sets the graceful shutdown signal to `ctrl-c`.
     #[cfg(feature = "auto-reload")]
-    pub async fn new_with_auto_reload(
+    pub async fn builder_with_auto_reload(
         addr: impl tokio::net::ToSocketAddrs,
-        model: Model,
-    ) -> Result<Self, NewWithAutoReloadError> {
+    ) -> Result<ServerBuilder, NewWithAutoReloadError> {
         let listener = auto_reload::get_or_bind_tcp_listener(addr).await?;
 
-        Ok(Self::new(listener, model).with_ctrl_c_graceful_shutdown())
+        Ok(Self::builder(listener).with_ctrl_c_graceful_shutdown())
     }
+
     /// Serve the application.
-    pub async fn serve(self) -> Result<(), ServeError> {
+    pub async fn serve<Controller: super::Controller>(
+        self,
+        controller: Controller,
+    ) -> Result<(), ServeError> {
+        self.serve_with_router(controller, Default::default()).await
+    }
+
+    /// Serve the application, using the specified router as a base router.
+    ///
+    /// Use this method to add custom routes to the server before serving it.
+    ///
+    /// The fallback route as well as the server state will be mandatorily set by this method.
+    pub async fn serve_with_router<Controller: super::Controller>(
+        self,
+        controller: Controller,
+        router: ServerRouter<Controller>,
+    ) -> Result<(), ServeError> {
         let local_addr = self.listener.local_addr().map_err(ServeError::LocalAddr)?;
 
         tracing::info!("HTMX SSR server listening on TCP/{local_addr}.");
@@ -250,17 +255,27 @@ impl<Model: Send + Sync + Clone + 'static> Server<Model> {
 
         let server = Arc::new(ServerInfo { base_url });
 
-        let state = super::State {
-            server,
-            model: self.model,
+        let state = super::ServerState {
+            server_info: server,
+            controller,
         };
 
         tracing::info!(
             "Now serving HTMX SSR server at `{}`...",
-            state.server.base_url
+            state.server_info.base_url
         );
 
-        let router = self.router.with_state(state);
+        let router = router
+            .fallback(
+                |axum::extract::State(state): axum::extract::State<ServerState<Controller>>,
+                 htmx: super::htmx::Request,
+                 route: Controller::Route| async move {
+                    Controller::render_view(&state.controller, route, htmx, &state.server_info)
+                        .await
+                },
+            )
+            .with_state(state);
+
         let serve = axum::serve(self.listener, router);
 
         match self.graceful_shutdown {
@@ -326,11 +341,5 @@ impl<Model: Send + Sync + Clone + 'static> Server<Model> {
                 .parse()
                 .expect("hardcoded URL is valid")
         }
-    }
-
-    /// Register a controller with the server.
-    pub fn with_controller<Controller: super::Controller<Model = Model>>(mut self) -> Self {
-        self.router = Controller::Route::register_routes::<Controller>(self.router);
-        self
     }
 }

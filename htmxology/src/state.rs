@@ -6,16 +6,16 @@ use crate::server::ServerInfo;
 
 /// The HTMX state.
 #[derive(Debug, Clone)]
-pub struct State<Model> {
+pub struct ServerState<Controller> {
     /// The server information.
-    pub server: Arc<ServerInfo>,
+    pub server_info: Arc<ServerInfo>,
 
     /// The user-defined state.
-    pub model: Model,
+    pub controller: Controller,
 }
 
-impl<T> FromRef<State<T>> for Arc<ServerInfo> {
-    fn from_ref(state: &State<T>) -> Arc<ServerInfo> {
-        state.server.clone()
+impl<T> FromRef<ServerState<T>> for Arc<ServerInfo> {
+    fn from_ref(state: &ServerState<T>) -> Arc<ServerInfo> {
+        state.server_info.clone()
     }
 }

@@ -18,9 +18,11 @@ mod server;
 mod state;
 
 pub use controller::Controller;
-pub use route::Route;
-pub use server::{ServeError, Server, ServerOptions, ServerOptionsFromEnvError};
-pub use state::State;
+pub use route::{decode_path_argument, replace_request_path, Route};
+pub use server::{
+    ServeError, Server, ServerBuilder, ServerInfo, ServerOptions, ServerOptionsFromEnvError,
+};
+pub use state::ServerState;
 
 #[cfg(feature = "derive")]
 pub use htmxology_macros::{DisplayDelegate, Fragment, Route};

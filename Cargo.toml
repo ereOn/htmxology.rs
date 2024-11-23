@@ -17,11 +17,13 @@ http = "1"
 netdev = "0.31"
 proc-macro2 = "1"
 quote = "1"
+percent-encoding = "2"
+regex = "1"
 serde = { version ="1", features = ["derive"] }
+serde_urlencoded = "0.7"
 syn = { version = "2", features = ["full"] }
 thiserror = "2"
 tokio = { version = "1", features = ["macros"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3" }
 uuid = { version = "1", features = ["v4"] }
-urlencoding = "2"
