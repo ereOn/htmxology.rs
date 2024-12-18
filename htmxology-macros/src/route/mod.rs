@@ -41,6 +41,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
     };
 
     let mut to_urls = Vec::with_capacity(data.variants.len());
+    let mut to_methods = Vec::with_capacity(data.variants.len());
 
     let mut simple_routes = BTreeMap::new();
     let mut sub_routes = BTreeMap::new();
@@ -61,6 +62,11 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             Self::#ident => #url
                         });
 
+                        let method_ident = method.to_ident();
+                        to_methods.push(
+                            quote_spanned! { variant.span() => Self::#ident => http::Method::#method_ident },
+                        );
+
                         quote_spanned! { variant.span() => #root_ident::#ident }
                     }
                     // Enum::Named{} - no query or body parameters.
@@ -70,6 +76,11 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         to_urls.push(quote! {
                             Self::#ident{} => #url
                         });
+
+                        let method_ident = method.to_ident();
+                        to_methods.push(
+                            quote_spanned! { variant.span() => Self::#ident{} => http::Method::#method_ident },
+                        );
 
                         quote_spanned! { variant.span() => #root_ident::#ident{} }
                     }
@@ -81,6 +92,11 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             Self::#ident() => #url
                         });
 
+                        let method_ident = method.to_ident();
+                        to_methods.push(
+                            quote_spanned! { variant.span() => Self::#ident() => http::Method::#method_ident },
+                        );
+
                         quote_spanned! { variant.span() => #root_ident::#ident() }
                     }
                     // Enum::Named{...}
@@ -88,6 +104,9 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         // Will contain all the arguments.
                         let mut args = Vec::with_capacity(fields.named.len());
                         let mut args_defs = Vec::with_capacity(fields.named.len());
+
+                        // All the arguments used for URL formatting.
+                        let mut url_args = Vec::with_capacity(fields.named.len());
 
                         // All the path arguments.
                         let mut path_args = Vec::with_capacity(fields.named.len());
@@ -122,6 +141,14 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                                 .attrs
                                 .iter()
                                 .any(|attr| attr.path().is_ident(attributes::BODY));
+
+                            if is_body {
+                                url_args.push(quote! { .. });
+                            } else {
+                                url_args.push(quote_spanned! { field_ident.span() =>
+                                    #field_ident
+                                });
+                            }
 
                             match (is_query, is_body) {
                                 (true, true) => {
@@ -172,8 +199,13 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         };
 
                         to_urls.push(quote! {
-                            Self::#ident{#(#args),*} => #url
+                            Self::#ident{#(#url_args),*} => #url
                         });
+
+                        let method_ident = method.to_ident();
+                        to_methods.push(
+                            quote_spanned! { variant.span() => Self::#ident{..} => http::Method::#method_ident },
+                        );
 
                         let path_parse = if path_args.is_empty() {
                             quote!()
@@ -209,7 +241,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             Some(body_ident) => {
                                 quote! {
                                     let axum::extract::Form(#body_ident) =
-                                    axum::extract::Form::from_request(req, state)
+                                    axum::extract::Form::from_request(__req, __state)
                                         .await
                                         .map_err(|err| err.into_response())?;
                                 }
@@ -229,6 +261,9 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         // Will contain all the arguments.
                         let mut args = Vec::with_capacity(fields.unnamed.len());
                         let mut args_defs = Vec::with_capacity(fields.unnamed.len());
+
+                        // All the arguments used for URL formatting.
+                        let mut url_args = Vec::with_capacity(fields.unnamed.len());
 
                         // All the path arguments.
                         let mut path_args = Vec::with_capacity(fields.unnamed.len());
@@ -260,6 +295,14 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                                 .attrs
                                 .iter()
                                 .any(|attr| attr.path().is_ident(attributes::BODY));
+
+                            if is_body {
+                                url_args.push(quote! { .. });
+                            } else {
+                                url_args.push(quote_spanned! { field_ident.span() =>
+                                    #field_ident
+                                });
+                            }
 
                             match (is_query, is_body) {
                                 (true, true) => {
@@ -309,16 +352,22 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         };
 
                         to_urls.push(quote! {
-                            Self::#ident{#(#args),*} => #url
+                            Self::#ident(#(#url_args),*) => #url
                         });
+
+                        let method_ident = method.to_ident();
+                        to_methods.push(
+                            quote_spanned! { variant.span() => Self::#ident(..) => http::Method::#method_ident },
+                        );
 
                         let path_parse = if path_args.is_empty() {
                             quote!()
                         } else {
                             let mut args_parse = Vec::with_capacity(path_args.len());
-                            for path_arg in &path_args {
+                            for (i, path_arg) in path_args.iter().enumerate() {
+                                let idx = i + 1;
                                 args_parse.push(quote! {
-                                    let #path_arg = htmxology::decode_path_argument(stringify!(#path_arg), &__captures[stringify!(#path_arg)])?;
+                                    let #path_arg = htmxology::decode_path_argument(stringify!(#path_arg), &__captures[#idx])?;
                                 });
                             }
 
@@ -370,7 +419,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
             }
             RouteInfo::SubRoute { prefix } => {
                 let router = match &variant.fields {
-                    // Enum::Unit - no query or body parameters.
+                    // Enum::Unit
                     Fields::Unit => {
                         return Err(Error::new_spanned(
                             variant,
@@ -447,6 +496,8 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             to_block(statements)
                         };
 
+                        to_methods.push(quote_spanned! { variant.span() => Self::#ident{#subroute_arg, ..} => #subroute_arg.method()});
+
                         to_urls.push(quote! {
                             Self::#ident{#(#args),*} => #url
                         });
@@ -514,7 +565,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                                     ));
                                 }
 
-                                subroute_arg = Some(field_ident.clone());
+                                subroute_arg = Some((i, field_ident.clone()));
                             } else {
                                 path_args.push(quote_spanned! { field_ident.span() =>
                                     #field_ident
@@ -523,7 +574,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             }
                         }
 
-                        let subroute_arg = subroute_arg.ok_or_else(|| {
+                        let (subroute_arg_idx, subroute_arg) = subroute_arg.ok_or_else(|| {
                             Error::new_spanned(
                                 variant,
                                 "expected a field with `subroute` attribute",
@@ -547,6 +598,16 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         to_urls.push(quote! {
                             Self::#ident(#(#args),*) => #url
                         });
+
+                        let margs = (0..args.len()).map(|i| {
+                            if i == subroute_arg_idx {
+                                quote! { #subroute_arg }
+                            } else {
+                                quote! { _ }
+                            }
+                        });
+
+                        to_methods.push(quote_spanned! { variant.span() => Self::#ident(#(#margs),*) => #subroute_arg.method() });
 
                         let path_parse = if path_args.is_empty() {
                             quote!()
@@ -624,7 +685,13 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
     }
 
     Ok(quote! {
-        impl htmxology::Route for #root_ident {}
+        impl htmxology::Route for #root_ident {
+            fn method(&self) -> http::Method {
+                match self {
+                    #(#to_methods),*
+                }
+            }
+        }
 
         impl std::fmt::Display for #root_ident {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

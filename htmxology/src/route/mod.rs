@@ -13,6 +13,9 @@ mod de;
 ///
 /// Typically implemented through the `Route` derive macro.
 pub trait Route: Display {
+    /// Get the method for the route.
+    fn method(&self) -> http::Method;
+
     /// Get an absolute URL for the route.
     fn to_absolute_url(&self, base_url: &http::Uri) -> String {
         format!("{}/{}", base_url, self)

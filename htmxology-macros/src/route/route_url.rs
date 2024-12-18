@@ -125,7 +125,7 @@ impl RouteUrl {
         }
 
         if is_prefix {
-            result.push_str("(?P<subroute>.+)");
+            result.push_str("(?P<subroute>/.*)");
         }
 
         result.push('$');
@@ -352,19 +352,19 @@ mod tests {
         let u: RouteUrl = "/".parse().unwrap();
         assert_eq!(u.to_string(), "/");
         assert_eq!(u.to_path_regex(false), "/$");
-        assert_eq!(u.to_path_regex(true), "/(?P<subroute>.+)$");
+        assert_eq!(u.to_path_regex(true), "/(?P<subroute>/.*)$");
 
         let u: RouteUrl = "/foo".parse().unwrap();
         assert_eq!(u.to_string(), "/foo");
         assert_eq!(u.to_path_regex(false), "/foo$");
-        assert_eq!(u.to_path_regex(true), "/foo(?P<subroute>.+)$");
+        assert_eq!(u.to_path_regex(true), "/foo(?P<subroute>/.*)$");
 
         let u: RouteUrl = "/foo/{bar}".parse().unwrap();
         assert_eq!(u.to_string(), "/foo/{bar}");
         assert_eq!(u.to_path_regex(false), "/foo/(?P<bar>[^/]+)$");
         assert_eq!(
             u.to_path_regex(true),
-            "/foo/(?P<bar>[^/]+)(?P<subroute>.+)$"
+            "/foo/(?P<bar>[^/]+)(?P<subroute>/.*)$"
         );
 
         let u: RouteUrl = "/user/{uid}/comment/{cid}".parse().unwrap();
@@ -375,8 +375,32 @@ mod tests {
         );
         assert_eq!(
             u.to_path_regex(true),
-            "/user/(?P<uid>[^/]+)/comment/(?P<cid>[^/]+)(?P<subroute>.+)$"
+            "/user/(?P<uid>[^/]+)/comment/(?P<cid>[^/]+)(?P<subroute>/.*)$"
         );
+    }
+
+    #[test]
+    fn test_subroute_regex_match() {
+        let u: RouteUrl = "/foo/{bar}".parse().unwrap();
+        let rx = u.to_path_regex(true);
+        assert_eq!(rx, "/foo/(?P<bar>[^/]+)(?P<subroute>/.*)$");
+        let re = regex::Regex::new(&rx).unwrap();
+
+        // Subroute regex should not match as it requires a `/` as the first character of the
+        // subroute.
+        assert!(re.captures("/foo/123").is_none());
+
+        let caps = re.captures("/foo/123/").unwrap();
+        assert_eq!(caps.name("bar").unwrap().as_str(), "123");
+        assert_eq!(caps.name("subroute").unwrap().as_str(), "/");
+
+        let caps = re.captures("/foo/123/").unwrap();
+        assert_eq!(caps.name("bar").unwrap().as_str(), "123");
+        assert_eq!(caps.name("subroute").unwrap().as_str(), "/");
+
+        let caps = re.captures("/foo/123/bar").unwrap();
+        assert_eq!(caps.name("bar").unwrap().as_str(), "123");
+        assert_eq!(caps.name("subroute").unwrap().as_str(), "/bar");
     }
 
     #[test]

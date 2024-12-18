@@ -35,7 +35,7 @@ async fn main() -> anyhow::Result<()> {
 /// which eases the rendering of the views in an HTMX context.
 mod views {
     use askama::Template;
-    use htmxology::{DisplayDelegate, Fragment};
+    use htmxology::{DisplayDelegate, Fragment, Route};
 
     use crate::controller::AppRoute;
 
@@ -130,8 +130,10 @@ mod views {
     #[derive(Debug, Template)]
     #[template(path = "blocks/page/message_detail.html.jinja")]
     pub(super) struct PageMessageDetail {
-        pub message: super::model::Message,
+        pub message_id: u8,
         pub red: bool,
+        pub save_url: AppRoute,
+        pub form: crate::controller::MessageSaveBody,
     }
 
     #[derive(Debug, Template)]
@@ -297,9 +299,28 @@ mod controller {
             query: MessageDetailQuery,
         },
 
+        /// The message save route.
+        #[route("/messages/{id}/save", method = "POST")]
+        MessageSave(
+            u8,
+            /// The message content.
+            #[body]
+            MessageSaveBody,
+        ),
+
         /// The settings route.
         #[subroute("/settings")]
         Settings(#[subroute] SettingsRoute),
+    }
+
+    /// The message save body.
+    #[derive(Debug, Clone, Default, Deserialize, Serialize)]
+    pub struct MessageSaveBody {
+        /// The message title.
+        pub title: String,
+
+        /// The message content.
+        pub content: String,
     }
 
     /// The settings application routes.
@@ -402,8 +423,13 @@ mod controller {
                     };
 
                     let page = views::Page::MessageDetail(views::PageMessageDetail {
-                        message,
+                        message_id: message.id,
                         red: query.red.unwrap_or_default(),
+                        save_url: AppRoute::MessageSave(id, Default::default()),
+                        form: MessageSaveBody {
+                            title: message.title,
+                            content: message.content,
+                        },
                     });
 
                     match htmx {
@@ -416,6 +442,11 @@ mod controller {
                             caching.add_caching_headers(page.into_htmx_response().with_oob(menu))
                         }
                     }
+                }
+                AppRoute::MessageSave(id, form) => {
+                    println!("{id} => {form:#?}");
+
+                    http::StatusCode::NO_CONTENT.into_response()
                 }
                 AppRoute::Settings(settings) => {
                     let (page, active_idx) = match settings {
