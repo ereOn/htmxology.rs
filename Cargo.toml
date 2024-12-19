@@ -12,6 +12,7 @@ askama = { version = "0.12", features = ["with-axum"] }
 askama_axum = { version = "0.4" }
 axum = "0.7"
 convert_case = "0.6"
+itertools = "0.13"
 listenfd = "1"
 http = "1"
 netdev = "0.31"

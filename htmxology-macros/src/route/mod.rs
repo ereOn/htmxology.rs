@@ -7,10 +7,10 @@ use syn::{
     punctuated::Punctuated, spanned::Spanned, Data, Error, Expr, Fields, Ident, Token, Variant,
 };
 
-mod route_info;
+mod route_type;
 mod route_url;
 
-use route_info::{append_query_arg, to_block, MethodExt, RouteInfo};
+use route_type::{append_query_arg, to_block, MethodExt, RouteType};
 use route_url::{ParseError, RouteUrl};
 
 mod attributes {
@@ -49,10 +49,10 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
     for variant in &data.variants {
         let ident = &variant.ident;
 
-        let route_info = parse_route_info(variant)?;
+        let (url, route_type) = parse_route_info(variant)?;
 
-        match route_info {
-            RouteInfo::Simple { url, method } => {
+        match route_type {
+            RouteType::Simple { method } => {
                 let handler = match &variant.fields {
                     // Enum::Unit - no query or body parameters.
                     Fields::Unit => {
@@ -417,7 +417,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                     .or_insert_with(Vec::new)
                     .push((method, handler));
             }
-            RouteInfo::SubRoute { prefix } => {
+            RouteType::SubRoute => {
                 let router = match &variant.fields {
                     // Enum::Unit
                     Fields::Unit => {
@@ -484,9 +484,9 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
 
                         let url = {
                             let mut statements = if path_args_names.is_empty() {
-                                prefix.to_unparameterized_string(variant)?
+                                url.to_unparameterized_string(variant)?
                             } else {
-                                prefix.to_named_parameters_format(variant, path_args_names)?
+                                url.to_named_parameters_format(variant, path_args_names)?
                             };
 
                             statements.push(quote! {
@@ -583,9 +583,9 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
 
                         let url = {
                             let mut statements = if path_args.is_empty() {
-                                prefix.to_unparameterized_string(variant)?
+                                url.to_unparameterized_string(variant)?
                             } else {
-                                prefix.to_unnamed_parameters_format(variant, path_args_unnamed)?
+                                url.to_unnamed_parameters_format(variant, path_args_unnamed)?
                             };
 
                             statements.push(quote! {
@@ -638,7 +638,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                     }
                 };
 
-                if sub_routes.insert(prefix, router).is_some() {
+                if sub_routes.insert(url, router).is_some() {
                     return Err(Error::new_spanned(variant, "duplicate subroute prefix"));
                 }
             }
@@ -649,7 +649,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
 
     // We add the subroutes first, so that they are matched before the simple routes.
     for (prefix, handler) in sub_routes.into_iter().rev() {
-        let prefix = prefix.to_path_regex(true);
+        let prefix = prefix.to_path_regex();
 
         parsing.push(quote! {{
             static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| regex::Regex::new(#prefix).unwrap());
@@ -662,7 +662,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
 
     // Then we add the simple routes, with more specific routes first.
     for (url, methods_and_handlers) in simple_routes.into_iter().rev() {
-        let url = url.to_path_regex(false);
+        let url = url.to_path_regex();
         let methods: Vec<_> = methods_and_handlers
             .into_iter()
             .map(|(method, handler)| {
@@ -721,7 +721,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
     })
 }
 
-fn parse_route_info(variant: &Variant) -> syn::Result<RouteInfo> {
+fn parse_route_info(variant: &Variant) -> syn::Result<(RouteUrl, RouteType)> {
     let mut result = None;
 
     for attr in &variant.attrs {
@@ -729,11 +729,7 @@ fn parse_route_info(variant: &Variant) -> syn::Result<RouteInfo> {
             if result.is_some() {
                 return Err(Error::new_spanned(
                     attr,
-                    format!(
-                        "expected at most one `{}` or `{}` attribute",
-                        attributes::ROUTE,
-                        attributes::SUBROUTE
-                    ),
+                    format!("expected at most one `{}` attribute", attributes::ROUTE,),
                 ));
             }
 
@@ -747,42 +743,21 @@ fn parse_route_info(variant: &Variant) -> syn::Result<RouteInfo> {
 
             let url = parse_route_url(raw_url)?;
 
-            let method = match exprs.next() {
-                Some(raw_method) => parse_method(raw_method)?,
-                None => http::Method::GET,
+            let route_type = if url.is_prefix() {
+                RouteType::SubRoute
+            } else {
+                let method = match exprs.next() {
+                    Some(raw_method) => parse_method(raw_method)?,
+                    None => http::Method::GET,
+                };
+
+                RouteType::Simple { method }
             };
 
             if exprs.next().is_none() {
-                result = Some(RouteInfo::Simple { url, method });
+                result = Some((url, route_type));
             } else {
                 return Err(Error::new_spanned(attr, "expected at most two arguments"));
-            }
-        } else if attr.path().is_ident(attributes::SUBROUTE) {
-            if result.is_some() {
-                return Err(Error::new_spanned(
-                    attr,
-                    format!(
-                        "expected at most one `{}` or `{}` attribute",
-                        attributes::ROUTE,
-                        attributes::SUBROUTE
-                    ),
-                ));
-            }
-
-            let mut exprs = attr
-                .parse_args_with(Punctuated::<syn::Expr, Token![,]>::parse_terminated)?
-                .into_iter();
-
-            let raw_url = exprs.next().ok_or_else(|| {
-                Error::new_spanned(attr, "expected a route URL as the first argument")
-            })?;
-
-            let prefix = parse_route_url(raw_url)?;
-
-            if exprs.next().is_none() {
-                result = Some(RouteInfo::SubRoute { prefix });
-            } else {
-                return Err(Error::new_spanned(attr, "expected at most one argument"));
             }
         }
     }

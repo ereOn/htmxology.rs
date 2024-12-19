@@ -4,27 +4,19 @@ use proc_macro2::{Span, TokenStream};
 use quote::quote;
 use syn::Ident;
 
-use super::RouteUrl;
-
 /// A route info.
 ///
 /// This is a subset of the standard HTTP methods, that are commonly used in web applications.
 #[derive(Debug, Clone)]
-pub enum RouteInfo {
+pub enum RouteType {
     /// A simple HTTP route.
     Simple {
-        /// The route URL.
-        url: RouteUrl,
-
         /// The route method.
         method: http::Method,
     },
 
     /// A prefixed sub-route.
-    SubRoute {
-        /// The prefix.
-        prefix: RouteUrl,
-    },
+    SubRoute,
 }
 
 /// An extension trait for `http::Method`.

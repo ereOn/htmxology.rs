@@ -2,11 +2,21 @@
 
 use std::{collections::BTreeMap, fmt::Display, str::FromStr};
 
+use itertools::{Itertools, Position};
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 use syn::Ident;
 
 /// A route URL.
+///
+/// Route URLs are used to match incoming requests to the appropriate controller method.
+///
+/// They can *NEVER* start with a slash except for the single slash URL `/`, where the slash is
+/// considered being at the end of the URL.
+///
+/// If they end with a slash, they will be considered as a path prefix.
+///
+/// Route URLs can be empty, usually to indicate the `index` resource.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RouteUrl(Vec<RouteUrlSegment>);
 
@@ -32,9 +42,9 @@ pub enum RouteUrlSegment {
 /// An error that can occur when parsing a route URL.
 #[derive(Debug, thiserror::Error)]
 pub enum ParseError {
-    /// The route URL does not start with a slash.
-    #[error("the route URL does not start with a slash")]
-    NoLeadingSlash,
+    /// The route URL starts with a slash.
+    #[error("the route URL starts with a slash which is not allowed")]
+    LeadingSlash,
 
     /// The path contains an invalid character.
     #[error("the path contains an unexpected character (`{character}`)")]
@@ -81,7 +91,7 @@ impl ParseError {
     /// Returns the range of characters that caused the error.
     pub fn range(&self) -> std::ops::RangeInclusive<usize> {
         match self {
-            Self::NoLeadingSlash => 0..=0,
+            Self::LeadingSlash => 0..=1,
             Self::UnexpectedCharacter { position, .. } => *position..=*position,
             Self::ParameterNotAllowed { position } => *position..=*position,
             Self::InvalidParameterCharacter {
@@ -107,25 +117,33 @@ impl ParseError {
 }
 
 impl RouteUrl {
+    /// Check if the route URL is a prefix.
+    pub fn is_prefix(&self) -> bool {
+        matches!(self.0.last(), Some(RouteUrlSegment::Separator) if self.0.len() > 1)
+    }
+
     /// Get an Axum router path from the route URL path.
-    pub fn to_path_regex(&self, is_prefix: bool) -> String {
+    pub fn to_path_regex(&self) -> String {
         // As good a guess as any...
         let mut result = String::with_capacity(64);
 
-        for segment in &self.0 {
-            match segment {
-                RouteUrlSegment::Separator => result.push('/'),
-                RouteUrlSegment::Literal(s) => result.push_str(s),
-                RouteUrlSegment::Parameter { name } => {
+        result.push('^');
+
+        let segments = self.0.iter().with_position();
+
+        for (position, segment) in segments {
+            match (position, &segment) {
+                (Position::Last, RouteUrlSegment::Separator) => {
+                    result.push_str("(?P<subroute>/.*)");
+                }
+                (_, RouteUrlSegment::Separator) => result.push('/'),
+                (_, RouteUrlSegment::Literal(s)) => result.push_str(s),
+                (_, RouteUrlSegment::Parameter { name }) => {
                     result.push_str("(?P<");
                     result.push_str(name);
                     result.push_str(">[^/]+)");
                 }
             }
-        }
-
-        if is_prefix {
-            result.push_str("(?P<subroute>/.*)");
         }
 
         result.push('$');
@@ -147,6 +165,11 @@ impl RouteUrl {
                     return Err(syn::Error::new_spanned(ctx, format!("the URL contains a required path parameter `{name}`, which cannot be formatted without parameters")));
                 }
             }
+        }
+
+        // Remove the last separator if the URL is a prefix.
+        if self.is_prefix() {
+            statements.pop();
         }
 
         Ok(statements)
@@ -187,6 +210,11 @@ impl RouteUrl {
             ));
         }
 
+        // Remove the last separator if the URL is a prefix.
+        if self.is_prefix() {
+            statements.pop();
+        }
+
         Ok(statements)
     }
 
@@ -225,6 +253,11 @@ impl RouteUrl {
             ));
         }
 
+        // Remove the last separator if the URL is a prefix.
+        if self.is_prefix() {
+            statements.pop();
+        }
+
         Ok(statements)
     }
 }
@@ -234,12 +267,22 @@ impl FromStr for RouteUrl {
 
     /// Parses a route URL from a static string.
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut chars = s.chars().enumerate();
+        let mut chars = s.chars().enumerate().peekable();
 
-        if chars.next() != Some((0, '/')) {
-            return Err(ParseError::NoLeadingSlash);
+        // Special case: a single slash is a valid route URL prefix.
+        if s == "/" {
+            return Ok(Self(vec![
+                RouteUrlSegment::Separator,
+                RouteUrlSegment::Separator,
+            ]));
         }
 
+        if chars.peek() == Some(&(0, '/')) {
+            return Err(ParseError::LeadingSlash);
+        }
+
+        // Even though we don't want the string to start with a slash, we still want to add one in
+        // the internal representation.
         let mut segments = vec![RouteUrlSegment::Separator];
         let mut start = None;
 
@@ -304,11 +347,9 @@ impl FromStr for RouteUrl {
             }
         }
 
+        // If we have a start, we have a literal segment left to add.
         if let Some(start) = start.take() {
-            // If we still have a start, it means we have no query parameters.
             segments.push(RouteUrlSegment::Literal(s[start..].to_string()));
-
-            return Ok(Self(segments));
         }
 
         Ok(Self(segments))
@@ -317,11 +358,14 @@ impl FromStr for RouteUrl {
 
 impl Display for RouteUrl {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for segment in &self.0 {
-            match segment {
-                RouteUrlSegment::Separator => f.write_str("/")?,
-                RouteUrlSegment::Literal(s) => f.write_str(s)?,
-                RouteUrlSegment::Parameter { name } => {
+        let segments = self.0.iter().with_position();
+
+        for (position, segment) in segments {
+            match (position, &segment) {
+                (Position::Last, RouteUrlSegment::Separator) => {}
+                (_, RouteUrlSegment::Separator) => f.write_str("/")?,
+                (_, RouteUrlSegment::Literal(s)) => f.write_str(s)?,
+                (_, RouteUrlSegment::Parameter { name }) => {
                     f.write_str("{")?;
                     f.write_str(name)?;
                     f.write_str("}")?;
@@ -349,41 +393,41 @@ mod tests {
 
     #[test]
     fn test_parse_route_url() {
+        let u: RouteUrl = "".parse().unwrap();
+        assert_eq!(u.to_string(), "/");
+        assert!(!u.is_prefix());
+        assert_eq!(u.to_path_regex(), "^/$");
+
         let u: RouteUrl = "/".parse().unwrap();
         assert_eq!(u.to_string(), "/");
-        assert_eq!(u.to_path_regex(false), "/$");
-        assert_eq!(u.to_path_regex(true), "/(?P<subroute>/.*)$");
+        assert!(u.is_prefix());
+        assert_eq!(u.to_path_regex(), "^/(?P<subroute>/.*)$");
 
-        let u: RouteUrl = "/foo".parse().unwrap();
+        let u: RouteUrl = "foo".parse().unwrap();
         assert_eq!(u.to_string(), "/foo");
-        assert_eq!(u.to_path_regex(false), "/foo$");
-        assert_eq!(u.to_path_regex(true), "/foo(?P<subroute>/.*)$");
+        assert!(!u.is_prefix());
+        assert_eq!(u.to_path_regex(), "^/foo$");
 
-        let u: RouteUrl = "/foo/{bar}".parse().unwrap();
+        let u: RouteUrl = "foo/{bar}".parse().unwrap();
         assert_eq!(u.to_string(), "/foo/{bar}");
-        assert_eq!(u.to_path_regex(false), "/foo/(?P<bar>[^/]+)$");
-        assert_eq!(
-            u.to_path_regex(true),
-            "/foo/(?P<bar>[^/]+)(?P<subroute>/.*)$"
-        );
+        assert!(!u.is_prefix());
+        assert_eq!(u.to_path_regex(), "^/foo/(?P<bar>[^/]+)$");
 
-        let u: RouteUrl = "/user/{uid}/comment/{cid}".parse().unwrap();
+        let u: RouteUrl = "user/{uid}/comment/{cid}".parse().unwrap();
         assert_eq!(u.to_string(), "/user/{uid}/comment/{cid}");
+        assert!(!u.is_prefix());
         assert_eq!(
-            u.to_path_regex(false),
-            "/user/(?P<uid>[^/]+)/comment/(?P<cid>[^/]+)$"
-        );
-        assert_eq!(
-            u.to_path_regex(true),
-            "/user/(?P<uid>[^/]+)/comment/(?P<cid>[^/]+)(?P<subroute>/.*)$"
+            u.to_path_regex(),
+            "^/user/(?P<uid>[^/]+)/comment/(?P<cid>[^/]+)$"
         );
     }
 
     #[test]
     fn test_subroute_regex_match() {
-        let u: RouteUrl = "/foo/{bar}".parse().unwrap();
-        let rx = u.to_path_regex(true);
-        assert_eq!(rx, "/foo/(?P<bar>[^/]+)(?P<subroute>/.*)$");
+        let u: RouteUrl = "foo/{bar}/".parse().unwrap();
+        assert!(u.is_prefix());
+        let rx = u.to_path_regex();
+        assert_eq!(rx, "^/foo/(?P<bar>[^/]+)(?P<subroute>/.*)$");
         let re = regex::Regex::new(&rx).unwrap();
 
         // Subroute regex should not match as it requires a `/` as the first character of the
@@ -404,36 +448,36 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_route_url_no_leading_slash() {
-        let err = "foo".parse::<RouteUrl>().unwrap_err();
+    fn test_parse_route_url_leading_slash() {
+        let err = "/foo".parse::<RouteUrl>().unwrap_err();
 
         match err {
-            ParseError::NoLeadingSlash => {}
+            ParseError::LeadingSlash => {}
             _ => panic!("unexpected error: {err:?}"),
         }
     }
 
     #[test]
     fn test_parse_route_url_unexpected_character() {
-        let err = "/foo</bar".parse::<RouteUrl>().unwrap_err();
+        let err = "foo</bar".parse::<RouteUrl>().unwrap_err();
 
         match err {
             ParseError::UnexpectedCharacter {
                 position,
                 character,
             } => {
-                assert_eq!(position, 4);
+                assert_eq!(position, 3);
                 assert_eq!(character, '<');
             }
             _ => panic!("unexpected error: {err:?}"),
         }
 
-        assert_eq!(err.range(), 4..=4);
+        assert_eq!(err.range(), 3..=3);
     }
 
     #[test]
     fn test_parse_route_url_invalid_parameter_character() {
-        let err = "/foo/{bar<}".parse::<RouteUrl>().unwrap_err();
+        let err = "foo/{bar<}".parse::<RouteUrl>().unwrap_err();
 
         match err {
             ParseError::InvalidParameterCharacter {
@@ -441,56 +485,56 @@ mod tests {
                 position,
                 character,
             } => {
-                assert_eq!(start, 6);
-                assert_eq!(position, 9);
+                assert_eq!(start, 5);
+                assert_eq!(position, 8);
                 assert_eq!(character, '<');
             }
             _ => panic!("unexpected error: {err:?}"),
         }
 
-        assert_eq!(err.range(), 6..=9);
+        assert_eq!(err.range(), 5..=8);
     }
 
     #[test]
     fn test_parse_route_url_parameter_not_allowed() {
-        let err = "/foo/prefix-{bar}".parse::<RouteUrl>().unwrap_err();
+        let err = "foo/prefix-{bar}".parse::<RouteUrl>().unwrap_err();
 
         match err {
             ParseError::ParameterNotAllowed { position } => {
-                assert_eq!(position, 12);
+                assert_eq!(position, 11);
             }
             _ => panic!("unexpected error: {err:?}"),
         }
 
-        assert_eq!(err.range(), 12..=12);
+        assert_eq!(err.range(), 11..=11);
     }
 
     #[test]
     fn test_parse_route_url_parameter_not_allowed_twice() {
-        let err = "/foo/{foo}{bar}".parse::<RouteUrl>().unwrap_err();
+        let err = "foo/{foo}{bar}".parse::<RouteUrl>().unwrap_err();
 
         match err {
             ParseError::ParameterNotAllowed { position } => {
-                assert_eq!(position, 10);
+                assert_eq!(position, 9);
             }
             _ => panic!("unexpected error: {err:?}"),
         }
 
-        assert_eq!(err.range(), 10..=10);
+        assert_eq!(err.range(), 9..=9);
     }
 
     #[test]
     fn test_parse_route_url_unclosed_parameter() {
-        let err = "/foo/{bar".parse::<RouteUrl>().unwrap_err();
+        let err = "foo/{bar".parse::<RouteUrl>().unwrap_err();
 
         match err {
             ParseError::UnclosedParameter { start, end } => {
-                assert_eq!(start, 5);
-                assert_eq!(end, 8);
+                assert_eq!(start, 4);
+                assert_eq!(end, 7);
             }
             _ => panic!("unexpected error: {err:?}"),
         }
 
-        assert_eq!(err.range(), 5..=8);
+        assert_eq!(err.range(), 4..=7);
     }
 }
