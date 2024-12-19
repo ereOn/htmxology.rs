@@ -278,19 +278,19 @@ mod controller {
     #[derive(Debug, Clone, Route)]
     pub enum AppRoute {
         /// The home route.
-        #[route("/")]
+        #[route("")]
         Home,
 
         /// The dashboard route.
-        #[route("/dashboard")]
+        #[route("dashboard")]
         Dashboard,
 
         /// The messages route.
-        #[route("/messages")]
+        #[route("messages")]
         Messages,
 
         /// The message detail route.
-        #[route("/messages/{id}")]
+        #[route("messages/{id}")]
         MessageDetail {
             /// The message ID.
             id: u8,
@@ -300,7 +300,7 @@ mod controller {
         },
 
         /// The message save route.
-        #[route("/messages/{id}/save", method = "POST")]
+        #[route("messages/{id}/save", method = "POST")]
         MessageSave(
             u8,
             /// The message content.
@@ -309,7 +309,7 @@ mod controller {
         ),
 
         /// The settings route.
-        #[subroute("/settings")]
+        #[subroute("settings/")]
         Settings(#[subroute] SettingsRoute),
     }
 
@@ -327,11 +327,11 @@ mod controller {
     #[derive(Debug, Clone, Route)]
     pub enum SettingsRoute {
         /// The general settings route.
-        #[route("/")]
+        #[route("")]
         Home,
 
         /// The advanced settings route.
-        #[route("/advanced")]
+        #[route("advanced")]
         Advanced,
     }
 
