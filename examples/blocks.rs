@@ -5,6 +5,7 @@
 //! ```
 
 use controller::MainController;
+use htmxology::{Cache, CachingControllerExt};
 use tracing::info;
 
 #[tokio::main]
@@ -22,7 +23,7 @@ async fn main() -> anyhow::Result<()> {
         .build();
 
     server
-        .serve(MainController::default())
+        .serve(MainController::default().with_cache(Cache::default()))
         .await
         .map_err(Into::into)
 }
@@ -356,9 +357,9 @@ mod controller {
             &self,
             route: AppRoute,
             htmx: HtmxRequest,
+            _parts: http::request::Parts,
             server_info: &ServerInfo,
         ) -> axum::response::Response {
-            let caching = htmxology::caching::CachingStrategy::default();
             let base_url = server_info.base_url.clone();
 
             match route {
@@ -366,13 +367,14 @@ mod controller {
                     let menu = Self::make_menu(self.model.lock().await.deref(), 0);
                     let page = views::Page::Dashboard(views::PageDashboard {});
                     match htmx {
-                        HtmxRequest::Classic => caching.add_caching_headers(views::Index {
+                        HtmxRequest::Classic => views::Index {
                             menu,
                             page,
                             base_url,
-                        }),
+                        }
+                        .into_response(),
                         HtmxRequest::Htmx { .. } => {
-                            caching.add_caching_headers(page.into_htmx_response().with_oob(menu))
+                            page.into_htmx_response().with_oob(menu).into_response()
                         }
                     }
                 }
@@ -396,13 +398,14 @@ mod controller {
                     });
 
                     match htmx {
-                        HtmxRequest::Classic => caching.add_caching_headers(views::Index {
+                        HtmxRequest::Classic => views::Index {
                             menu,
                             page,
                             base_url,
-                        }),
+                        }
+                        .into_response(),
                         HtmxRequest::Htmx { .. } => {
-                            caching.add_caching_headers(page.into_htmx_response().with_oob(menu))
+                            page.into_htmx_response().with_oob(menu).into_response()
                         }
                     }
                 }
@@ -433,13 +436,14 @@ mod controller {
                     });
 
                     match htmx {
-                        HtmxRequest::Classic => caching.add_caching_headers(views::Index {
+                        HtmxRequest::Classic => views::Index {
                             menu,
                             page,
                             base_url,
-                        }),
+                        }
+                        .into_response(),
                         HtmxRequest::Htmx { .. } => {
-                            caching.add_caching_headers(page.into_htmx_response().with_oob(menu))
+                            page.into_htmx_response().with_oob(menu).into_response()
                         }
                     }
                 }
@@ -460,13 +464,14 @@ mod controller {
                     let menu = Self::make_menu(self.model.lock().await.deref(), active_idx);
 
                     match htmx {
-                        HtmxRequest::Classic => caching.add_caching_headers(views::Index {
+                        HtmxRequest::Classic => views::Index {
                             menu,
                             page,
                             base_url,
-                        }),
+                        }
+                        .into_response(),
                         HtmxRequest::Htmx { .. } => {
-                            caching.add_caching_headers(page.into_htmx_response().with_oob(menu))
+                            page.into_htmx_response().with_oob(menu).into_response()
                         }
                     }
                 }

@@ -14,6 +14,7 @@ pub trait Controller: Send + Sync + Clone + 'static {
         &self,
         route: Self::Route,
         htmx: super::htmx::Request,
+        parts: http::request::Parts,
         server_info: &super::ServerInfo,
     ) -> axum::response::Response;
 }

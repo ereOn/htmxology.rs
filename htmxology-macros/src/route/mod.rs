@@ -41,7 +41,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
     };
 
     let mut to_urls = Vec::with_capacity(data.variants.len());
-    let mut to_methods = Vec::with_capacity(data.variants.len());
+    let mut methods = Vec::with_capacity(data.variants.len());
 
     let mut simple_routes = BTreeMap::new();
     let mut sub_routes = BTreeMap::new();
@@ -63,7 +63,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         });
 
                         let method_ident = method.to_ident();
-                        to_methods.push(
+                        methods.push(
                             quote_spanned! { variant.span() => Self::#ident => http::Method::#method_ident },
                         );
 
@@ -78,7 +78,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         });
 
                         let method_ident = method.to_ident();
-                        to_methods.push(
+                        methods.push(
                             quote_spanned! { variant.span() => Self::#ident{} => http::Method::#method_ident },
                         );
 
@@ -93,7 +93,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         });
 
                         let method_ident = method.to_ident();
-                        to_methods.push(
+                        methods.push(
                             quote_spanned! { variant.span() => Self::#ident() => http::Method::#method_ident },
                         );
 
@@ -203,7 +203,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         });
 
                         let method_ident = method.to_ident();
-                        to_methods.push(
+                        methods.push(
                             quote_spanned! { variant.span() => Self::#ident{..} => http::Method::#method_ident },
                         );
 
@@ -356,7 +356,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         });
 
                         let method_ident = method.to_ident();
-                        to_methods.push(
+                        methods.push(
                             quote_spanned! { variant.span() => Self::#ident(..) => http::Method::#method_ident },
                         );
 
@@ -496,7 +496,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             to_block(statements)
                         };
 
-                        to_methods.push(quote_spanned! { variant.span() => Self::#ident{#subroute_arg, ..} => #subroute_arg.method()});
+                        methods.push(quote_spanned! { variant.span() => Self::#ident{#subroute_arg, ..} => #subroute_arg.method()});
 
                         to_urls.push(quote! {
                             Self::#ident{#(#args),*} => #url
@@ -607,7 +607,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             }
                         });
 
-                        to_methods.push(quote_spanned! { variant.span() => Self::#ident(#(#margs),*) => #subroute_arg.method() });
+                        methods.push(quote_spanned! { variant.span() => Self::#ident(#(#margs),*) => #subroute_arg.method() });
 
                         let path_parse = if path_args.is_empty() {
                             quote!()
@@ -688,7 +688,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
         impl htmxology::Route for #root_ident {
             fn method(&self) -> http::Method {
                 match self {
-                    #(#to_methods),*
+                    #(#methods),*
                 }
             }
         }

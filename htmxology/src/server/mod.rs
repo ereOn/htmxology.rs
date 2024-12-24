@@ -269,9 +269,16 @@ impl Server {
             .fallback(
                 |axum::extract::State(state): axum::extract::State<ServerState<Controller>>,
                  htmx: super::htmx::Request,
+                 parts: http::request::Parts,
                  route: Controller::Route| async move {
-                    Controller::render_view(&state.controller, route, htmx, &state.server_info)
-                        .await
+                    Controller::render_view(
+                        &state.controller,
+                        route,
+                        htmx,
+                        parts,
+                        &state.server_info,
+                    )
+                    .await
                 },
             )
             .with_state(state);
