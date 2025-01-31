@@ -16,6 +16,7 @@ mod controller;
 mod route;
 mod server;
 mod state;
+mod templating;
 
 pub use caching::{
     Cache, CacheControl, CachingResponseExt, Controller as CachingController,
@@ -27,6 +28,7 @@ pub use server::{
     ServeError, Server, ServerBuilder, ServerInfo, ServerOptions, ServerOptionsFromEnvError,
 };
 pub use state::ServerState;
+pub use templating::RenderIntoResponse;
 
 #[cfg(feature = "derive")]
 pub use htmxology_macros::{DisplayDelegate, Fragment, Route};

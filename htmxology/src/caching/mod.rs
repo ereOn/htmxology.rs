@@ -4,7 +4,7 @@ mod controller;
 
 use std::collections::BTreeSet;
 
-use askama_axum::IntoResponse;
+use axum::response::IntoResponse;
 pub use controller::{Controller, ControllerExt};
 use tracing::{error, warn};
 

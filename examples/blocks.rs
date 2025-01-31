@@ -261,17 +261,16 @@ mod model {
 }
 
 mod controller {
-    use std::ops::Deref;
     use std::sync::Arc;
+    use std::{future::Future, ops::Deref};
 
     use super::views;
-    use askama_axum::IntoResponse;
-    use axum::async_trait;
+    use axum::response::IntoResponse;
     use htmxology::{
         htmx::{FragmentExt, Request as HtmxRequest},
         Controller,
     };
-    use htmxology::{Route, ServerInfo};
+    use htmxology::{RenderIntoResponse, Route, ServerInfo};
     use serde::{Deserialize, Serialize};
     use tokio::sync::Mutex;
 
@@ -349,129 +348,135 @@ mod controller {
     }
 
     /// Custom implementation.
-    #[async_trait]
     impl Controller for MainController {
         type Route = AppRoute;
 
-        async fn render_view(
+        fn render_view(
             &self,
             route: AppRoute,
             htmx: HtmxRequest,
             _parts: http::request::Parts,
             server_info: &ServerInfo,
-        ) -> axum::response::Response {
+        ) -> impl Future<Output = axum::response::Response> + Send {
             let base_url = server_info.base_url.clone();
 
-            match route {
-                AppRoute::Home | AppRoute::Dashboard => {
-                    let menu = Self::make_menu(self.model.lock().await.deref(), 0);
-                    let page = views::Page::Dashboard(views::PageDashboard {});
-                    match htmx {
-                        HtmxRequest::Classic => views::Index {
-                            menu,
-                            page,
-                            base_url,
-                        }
-                        .into_response(),
-                        HtmxRequest::Htmx { .. } => {
-                            page.into_htmx_response().with_oob(menu).into_response()
+            async move {
+                match route {
+                    AppRoute::Home | AppRoute::Dashboard => {
+                        let menu = Self::make_menu(self.model.lock().await.deref(), 0);
+                        let page = views::Page::Dashboard(views::PageDashboard {});
+                        match htmx {
+                            HtmxRequest::Classic => views::Index {
+                                menu,
+                                page,
+                                base_url,
+                            }
+                            .render_into_response(),
+                            HtmxRequest::Htmx { .. } => {
+                                page.into_htmx_response().with_oob(menu).into_response()
+                            }
                         }
                     }
-                }
-                AppRoute::Messages => {
-                    let model = self.model.lock().await;
-                    let menu = Self::make_menu(model.deref(), 1);
-                    let messages = model.messages.clone();
-                    let page = views::Page::Messages(views::PageMessages {
-                        messages: messages
-                            .into_iter()
-                            .map(|message| {
-                                (
-                                    AppRoute::MessageDetail {
-                                        id: message.id,
-                                        query: MessageDetailQuery { red: Some(true) },
-                                    },
-                                    message,
+                    AppRoute::Messages => {
+                        let model = self.model.lock().await;
+                        let menu = Self::make_menu(model.deref(), 1);
+                        let messages = model.messages.clone();
+                        let page = views::Page::Messages(views::PageMessages {
+                            messages: messages
+                                .into_iter()
+                                .map(|message| {
+                                    (
+                                        AppRoute::MessageDetail {
+                                            id: message.id,
+                                            query: MessageDetailQuery { red: Some(true) },
+                                        },
+                                        message,
+                                    )
+                                })
+                                .collect(),
+                        });
+
+                        match htmx {
+                            HtmxRequest::Classic => views::Index {
+                                menu,
+                                page,
+                                base_url,
+                            }
+                            .render_into_response(),
+                            HtmxRequest::Htmx { .. } => {
+                                page.into_htmx_response().with_oob(menu).into_response()
+                            }
+                        }
+                    }
+                    AppRoute::MessageDetail { id, query } => {
+                        let model = self.model.lock().await;
+                        let menu = Self::make_menu(model.deref(), 1);
+                        let message = match model
+                            .messages
+                            .iter()
+                            .find(|message| message.id == id)
+                            .cloned()
+                        {
+                            Some(message) => message,
+                            None => {
+                                return (
+                                    http::StatusCode::NOT_FOUND,
+                                    "Message not found".to_string(),
                                 )
-                            })
-                            .collect(),
-                    });
+                                    .into_response();
+                            }
+                        };
 
-                    match htmx {
-                        HtmxRequest::Classic => views::Index {
-                            menu,
-                            page,
-                            base_url,
-                        }
-                        .into_response(),
-                        HtmxRequest::Htmx { .. } => {
-                            page.into_htmx_response().with_oob(menu).into_response()
-                        }
-                    }
-                }
-                AppRoute::MessageDetail { id, query } => {
-                    let model = self.model.lock().await;
-                    let menu = Self::make_menu(model.deref(), 1);
-                    let message = match model
-                        .messages
-                        .iter()
-                        .find(|message| message.id == id)
-                        .cloned()
-                    {
-                        Some(message) => message,
-                        None => {
-                            return (http::StatusCode::NOT_FOUND, "Message not found".to_string())
-                                .into_response();
-                        }
-                    };
+                        let page = views::Page::MessageDetail(views::PageMessageDetail {
+                            message_id: message.id,
+                            red: query.red.unwrap_or_default(),
+                            save_url: AppRoute::MessageSave(id, Default::default()),
+                            form: MessageSaveBody {
+                                title: message.title,
+                                content: message.content,
+                            },
+                        });
 
-                    let page = views::Page::MessageDetail(views::PageMessageDetail {
-                        message_id: message.id,
-                        red: query.red.unwrap_or_default(),
-                        save_url: AppRoute::MessageSave(id, Default::default()),
-                        form: MessageSaveBody {
-                            title: message.title,
-                            content: message.content,
-                        },
-                    });
-
-                    match htmx {
-                        HtmxRequest::Classic => views::Index {
-                            menu,
-                            page,
-                            base_url,
-                        }
-                        .into_response(),
-                        HtmxRequest::Htmx { .. } => {
-                            page.into_htmx_response().with_oob(menu).into_response()
+                        match htmx {
+                            HtmxRequest::Classic => views::Index {
+                                menu,
+                                page,
+                                base_url,
+                            }
+                            .render_into_response(),
+                            HtmxRequest::Htmx { .. } => {
+                                page.into_htmx_response().with_oob(menu).into_response()
+                            }
                         }
                     }
-                }
-                AppRoute::MessageSave(id, form) => {
-                    println!("{id} => {form:#?}");
+                    AppRoute::MessageSave(id, form) => {
+                        println!("{id} => {form:#?}");
 
-                    http::StatusCode::NO_CONTENT.into_response()
-                }
-                AppRoute::Settings(settings) => {
-                    let (page, active_idx) = match settings {
-                        SettingsRoute::Home => (views::Page::Settings(views::PageSettings {}), 2),
-                        SettingsRoute::Advanced => (
-                            views::Page::AdvancedSettings(views::PageAdvancedSettings {}),
-                            3,
-                        ),
-                    };
+                        http::StatusCode::NO_CONTENT.into_response()
+                    }
+                    AppRoute::Settings(settings) => {
+                        let (page, active_idx) = match settings {
+                            SettingsRoute::Home => {
+                                (views::Page::Settings(views::PageSettings {}), 2)
+                            }
+                            SettingsRoute::Advanced => (
+                                views::Page::AdvancedSettings(views::PageAdvancedSettings {}),
+                                3,
+                            ),
+                        };
 
-                    let menu = Self::make_menu(self.model.lock().await.deref(), active_idx);
+                        let menu = Self::make_menu(self.model.lock().await.deref(), active_idx);
 
-                    match htmx {
-                        HtmxRequest::Classic => views::Index {
-                            menu,
-                            page,
-                            base_url,
-                        }
-                        .into_response(),
-                        HtmxRequest::Htmx { .. } => {
-                            page.into_htmx_response().with_oob(menu).into_response()
+                        match htmx {
+                            HtmxRequest::Classic => views::Index {
+                                menu,
+                                page,
+                                base_url,
+                            }
+                            .render_into_response(),
+                            HtmxRequest::Htmx { .. } => {
+                                page.into_htmx_response().with_oob(menu).into_response()
+                            }
                         }
                     }
                 }

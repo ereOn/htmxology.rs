@@ -465,7 +465,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                                     ));
                                 }
 
-                                subroute_arg = Some(field_ident.clone());
+                                subroute_arg = Some((field_ident.clone(), field_ty.clone()));
                             } else {
                                 path_args.push(quote_spanned! { field_ident.span() =>
                                     #field_ident
@@ -475,7 +475,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             }
                         }
 
-                        let subroute_arg = subroute_arg.ok_or_else(|| {
+                        let (subroute_arg, subroute_ty) = subroute_arg.ok_or_else(|| {
                             Error::new_spanned(
                                 variant,
                                 "expected a field with `subroute` attribute",
@@ -523,7 +523,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             let __new_path = __captures["subroute"].to_owned();
                             let __req = htmxology::replace_request_path(__req, __new_path);
 
-                            let #subroute_arg = axum::extract::FromRequest::from_request(__req, __state)
+                            let #subroute_arg = #subroute_ty::from_request(__req, __state)
                                 .await?;
 
                             return Ok(Self::#ident { #(#args),* });
@@ -565,7 +565,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                                     ));
                                 }
 
-                                subroute_arg = Some((i, field_ident.clone()));
+                                subroute_arg = Some((i, field_ident.clone(), field_ty.clone()));
                             } else {
                                 path_args.push(quote_spanned! { field_ident.span() =>
                                     #field_ident
@@ -574,12 +574,13 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             }
                         }
 
-                        let (subroute_arg_idx, subroute_arg) = subroute_arg.ok_or_else(|| {
-                            Error::new_spanned(
-                                variant,
-                                "expected a field with `subroute` attribute",
-                            )
-                        })?;
+                        let (subroute_arg_idx, subroute_arg, subroute_ty) = subroute_arg
+                            .ok_or_else(|| {
+                                Error::new_spanned(
+                                    variant,
+                                    "expected a field with `subroute` attribute",
+                                )
+                            })?;
 
                         let url = {
                             let mut statements = if path_args.is_empty() {
@@ -630,7 +631,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             let __new_path = __captures["subroute"].to_owned();
                             let __req = htmxology::replace_request_path(__req, __new_path);
 
-                            let #subroute_arg = axum::extract::FromRequest::from_request(__req, __state)
+                            let #subroute_arg = #subroute_ty::from_request(__req, __state)
                                 .await?;
 
                             return Ok(Self::#ident ( #(#args),* ));
@@ -703,7 +704,6 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
             }
         }
 
-        #[axum::async_trait]
         impl<S: Send + Sync> axum::extract::FromRequest<S> for #root_ident {
             type Rejection = axum::response::Response;
 

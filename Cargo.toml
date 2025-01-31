@@ -8,15 +8,14 @@ htmxology = { path = "./htmxology" }
 htmxology-macros = { path = "./htmxology-macros", version = "0.1.0" }
 
 anyhow = "1"
-askama = { version = "0.12", features = ["with-axum"] }
-askama_axum = { version = "0.4" }
-axum = "0.7"
+askama = { version = "0.12" }
+axum = "0.8"
 blake3 = "1"
-convert_case = "0.6"
-itertools = "0.13"
+convert_case = "0.7"
+itertools = "0.14"
 listenfd = "1"
 http = "1"
-netdev = "0.31"
+netdev = "0.32"
 proc-macro2 = "1"
 quote = "1"
 percent-encoding = "2"

@@ -2,7 +2,6 @@
 //!
 use std::{convert::Infallible, fmt::Display};
 
-use axum::async_trait;
 use http::request::Parts;
 
 mod header {
@@ -54,8 +53,7 @@ pub enum Request {
     },
 }
 
-#[async_trait]
-impl<S> axum::extract::FromRequestParts<S> for Request {
+impl<S: Send + Sync> axum::extract::FromRequestParts<S> for Request {
     type Rejection = Infallible;
 
     async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {

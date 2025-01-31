@@ -1,6 +1,5 @@
-use std::sync::Arc;
+use std::{future::Future, sync::Arc};
 
-use axum::async_trait;
 use tracing::warn;
 
 /// A controller that adds caching strategy support to another controller.
@@ -18,7 +17,6 @@ impl<C: crate::Controller> Clone for Controller<C> {
     }
 }
 
-#[async_trait]
 impl<C> crate::Controller for Controller<C>
 where
     C: crate::Controller,
@@ -26,30 +24,33 @@ where
 {
     type Route = C::Route;
 
-    async fn render_view(
+    fn render_view(
         &self,
         route: Self::Route,
         htmx: crate::htmx::Request,
         parts: http::request::Parts,
         server_info: &crate::ServerInfo,
-    ) -> axum::response::Response {
+    ) -> impl Future<Output = axum::response::Response> + Send {
         let cache_control = self.cache.get_cache_control(&route, &htmx, &parts);
         let url = route.to_string();
-        let response = self
-            .controller
-            .render_view(route, htmx, parts, server_info)
-            .await;
 
-        match self
-            .cache
-            .check_cache_control(cache_control, response)
-            .await
-        {
-            Ok(response) => response,
-            Err(response) => {
-                warn!("Cache control failed for route: {url}");
+        async move {
+            let response = self
+                .controller
+                .render_view(route, htmx, parts, server_info)
+                .await;
 
-                response
+            match self
+                .cache
+                .check_cache_control(cache_control, response)
+                .await
+            {
+                Ok(response) => response,
+                Err(response) => {
+                    warn!("Cache control failed for route: {url}");
+
+                    response
+                }
             }
         }
     }
