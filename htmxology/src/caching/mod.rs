@@ -98,7 +98,9 @@ impl<R: Route> Cache<R> {
     /// directive.
     ///
     /// If the provided response already contains an ETag, it will be used directly. Otherwise, one
-    /// will be computed from the response body, effectively disabling any streaming.
+    /// will be computed from the response body, effectively disabling any streaming. If the
+    /// response body is a stream that fails during reading, the original response will be lost and
+    /// replaced with an error response.
     ///
     /// If the provided response already contains a `Cache-Control` header, it will be left
     /// untouched.
@@ -184,10 +186,13 @@ pub enum CacheControl {
 
 /// An extension trait for caching directives.
 pub trait CachingResponseExt {
-    /// Decorate the response with caching headers.
+    /// Decorate the response with caching headers, instructing clients and intermediate proxies to
+    /// not cache the response.
     fn with_caching_disabled(self) -> axum::response::Response;
 
     /// Decorate the response with a cache control directive.
+    ///
+    /// The response will be cached for the provided duration, using the `private` directive.
     fn with_caching(self, duration: std::time::Duration) -> axum::response::Response;
 
     /// Add an ETag to the response.
@@ -218,7 +223,7 @@ impl CachingResponseExt for axum::response::Response {
             .insert(http::header::CACHE_CONTROL, cache_control);
         self.headers_mut().insert(
             http::header::VARY,
-            http::header::HeaderValue::from_static("Hx-Request"),
+            http::header::HeaderValue::from_static("Hx-Request, Hx-Target"),
         );
 
         self

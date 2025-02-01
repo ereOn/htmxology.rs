@@ -144,6 +144,14 @@ mod views {
     #[derive(Debug, Template)]
     #[template(path = "blocks/page/advanced_settings.html.jinja")]
     pub(super) struct PageAdvancedSettings {}
+
+    pub mod partials {
+        use super::Template;
+
+        #[derive(Template)]
+        #[template(path = "blocks/partials/saved.html.jinja")]
+        pub struct Saved;
+    }
 }
 
 mod model {
@@ -268,7 +276,7 @@ mod controller {
     use axum::response::IntoResponse;
     use htmxology::{
         htmx::{FragmentExt, Request as HtmxRequest},
-        Controller,
+        CachingResponseExt, Controller,
     };
     use htmxology::{RenderIntoResponse, Route, ServerInfo};
     use serde::{Deserialize, Serialize};
@@ -443,16 +451,33 @@ mod controller {
                                 page,
                                 base_url,
                             }
-                            .render_into_response(),
-                            HtmxRequest::Htmx { .. } => {
-                                page.into_htmx_response().with_oob(menu).into_response()
-                            }
+                            .render_into_response()
+                            .with_caching_disabled(),
+                            HtmxRequest::Htmx { .. } => page
+                                .into_htmx_response()
+                                .with_oob(menu)
+                                .into_response()
+                                .with_caching_disabled(),
                         }
                     }
                     AppRoute::MessageSave(id, form) => {
-                        println!("{id} => {form:#?}");
+                        let mut model = self.model.lock().await;
+                        let message =
+                            match model.messages.iter_mut().find(|message| message.id == id) {
+                                Some(message) => message,
+                                None => {
+                                    return (
+                                        http::StatusCode::NOT_FOUND,
+                                        "Message not found".to_string(),
+                                    )
+                                        .into_response();
+                                }
+                            };
 
-                        http::StatusCode::NO_CONTENT.into_response()
+                        message.title = form.title;
+                        message.content = form.content;
+
+                        views::partials::Saved.render_into_response()
                     }
                     AppRoute::Settings(settings) => {
                         let (page, active_idx) = match settings {
