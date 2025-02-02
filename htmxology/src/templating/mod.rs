@@ -9,6 +9,7 @@ pub trait RenderIntoResponse {
     fn render_into_response(self) -> axum::response::Response;
 }
 
+#[cfg(feature = "templating")]
 impl<T: askama::Template> RenderIntoResponse for T {
     fn render_into_response(self) -> axum::response::Response {
         match self.render() {
