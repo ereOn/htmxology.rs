@@ -6,7 +6,7 @@ use std::future::Future;
 /// route and any associated model.
 pub trait Controller: Send + Sync + Clone + 'static {
     /// The route type associated with the controller.
-    type Route: super::Route + Send + axum::extract::FromRequest<super::ServerState<Self>>;
+    type Route: super::Route + Send + axum::extract::FromRequest<Self>;
 
     /// Render a view for a given route.
     fn render_view(

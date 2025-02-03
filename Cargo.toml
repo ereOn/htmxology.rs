@@ -9,7 +9,7 @@ htmxology-macros = { path = "./htmxology-macros", version = "0.1.0" }
 
 anyhow = "1"
 askama = { version = "0.12" }
-axum = "0.8"
+axum = { version = "0.8", features = ["tokio"]}
 blake3 = "1"
 convert_case = "0.7"
 itertools = "0.14"
