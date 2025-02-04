@@ -1,0 +1,40 @@
+# This is a configuration file for the bacon tool
+#
+# Complete help on configuration: https://dystroy.org/bacon/config/
+# 
+# You may check the current default at
+#   https://github.com/Canop/bacon/blob/main/defaults/default-bacon.toml
+
+default_job = "check"
+env.CARGO_TERM_COLOR = "always"
+
+[jobs.check]
+command = ["cargo", "check", "--all-targets", "--all-features"]
+need_stdout = false
+
+[jobs.doc]
+command = ["cargo", "doc", "--all-features"]
+need_stdout = false
+
+# You can run your application and have the result displayed in bacon,
+# if it makes sense for this crate.
+[jobs.run]
+command = [
+    "cargo", "run",
+    # put launch parameters for your program behind a `--` separator
+]
+need_stdout = true
+allow_warnings = true
+background = false
+on_change_strategy = "kill_then_restart"
+
+# This parameterized job runs the example of your choice, as soon
+# as the code compiles.
+# Call it as
+#    bacon ex -- my-example
+[jobs.ex]
+command = ["cargo", "run", "--all-features", "--example"]
+need_stdout = true
+allow_warnings = true
+background = false
+on_change_strategy = "kill_then_restart"
