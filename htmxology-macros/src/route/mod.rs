@@ -686,6 +686,8 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
     }
 
     Ok(quote! {
+        use axum::response::IntoResponse as _;
+
         impl htmxology::Route for #root_ident {
             fn method(&self) -> http::Method {
                 match self {
