@@ -26,7 +26,8 @@ pub use route::{decode_path_argument, replace_request_path, Route};
 #[cfg(feature = "auto-reload")]
 pub use server::auto_reload::get_or_bind_tcp_listener;
 pub use server::{
-    ServeError, Server, ServerBuilder, ServerInfo, ServerOptions, ServerOptionsFromEnvError,
+    ControllerRouter, ServeError, Server, ServerBuilder, ServerInfo, ServerOptions,
+    ServerOptionsFromEnvError,
 };
 
 pub use templating::RenderIntoResponse;
