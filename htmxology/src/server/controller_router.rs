@@ -7,7 +7,7 @@ use crate::Controller;
 use super::ServerInfo;
 
 /// A router that is associated to a controller.
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct ControllerRouter(Router);
 
 impl ControllerRouter {
