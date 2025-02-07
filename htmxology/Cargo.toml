@@ -1,7 +1,7 @@
 [package]
 name = "htmxology"
 description = "HTMX server-side rendering framework for Rust, based on Axum."
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Julien Kauffmann"]
 repository = "https://github.com/ereOn/htmxology.rs"
