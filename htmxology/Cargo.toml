@@ -14,11 +14,12 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = []
-full = ["auto-reload", "interfaces", "ws", "derive"]
+full = ["auto-reload", "interfaces", "ws", "derive", "templating"]
 auto-reload = ["dep:listenfd", "tokio/net"]
 interfaces = ["dep:netdev"]
 ws = ["axum/ws", "dep:uuid"]
 derive = ["dep:htmxology-macros", "dep:serde_urlencoded", "dep:regex"]
+templating = ["dep:askama"]
 examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros", "dep:askama"]
 
 [lib]
