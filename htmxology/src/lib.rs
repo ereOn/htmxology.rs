@@ -24,9 +24,12 @@ pub use caching::{
 };
 pub use controller::Controller;
 pub use route::{decode_path_argument, replace_request_path, Route};
+#[cfg(feature = "auto-reload")]
+pub use server::auto_reload::get_or_bind_tcp_listener;
 pub use server::{
     ServeError, Server, ServerBuilder, ServerInfo, ServerOptions, ServerOptionsFromEnvError,
 };
+
 pub use state::ServerState;
 pub use templating::RenderIntoResponse;
 
