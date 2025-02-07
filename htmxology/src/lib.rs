@@ -15,7 +15,6 @@ mod caching;
 mod controller;
 mod route;
 mod server;
-mod state;
 mod templating;
 
 pub use caching::{
@@ -30,7 +29,6 @@ pub use server::{
     ServeError, Server, ServerBuilder, ServerInfo, ServerOptions, ServerOptionsFromEnvError,
 };
 
-pub use state::ServerState;
 pub use templating::RenderIntoResponse;
 
 #[cfg(feature = "derive")]

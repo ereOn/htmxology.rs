@@ -20,7 +20,7 @@ impl<C: crate::Controller> Clone for Controller<C> {
 impl<C> crate::Controller for Controller<C>
 where
     C: crate::Controller,
-    C::Route: crate::Route + Send + Sync + axum::extract::FromRequest<crate::ServerState<Self>>,
+    C::Route: crate::Route + Send + Sync + axum::extract::FromRequest<Self>,
 {
     type Route = C::Route;
 
