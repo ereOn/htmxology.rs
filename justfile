@@ -14,14 +14,11 @@ export SYSTEMFD_LISTEN_ADDR := "tcp::3000"
 example example:
   # Requires that `dev-setup` has been run at least once.
 
-  systemfd --no-pid -s ${SYSTEMFD_LISTEN_ADDR} -- cargo watch -x 'run --example {{example}} --all-features'
+  systemfd --no-pid -s ${SYSTEMFD_LISTEN_ADDR} -- bacon ex -- {{example}}
 
 doc:
-  cargo doc --all-features
-
-watch-doc:
-  cargo watch -x 'doc --all-features'
+  bacon doc
 
 dev-setup:
   # Install the required tools.
-  cargo install just cargo-watch systemfd
+  cargo install --locked just bacon systemfd
