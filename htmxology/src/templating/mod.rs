@@ -1,8 +1,5 @@
 //! Templating facilities.
 
-use axum::response::IntoResponse;
-use tracing::error;
-
 /// Render a template into an Axum response.
 pub trait RenderIntoResponse {
     /// Render the template into a response.
@@ -12,6 +9,9 @@ pub trait RenderIntoResponse {
 #[cfg(feature = "templating")]
 impl<T: askama::Template> RenderIntoResponse for T {
     fn render_into_response(self) -> axum::response::Response {
+        use axum::response::IntoResponse;
+        use tracing::error;
+
         match self.render() {
             Ok(body) => {
                 let mut headers = http::HeaderMap::new();
