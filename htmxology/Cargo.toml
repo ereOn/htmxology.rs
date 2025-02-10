@@ -36,7 +36,8 @@ htmxology-macros = { workspace = true, optional = true }
 anyhow = { workspace = true, optional = true }
 axum.workspace = true
 askama = { workspace = true, optional = true }
-blake3.workspace = true
+hex.workspace = true
+md-5.workspace = true
 listenfd = { workspace = true, optional = true }
 http.workspace = true
 netdev = { workspace = true, optional = true }

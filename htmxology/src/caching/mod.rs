@@ -6,6 +6,7 @@ use std::collections::BTreeSet;
 
 use axum::response::IntoResponse;
 pub use controller::{Controller, ControllerExt};
+use md5::Digest;
 use tracing::{error, warn};
 
 use crate::Route;
@@ -132,9 +133,10 @@ impl<R: Route> Cache<R> {
                             })?;
 
                         let etag = {
-                            let mut hasher = blake3::Hasher::new();
+                            let mut hasher = md5::Md5::new();
+
                             hasher.update(&body);
-                            hasher.finalize().to_hex().to_string()
+                            hex::encode(hasher.finalize().to_vec())
                         };
 
                         response = http::Response::from_parts(parts, body.into());
