@@ -22,6 +22,20 @@ pub trait Route: Display {
     }
 }
 
+/// An extension trait for routes.
+pub trait RouteExt: Route {
+    /// Turn the route into a redirect response.
+    fn as_redirect_response(&self) -> axum::response::Response {
+        http::Response::builder()
+            .status(http::StatusCode::SEE_OTHER)
+            .header(http::header::LOCATION, self.to_string())
+            .body(axum::body::Body::empty())
+            .expect("failed to create redirect response")
+    }
+}
+
+impl<T: Route> RouteExt for T {}
+
 /// Decode a path argument into a value.
 pub fn decode_path_argument<T: serde::de::DeserializeOwned>(
     key: &'static str,

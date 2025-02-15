@@ -22,7 +22,7 @@ pub use caching::{
     ControllerExt as CachingControllerExt,
 };
 pub use controller::Controller;
-pub use route::{decode_path_argument, replace_request_path, Route};
+pub use route::{decode_path_argument, replace_request_path, Route, RouteExt};
 #[cfg(feature = "auto-reload")]
 pub use server::auto_reload::get_or_bind_tcp_listener;
 pub use server::{

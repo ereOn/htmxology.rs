@@ -136,7 +136,7 @@ impl<R: Route> Cache<R> {
                             let mut hasher = md5::Md5::new();
 
                             hasher.update(&body);
-                            hex::encode(hasher.finalize().to_vec())
+                            hex::encode(hasher.finalize())
                         };
 
                         response = http::Response::from_parts(parts, body.into());

@@ -144,14 +144,6 @@ mod views {
     #[derive(Debug, Template)]
     #[template(path = "blocks/page/advanced_settings.html.jinja")]
     pub(super) struct PageAdvancedSettings {}
-
-    pub mod partials {
-        use super::Template;
-
-        #[derive(Template)]
-        #[template(path = "blocks/partials/saved.html.jinja")]
-        pub struct Saved;
-    }
 }
 
 mod model {
@@ -278,7 +270,7 @@ mod controller {
         htmx::{FragmentExt, Request as HtmxRequest},
         CachingResponseExt, Controller,
     };
-    use htmxology::{RenderIntoResponse, Route, ServerInfo};
+    use htmxology::{RenderIntoResponse, Route, RouteExt, ServerInfo};
     use serde::{Deserialize, Serialize};
     use tokio::sync::Mutex;
 
@@ -410,10 +402,13 @@ mod controller {
                                 page,
                                 base_url,
                             }
-                            .render_into_response(),
-                            HtmxRequest::Htmx { .. } => {
-                                page.into_htmx_response().with_oob(menu).into_response()
-                            }
+                            .render_into_response()
+                            .with_caching_disabled(),
+                            HtmxRequest::Htmx { .. } => page
+                                .into_htmx_response()
+                                .with_oob(menu)
+                                .into_response()
+                                .with_caching_disabled(),
                         }
                     }
                     AppRoute::MessageDetail { id, query } => {
@@ -477,7 +472,7 @@ mod controller {
                         message.title = form.title;
                         message.content = form.content;
 
-                        views::partials::Saved.render_into_response()
+                        AppRoute::Messages.as_redirect_response()
                     }
                     AppRoute::Settings(settings) => {
                         let (page, active_idx) = match settings {
