@@ -2,7 +2,7 @@
 name = "htmxology"
 description = "HTMX server-side rendering framework for Rust, based on Axum."
 version = "0.4.0"
-edition = "2021"
+edition = "2024"
 authors = ["Julien Kauffmann"]
 repository = "https://github.com/ereOn/htmxology.rs"
 license-file = "../LICENSE-MIT"
