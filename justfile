@@ -22,3 +22,7 @@ doc:
 dev-setup:
   # Install the required tools.
   cargo install --locked just bacon systemfd
+
+publish:
+  cargo publish -p htmxology-macros
+  cargo publish -p htmxology
