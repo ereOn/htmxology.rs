@@ -3,20 +3,7 @@
 use syn::parse_macro_input;
 
 mod display_delegate;
-mod fragment;
 mod route;
-
-/// Create an HTMX fragment.
-///
-/// This derive macro simply implements the `Fragment` trait for the annotated type.
-#[proc_macro_derive(Fragment, attributes(htmx))]
-pub fn derive_fragment(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let mut input = parse_macro_input!(input as syn::DeriveInput);
-
-    fragment::derive(&mut input)
-        .unwrap_or_else(syn::Error::into_compile_error)
-        .into()
-}
 
 /// Derive a route type.
 ///

@@ -36,7 +36,7 @@ async fn main() -> anyhow::Result<()> {
 /// which eases the rendering of the views in an HTMX context.
 mod views {
     use askama::Template;
-    use htmxology::{DisplayDelegate, Fragment, Route};
+    use htmxology::{DisplayDelegate, Route};
 
     use crate::controller::AppRoute;
 
@@ -58,8 +58,7 @@ mod views {
     ///
     /// The `target` attribute is optional (and by default derived from the type name) and
     /// indicates the HTMX target in which the fragment will be inserted.
-    #[derive(Debug, Fragment, DisplayDelegate)]
-    #[htmx(target = "#page")]
+    #[derive(Debug, DisplayDelegate)]
     pub(super) enum Page {
         /// The dashboard page.
         Dashboard(PageDashboard),
@@ -73,8 +72,7 @@ mod views {
         AdvancedSettings(PageAdvancedSettings),
     }
 
-    #[derive(Debug, Fragment, Template)]
-    #[htmx(target = "#menu")]
+    #[derive(Debug, Template)]
     #[template(path = "blocks/menu.html.jinja")]
     pub(super) struct Menu {
         /// The menu.
@@ -267,7 +265,7 @@ mod controller {
     use super::views;
     use axum::response::IntoResponse;
     use htmxology::{
-        htmx::{FragmentExt, Request as HtmxRequest},
+        htmx::{Fragment, Request as HtmxRequest},
         CachingResponseExt, Controller,
     };
     use htmxology::{RenderIntoResponse, Route, RouteExt, ServerInfo};
@@ -372,9 +370,10 @@ mod controller {
                                 base_url,
                             }
                             .render_into_response(),
-                            HtmxRequest::Htmx { .. } => {
-                                page.into_htmx_response().with_oob(menu).into_response()
-                            }
+                            HtmxRequest::Htmx { .. } => page
+                                .into_htmx_response(None)
+                                .with_oob("#menu", menu)
+                                .into_response(),
                         }
                     }
                     AppRoute::Messages => {
@@ -405,8 +404,8 @@ mod controller {
                             .render_into_response()
                             .with_caching_disabled(),
                             HtmxRequest::Htmx { .. } => page
-                                .into_htmx_response()
-                                .with_oob(menu)
+                                .into_htmx_response(None)
+                                .with_oob("#menu", menu)
                                 .into_response()
                                 .with_caching_disabled(),
                         }
@@ -449,8 +448,8 @@ mod controller {
                             .render_into_response()
                             .with_caching_disabled(),
                             HtmxRequest::Htmx { .. } => page
-                                .into_htmx_response()
-                                .with_oob(menu)
+                                .into_htmx_response(None)
+                                .with_oob("#menu", menu)
                                 .into_response()
                                 .with_caching_disabled(),
                         }
@@ -494,9 +493,10 @@ mod controller {
                                 base_url,
                             }
                             .render_into_response(),
-                            HtmxRequest::Htmx { .. } => {
-                                page.into_htmx_response().with_oob(menu).into_response()
-                            }
+                            HtmxRequest::Htmx { .. } => page
+                                .into_htmx_response(None)
+                                .with_oob("#menu", menu)
+                                .into_response(),
                         }
                     }
                 }

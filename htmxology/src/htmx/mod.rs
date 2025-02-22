@@ -1,6 +1,6 @@
 //! HTMX-related types.
 //!
-use std::{convert::Infallible, fmt::Display};
+use std::{borrow::Cow, convert::Infallible, fmt::Display};
 
 use http::request::Parts;
 
@@ -101,6 +101,9 @@ pub struct Response<T> {
     /// The main insert that constitutes the body of the response.
     body: T,
 
+    /// The HTMX target for the main insert.
+    htmx_retarget: HtmxRetarget,
+
     /// Some extra HTTP headers that are added to the response.
     extra_headers: http::HeaderMap,
 
@@ -109,7 +112,7 @@ pub struct Response<T> {
     ///
     /// The swap method strategy used for these are `innerHTML`, as the elements are automatically wrapped in a
     /// `div` element.
-    oob_elements: Vec<(InsertStrategy, Box<dyn Fragment>)>,
+    oob_elements: Vec<(InsertStrategy, Cow<'static, str>, Box<dyn Display>)>,
 }
 
 /// An HTMX insert strategy.
@@ -160,9 +163,17 @@ impl Display for InsertStrategy {
 
 impl<T> Response<T> {
     /// Add an out-of-band insert to the response using the `innerHTML` swap method.
-    pub fn with_oob(mut self, oob_element: impl Fragment + 'static) -> Self {
-        self.oob_elements
-            .push((InsertStrategy::InnerHtml, Box::new(oob_element)));
+    pub fn with_oob(
+        mut self,
+        target: impl Into<Cow<'static, str>>,
+        oob_element: impl Display + 'static,
+    ) -> Self {
+        self.oob_elements.push((
+            InsertStrategy::InnerHtml,
+            target.into(),
+            Box::new(oob_element),
+        ));
+
         self
     }
 
@@ -173,19 +184,24 @@ impl<T> Response<T> {
     }
 }
 
-impl<T: Fragment> axum::response::IntoResponse for Response<T> {
+impl<T: Display> axum::response::IntoResponse for Response<T> {
     fn into_response(self) -> axum::response::Response {
-        let headers: http::HeaderMap = [
-            (
-                http::header::CONTENT_TYPE,
-                http::HeaderValue::from_static("text/html"),
-            ),
+        let headers: http::HeaderMap = [(
+            http::header::CONTENT_TYPE,
+            http::HeaderValue::from_static("text/html"),
+        )]
+        .into_iter()
+        .chain(self.htmx_retarget.map(|htmx_target| {
             (
                 header::HX_RETARGET,
-                http::HeaderValue::from_static(self.body.htmx_target()),
-            ),
-        ]
-        .into_iter()
+                match htmx_target {
+                    Cow::Borrowed(target) => http::HeaderValue::from_static(target),
+                    Cow::Owned(target) => {
+                        http::HeaderValue::from_str(&target).expect("failed to parse HTMX target")
+                    }
+                },
+            )
+        }))
         .chain(
             self.extra_headers
                 .into_iter()
@@ -195,9 +211,7 @@ impl<T: Fragment> axum::response::IntoResponse for Response<T> {
 
         let mut body = self.body.to_string();
 
-        for (strategy, oob_element) in self.oob_elements {
-            let target = oob_element.htmx_target();
-
+        for (strategy, target, oob_element) in self.oob_elements {
             body.push_str(&format!(
                 "<div hx-swap-oob=\"{strategy}:{target}\">{oob_element}</div>"
             ));
@@ -207,36 +221,24 @@ impl<T: Fragment> axum::response::IntoResponse for Response<T> {
     }
 }
 
-/// A trait for types that can be inserted into an HTMX response.
-///
-/// Fragments are associated to a static HTMX target, which should ideally be the element whose
-/// content will be replaced by the fragment.
-pub trait Fragment: Display {
-    /// Get the HTMX target for the insert, as used in a `hx-target` attribute or the `Hx-Retarget`
-    /// HTTP header.
-    ///
-    /// This is the target element that will be replaced by the insert.
-    fn htmx_target(&self) -> &'static str;
-}
+/// An HTMX retargeting strategy.
+pub type HtmxRetarget = Option<Cow<'static, str>>;
 
-impl<T: Fragment> From<T> for Response<T> {
-    fn from(body: T) -> Self {
-        Self {
-            body,
+/// An extension trait for fragments.
+pub trait Fragment: Sized {
+    /// Turn the insert into an HTMX `Response`.
+    ///
+    /// This is a convenience method.
+    fn into_htmx_response(self, htmx_retarget: impl Into<HtmxRetarget>) -> Response<Self> {
+        let htmx_retarget = htmx_retarget.into();
+
+        Response {
+            body: self,
+            htmx_retarget,
             extra_headers: http::HeaderMap::new(),
             oob_elements: vec![],
         }
     }
 }
 
-/// An extension trait for fragments.
-pub trait FragmentExt: Fragment + Sized {
-    /// Turn the insert into an HTMX `Response`.
-    ///
-    /// This is a convenience method.
-    fn into_htmx_response(self) -> Response<Self> {
-        self.into()
-    }
-}
-
-impl<T> FragmentExt for T where T: Fragment {}
+impl<T> Fragment for T where T: Sized {}
