@@ -43,9 +43,9 @@ mod views {
     /// The index page.
     #[derive(Template)]
     #[template(path = "blocks/index.html.jinja")]
-    pub(super) struct Index {
+    pub(super) struct Index<'s> {
         pub menu: Menu,
-        pub page: Page,
+        pub page: Page<'s>,
         pub base_url: http::Uri,
     }
 
@@ -59,7 +59,7 @@ mod views {
     /// The `target` attribute is optional (and by default derived from the type name) and
     /// indicates the HTMX target in which the fragment will be inserted.
     #[derive(Debug, DisplayDelegate)]
-    pub(super) enum Page {
+    pub(super) enum Page<'s> {
         /// The dashboard page.
         Dashboard(PageDashboard),
         /// The messages page.
@@ -70,6 +70,8 @@ mod views {
         Settings(PageSettings),
         /// The advanced settings page.
         AdvancedSettings(PageAdvancedSettings),
+        /// A generic error page.
+        Error(&'s str),
     }
 
     #[derive(Debug, Template)]
@@ -265,8 +267,8 @@ mod controller {
     use super::views;
     use axum::response::IntoResponse;
     use htmxology::{
-        htmx::{Fragment, Request as HtmxRequest},
         CachingResponseExt, Controller,
+        htmx::{Fragment, Request as HtmxRequest},
     };
     use htmxology::{RenderIntoResponse, Route, RouteExt, ServerInfo};
     use serde::{Deserialize, Serialize};
@@ -309,6 +311,10 @@ mod controller {
         /// The settings route.
         #[route("settings/")]
         Settings(#[subroute] SettingsRoute),
+
+        /// An error route.
+        #[route("error")]
+        Error,
     }
 
     /// The message save body.
@@ -485,6 +491,23 @@ mod controller {
                         };
 
                         let menu = Self::make_menu(self.model.lock().await.deref(), active_idx);
+
+                        match htmx {
+                            HtmxRequest::Classic => views::Index {
+                                menu,
+                                page,
+                                base_url,
+                            }
+                            .render_into_response(),
+                            HtmxRequest::Htmx { .. } => page
+                                .into_htmx_response(None)
+                                .with_oob("#menu", menu)
+                                .into_response(),
+                        }
+                    }
+                    AppRoute::Error => {
+                        let page = views::Page::Error("this is an error");
+                        let menu = Self::make_menu(self.model.lock().await.deref(), 0);
 
                         match htmx {
                             HtmxRequest::Classic => views::Index {

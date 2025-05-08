@@ -4,13 +4,13 @@ use std::collections::BTreeMap;
 
 use quote::{format_ident, quote, quote_spanned};
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, Data, Error, Expr, Fields, Ident, Token, Variant,
+    Data, Error, Expr, Fields, Ident, Token, Variant, punctuated::Punctuated, spanned::Spanned,
 };
 
 mod route_type;
 mod route_url;
 
-use route_type::{append_query_arg, to_block, MethodExt, RouteType};
+use route_type::{MethodExt, RouteType, append_query_arg, to_block};
 use route_url::{ParseError, RouteUrl};
 
 mod attributes {
@@ -67,7 +67,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             quote_spanned! { variant.span() => Self::#ident => http::Method::#method_ident },
                         );
 
-                        quote_spanned! { variant.span() => #root_ident::#ident }
+                        quote_spanned! { variant.span() => Self::#ident }
                     }
                     // Enum::Named{} - no query or body parameters.
                     Fields::Named(fields) if fields.named.is_empty() => {
@@ -82,7 +82,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             quote_spanned! { variant.span() => Self::#ident{} => http::Method::#method_ident },
                         );
 
-                        quote_spanned! { variant.span() => #root_ident::#ident{} }
+                        quote_spanned! { variant.span() => Self::#ident{} }
                     }
                     // Enum::Unnamed() - no query or body parameters.
                     Fields::Unnamed(fields) if fields.unnamed.is_empty() => {
@@ -97,7 +97,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             quote_spanned! { variant.span() => Self::#ident() => http::Method::#method_ident },
                         );
 
-                        quote_spanned! { variant.span() => #root_ident::#ident() }
+                        quote_spanned! { variant.span() => Self::#ident() }
                     }
                     // Enum::Named{...}
                     Fields::Named(fields) => {
@@ -424,7 +424,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                         return Err(Error::new_spanned(
                             variant,
                             "expected struct or tuple variant",
-                        ))
+                        ));
                     }
                     // Enum::Named{...}
                     Fields::Named(fields) => {

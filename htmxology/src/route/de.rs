@@ -1,8 +1,9 @@
 //! Implement single path argument deserialization.
 
 use serde::{
+    Deserializer,
     de::{self, DeserializeSeed, EnumAccess, VariantAccess, Visitor},
-    forward_to_deserialize_any, Deserializer,
+    forward_to_deserialize_any,
 };
 use std::{any::type_name, borrow::Cow};
 

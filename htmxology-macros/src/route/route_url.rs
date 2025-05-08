@@ -4,7 +4,7 @@ use std::{collections::BTreeMap, fmt::Display, str::FromStr};
 
 use itertools::{Itertools, Position};
 use proc_macro2::TokenStream;
-use quote::{quote, ToTokens};
+use quote::{ToTokens, quote};
 use syn::Ident;
 
 /// A route URL.
@@ -162,7 +162,12 @@ impl RouteUrl {
                 }
                 RouteUrlSegment::Literal(s) => statements.push(quote! {f.write_str(#s)?;}),
                 RouteUrlSegment::Parameter { name } => {
-                    return Err(syn::Error::new_spanned(ctx, format!("the URL contains a required path parameter `{name}`, which cannot be formatted without parameters")));
+                    return Err(syn::Error::new_spanned(
+                        ctx,
+                        format!(
+                            "the URL contains a required path parameter `{name}`, which cannot be formatted without parameters"
+                        ),
+                    ));
                 }
             }
         }

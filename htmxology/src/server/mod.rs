@@ -183,7 +183,9 @@ impl Server {
         if local_addr.ip().is_unspecified() {
             // If the local address is unspecified, we have to enumerate the network
             // interfaces and take an address from one of them.
-            tracing::warn!("Local address is unspecified, guessing from network interfaces... This is likely not what you want.");
+            tracing::warn!(
+                "Local address is unspecified, guessing from network interfaces... This is likely not what you want."
+            );
 
             let localhost_base_url = format!("http://localhost:{}", local_addr.port())
                 .parse()
