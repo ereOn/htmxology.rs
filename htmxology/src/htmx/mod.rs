@@ -20,6 +20,7 @@ mod header {
 
     // Response headers.
     pub(super) const HX_RETARGET: http::HeaderName = http::HeaderName::from_static("hx-retarget");
+    pub(super) const HX_PUSH_URL: http::HeaderName = http::HeaderName::from_static("hx-push-url");
 }
 
 /// An HTMX request header extractor.
@@ -180,6 +181,24 @@ impl<T> Response<T> {
     /// Add an extra HTTP header to the response.
     pub fn with_header(mut self, name: http::HeaderName, value: http::HeaderValue) -> Self {
         self.extra_headers.append(name, value);
+        self
+    }
+
+    /// Indicate that the response should not push the URL to the browser history.
+    pub fn without_push_url(mut self) -> Self {
+        self.extra_headers
+            .append(header::HX_PUSH_URL, http::HeaderValue::from_static("false"));
+        self
+    }
+
+    /// Indicate that the response should push the URL to the browser history.
+    ///
+    /// The URL to push must be a valid HTTP header value or the call will panic.
+    pub fn with_push_url(mut self, url: &http::Uri) -> Self {
+        self.extra_headers.append(
+            header::HX_PUSH_URL,
+            http::HeaderValue::from_str(&url.to_string()).expect("invalid URL"),
+        );
         self
     }
 }
