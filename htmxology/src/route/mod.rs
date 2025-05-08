@@ -16,6 +16,11 @@ pub trait Route: Display {
     /// Get the method for the route.
     fn method(&self) -> http::Method;
 
+    /// Get a HTMX attribute for the route.
+    fn as_htmx_attribute(&self) -> String {
+        format!(r#"hx-{}="{self}""#, self.method().as_str().to_lowercase())
+    }
+
     /// Get an absolute URL for the route.
     fn to_absolute_url(&self, base_url: &http::Uri) -> String {
         format!("{}/{}", base_url, self)
@@ -69,4 +74,30 @@ pub fn replace_request_path<B>(req: http::Request<B>, path: String) -> http::Req
     parts.uri = http::Uri::from_parts(uri_parts).expect("failed to create new URI");
 
     http::Request::from_parts(parts, body)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_route_as_htmx_attribute() {
+        #[derive(Debug, Clone, Copy)]
+        struct TestRoute;
+
+        impl Display for TestRoute {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "/test/route")
+            }
+        }
+
+        impl Route for TestRoute {
+            fn method(&self) -> http::Method {
+                http::Method::GET
+            }
+        }
+
+        let route = TestRoute;
+        assert_eq!(route.as_htmx_attribute(), r#"hx-get="/test/route""#);
+    }
 }
