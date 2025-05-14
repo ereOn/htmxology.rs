@@ -8,7 +8,7 @@ htmxology = { path = "./htmxology" }
 htmxology-macros = { path = "./htmxology-macros", version = "0.7.0" }
 
 anyhow = "1"
-askama = { version = "0.12" }
+askama = { version = "0.14" }
 axum = { version = "0.8", features = ["tokio"]}
 convert_case = "0.8"
 itertools = "0.14"

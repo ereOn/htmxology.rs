@@ -17,7 +17,7 @@ impl<T: askama::Template> RenderIntoResponse for T {
                 let mut headers = http::HeaderMap::new();
                 headers.insert(
                     http::header::CONTENT_TYPE,
-                    http::HeaderValue::from_static(T::MIME_TYPE),
+                    http::HeaderValue::from_static("text/html; charset=utf-8"),
                 );
 
                 (http::StatusCode::OK, headers, body).into_response()
