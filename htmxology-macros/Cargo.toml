@@ -1,11 +1,11 @@
 [package]
 name = "htmxology-macros"
 description = "Macros for the htmxology crate"
-version = "0.8.0"
-edition = "2024"
-authors = ["Julien Kauffmann"]
-repository = "https://github.com/ereOn/htmxology.rs"
-license-file = "../LICENSE-MIT"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license-file.workspace = true
 keywords = ["htmx", "ssr", "web", "html", "axum"]
 categories = ["web-programming"]
 

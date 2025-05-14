@@ -1,11 +1,11 @@
 [package]
 name = "htmxology"
 description = "HTMX server-side rendering framework for Rust, based on Axum."
-version = "0.8.0"
-edition = "2024"
-authors = ["Julien Kauffmann"]
-repository = "https://github.com/ereOn/htmxology.rs"
-license-file = "../LICENSE-MIT"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+repository.workspace = true
+license-file.workspace = true
 keywords = ["htmx", "ssr", "web", "html", "axum"]
 categories = ["web-programming"]
 

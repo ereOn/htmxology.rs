@@ -3,9 +3,16 @@ members = ["htmxology", "htmxology-macros"]
 #default-members = ["htmxology"]
 resolver = "2"
 
+[workspace.package]
+version = "0.8.0"
+edition = "2024"
+authors = ["Julien Kauffmann"]
+repository = "https://github.com/ereOn/htmxology.rs"
+license-file = "LICENSE-MIT"
+
 [workspace.dependencies]
 htmxology = { path = "./htmxology" }
-htmxology-macros = { path = "./htmxology-macros" }
+htmxology-macros = { path = "./htmxology-macros", version = "*" }
 
 anyhow = "1"
 askama = { version = "0.14" }
