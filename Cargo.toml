@@ -12,7 +12,7 @@ license-file = "LICENSE-MIT"
 
 [workspace.dependencies]
 htmxology = { path = "./htmxology" }
-htmxology-macros = { path = "./htmxology-macros", version = "*" }
+htmxology-macros = { path = "./htmxology-macros", version = "0.8.0" }
 
 anyhow = "1"
 askama = { version = "0.14" }
