@@ -15,6 +15,8 @@ mod caching;
 mod controller;
 mod route;
 mod server;
+
+#[cfg(feature = "templating")]
 mod templating;
 
 pub use caching::{
@@ -30,6 +32,7 @@ pub use server::{
     ServerOptionsFromEnvError,
 };
 
+#[cfg(feature = "templating")]
 pub use templating::RenderIntoResponse;
 
 #[cfg(feature = "derive")]
