@@ -20,7 +20,7 @@ interfaces = ["dep:netdev"]
 ws = ["axum/ws", "dep:uuid"]
 derive = ["dep:htmxology-macros", "dep:serde_urlencoded", "dep:regex"]
 templating = ["dep:askama"]
-examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros", "dep:askama"]
+examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros", "dep:axum-extra", "dep:askama"]
 
 [lib]
 name = "htmxology"
@@ -35,6 +35,7 @@ htmxology-macros = { workspace = true, optional = true }
 
 anyhow = { workspace = true, optional = true }
 axum.workspace = true
+axum-extra = { workspace = true, optional = true }
 askama = { workspace = true, optional = true }
 hex.workspace = true
 md-5.workspace = true

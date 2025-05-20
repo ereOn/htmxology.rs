@@ -240,8 +240,8 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             None => quote!(),
                             Some(body_ident) => {
                                 quote! {
-                                    let axum::extract::Form(#body_ident) =
-                                    axum::extract::Form::from_request(__req, __state)
+                                    let axum_extra::extract::Form(#body_ident) =
+                                    axum_extra::extract::Form::from_request(__req, __state)
                                         .await
                                         .map_err(|err| err.into_response())?;
                                 }
@@ -394,8 +394,8 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                             None => quote!(),
                             Some(body_ident) => {
                                 quote! {
-                                    let axum::extract::Form(#body_ident) =
-                                    axum::extract::Form::from_request(__req, __state)
+                                    let axum_extra::extract::Form(#body_ident) =
+                                    axum_extra::extract::Form::from_request(__req, __state)
                                         .await
                                         .map_err(|err| err.into_response())?;
                                 }

@@ -17,6 +17,7 @@ htmxology-macros = { path = "./htmxology-macros", version = "0.9.0" }
 anyhow = "1"
 askama = { version = "0.14" }
 axum = { version = "0.8", features = ["tokio"]}
+axum-extra = { version = "0.10", features = ["form"] }
 convert_case = "0.8"
 itertools = "0.14"
 listenfd = "1"
