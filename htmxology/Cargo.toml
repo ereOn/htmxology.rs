@@ -30,6 +30,11 @@ name = "blocks"
 path = "../examples/blocks.rs"
 required-features = ["auto-reload", "interfaces", "examples"]
 
+[[example]]
+name = "web-components"
+path = "../examples/web-components.rs"
+required-features = ["auto-reload", "interfaces", "examples"]
+
 [dependencies]
 htmxology-macros = { workspace = true, optional = true }
 
