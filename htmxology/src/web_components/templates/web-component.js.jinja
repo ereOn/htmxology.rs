@@ -1,0 +1,9 @@
+customElements.define('{{ html_element_name }}', class {{ js_component_name }} extends HTMLElement {
+  connectedCallback() {
+    const root = this.attachShadow({ mode: '{{ shadow_dom_mode }}' })
+    root.innerHTML = `
+      {{ html_content }}
+    `
+    htmx.process(root)
+  }
+})

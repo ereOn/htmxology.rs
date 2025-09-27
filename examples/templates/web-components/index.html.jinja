@@ -1,18 +1,24 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <title>HTMXOLOGY web-components example</title>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <meta name="description" value="HTMXOLOGY web-components example">
-        <meta name="keywords" value="htmxology, htmx, ssr, example">
-        <script src="https://unpkg.com/htmx.org@2.0.3"
-                integrity="sha384-0895/pl2MU10Hqc6jd4RvrthNlDiE9U1tWmX7WRESftEDRosgxNsQG/Ze9YMRzHq"
-                crossorigin="anonymous"></script>
-        <script src="https://unpkg.com/htmx-ext-preload@2.0.1/preload.js"></script>
-        <script src="https://cdn.tailwindcss.com"></script>
-    </head>
-    <body hx-boost="true" hx-ext="preload">
-	    <p>Hello</p>
-    </body>
+  <head>
+    <title>HTMXOLOGY web-components example</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" value="HTMXOLOGY web-components example" />
+    <meta name="keywords" value="htmxology, htmx, ssr, example" />
+    <script
+      src="https://unpkg.com/htmx.org@2.0.3"
+      integrity="sha384-0895/pl2MU10Hqc6jd4RvrthNlDiE9U1tWmX7WRESftEDRosgxNsQG/Ze9YMRzHq"
+      crossorigin="anonymous"
+    ></script>
+    <script src="https://unpkg.com/htmx-ext-preload@2.0.1/preload.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  {{ web_components|safe }}
+  <body hx-boost="true" hx-ext="preload">
+    <p>Hello</p>
+    <my-element></my-element>
+    <my-element>foo</my-element>
+    <my-element>salut</my-element>
+  </body>
 </html>
