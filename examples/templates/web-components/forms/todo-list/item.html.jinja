@@ -1,0 +1,5 @@
+<li id="{{ id() -}}-item-{{ item.id }}">
+  {{ item.id }}- <strong>{{ item.title }}</strong> - {{ item.description }}
+  (Priority: {{ item.priority }})
+  ({% if item.completed %}Completed{% else %}Pending{% endif %})
+</li>

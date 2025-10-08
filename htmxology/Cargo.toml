@@ -21,7 +21,7 @@ ws = ["axum/ws", "dep:uuid"]
 derive = ["dep:htmxology-macros", "dep:serde_urlencoded", "dep:regex"]
 templating = ["dep:askama"]
 web-components = ["derive", "templating"]
-examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros", "dep:axum-extra", "dep:askama"]
+examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros", "dep:axum-extra", "dep:askama", "dep:serde_json"]
 
 [lib]
 name = "htmxology"
@@ -51,6 +51,7 @@ netdev = { workspace = true, optional = true }
 percent-encoding.workspace = true
 regex = { workspace = true, optional = true }
 serde.workspace = true
+serde_json = { workspace = true, optional = true }
 serde_urlencoded = { workspace = true, optional = true }
 thiserror.workspace = true
 tokio.workspace = true

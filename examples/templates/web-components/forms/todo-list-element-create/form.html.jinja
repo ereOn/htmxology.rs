@@ -1,0 +1,46 @@
+<div class="card" id="{{ id() }}" hx-target="#{{ id() }}" hx-swap="outerHTML">
+  <form {{ action().as_htmx_attribute()|safe }}>
+    <div class="card-header bg-primary text-white">
+      <h4 class="mb-0">
+        Add a todo to backend <code>{{ backend_name }}</code>
+      </h4>
+    </div>
+    <div class="card-body">
+      <div class="mb-3">
+        <label for="todoTitle" class="form-label">Title</label>
+        <input
+          type="text"
+          class="form-control"
+          id="todoTitle"
+          name="title"
+          placeholder="The title of the todo"
+          required
+        />
+      </div>
+
+      <div class="mb-3">
+        <label for="todoDescription" class="form-label">Description</label>
+        <textarea
+          class="form-control"
+          id="todoDescription"
+          name="description"
+          rows="3"
+          placeholder="The description of the todo"
+        ></textarea>
+      </div>
+
+      <div class="mb-3">
+        <label for="todoPriority" class="form-label">Priority</label>
+        <select class="form-select" id="todoPriority" name="priority">
+          <option value="low">Low</option>
+          <option value="medium" selected>Medium</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+
+      <div class="d-grid">
+        <button type="submit" class="btn btn-primary">Add</button>
+      </div>
+    </div>
+  </form>
+</div>

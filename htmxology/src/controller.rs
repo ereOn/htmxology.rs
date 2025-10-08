@@ -8,12 +8,12 @@ pub trait Controller: Send + Sync + Clone + 'static {
     /// The route type associated with the controller.
     type Route: super::Route + Send + axum::extract::FromRequest<Self>;
 
-    /// Render a view for a given route.
-    fn render_view(
+    /// Handle the request for a given route.
+    fn handle_request(
         &self,
         route: Self::Route,
         htmx: super::htmx::Request,
         parts: http::request::Parts,
         server_info: &super::ServerInfo,
-    ) -> impl Future<Output = axum::response::Response> + Send;
+    ) -> impl Future<Output = Result<axum::response::Response, axum::response::Response>> + Send;
 }

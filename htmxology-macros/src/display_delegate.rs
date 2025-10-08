@@ -1,4 +1,4 @@
-//! Fragment derive macro.
+//! DisplayDelegate derive macro.
 
 use quote::quote;
 use syn::{Data, Error};

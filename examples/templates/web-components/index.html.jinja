@@ -11,14 +11,23 @@
       integrity="sha384-0895/pl2MU10Hqc6jd4RvrthNlDiE9U1tWmX7WRESftEDRosgxNsQG/Ze9YMRzHq"
       crossorigin="anonymous"
     ></script>
-    <script src="https://unpkg.com/htmx-ext-preload@2.0.1/preload.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
   </head>
-  {{ web_components|safe }}
-  <body hx-boost="true" hx-ext="preload">
-    <p>Hello</p>
-    <my-element></my-element>
-    <my-element>foo</my-element>
-    <my-element>salut</my-element>
+  <body hx-boost="true">
+    <div class="container mt-5">
+      <div class="row justify-content-center">
+        <div class="col-md-6">
+          {{ todo_list_element_create_form(BackendName::A)|safe }}
+          {{ todo_list_a|safe }}
+        </div>
+        <div class="col-md-6">
+          {{ todo_list_element_create_form(BackendName::B)|safe }}
+          {{ todo_list_b|safe }}
+        </div>
+      </div>
+    </div>
   </body>
 </html>

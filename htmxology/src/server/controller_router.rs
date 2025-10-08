@@ -35,7 +35,7 @@ impl ControllerRouter {
                         "server info was not found in request extensions: this is not expected",
                     );
 
-                    C::render_view(&controller, route, htmx, parts, &server_info).await
+                    C::handle_request(&controller, route, htmx, parts, &server_info).await
                 },
             )
             .with_state(controller);
