@@ -19,9 +19,6 @@ mod server;
 #[cfg(feature = "templating")]
 mod templating;
 
-#[cfg(feature = "web-components")]
-pub mod web_components;
-
 pub use caching::{
     Cache, CacheControl, CachingResponseExt, Controller as CachingController,
     ControllerExt as CachingControllerExt,

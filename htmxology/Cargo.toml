@@ -14,13 +14,12 @@ maintenance = { status = "actively-developed" }
 
 [features]
 default = []
-full = ["auto-reload", "interfaces", "ws", "derive", "templating", "web-components"]
+full = ["auto-reload", "interfaces", "ws", "derive", "templating"]
 auto-reload = ["dep:listenfd", "tokio/net"]
 interfaces = ["dep:netdev"]
 ws = ["axum/ws", "dep:uuid"]
 derive = ["dep:htmxology-macros", "dep:serde_urlencoded", "dep:regex"]
 templating = ["dep:askama"]
-web-components = ["derive", "templating"]
 examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros", "dep:axum-extra", "dep:askama", "dep:serde_json"]
 
 [lib]
@@ -32,8 +31,8 @@ path = "../examples/blocks.rs"
 required-features = ["auto-reload", "interfaces", "examples"]
 
 [[example]]
-name = "web-components"
-path = "../examples/web-components.rs"
+name = "components"
+path = "../examples/components.rs"
 required-features = ["auto-reload", "interfaces", "examples"]
 
 [dependencies]

@@ -1,7 +1,7 @@
 //! Run with
 //!
 //! ```not_rust
-//! just example web-components
+//! just example components
 //! ```
 
 use controller::MainController;
@@ -88,7 +88,7 @@ mod views {
 
     /// The index page.
     #[derive(Template)]
-    #[template(path = "web-components/index.html.jinja")]
+    #[template(path = "components/index.html.jinja")]
     pub(super) struct Index {
         /// The todo list for backend A.
         todo_list_a: TodoList,
@@ -127,7 +127,7 @@ mod views {
 
     /// The todo-list.
     #[derive(Template)]
-    #[template(path = "web-components/forms/todo-list/index.html.jinja")]
+    #[template(path = "components/forms/todo-list/index.html.jinja")]
     pub(super) struct TodoList {
         /// The backend to use.
         backend_name: BackendName,
@@ -167,7 +167,7 @@ mod views {
 
     /// The todo-list element create form.
     #[derive(Template)]
-    #[template(path = "web-components/forms/todo-list-element-create/form.html.jinja")]
+    #[template(path = "components/forms/todo-list-element-create/form.html.jinja")]
     pub(super) struct TodoListElementCreateForm {
         /// The backend to use.
         pub backend_name: BackendName,

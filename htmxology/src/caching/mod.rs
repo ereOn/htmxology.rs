@@ -201,6 +201,7 @@ pub trait CachingResponseExt {
     ///
     /// The etag value must be convertible to a valid HTTP header value or an error will be
     /// returned.
+    #[expect(clippy::result_large_err)]
     fn with_etag(self, etag: &str) -> Result<axum::response::Response, axum::response::Response>;
 }
 
