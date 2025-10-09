@@ -192,16 +192,23 @@ impl<T> Response<T> {
     }
 
     /// Add an out-of-band insert to the response using the `innerHTML` swap method.
-    pub fn with_oob(
+    pub fn with_oob(self, oob_element: impl Identity + 'static) -> Self {
+        let target = format!("#{}", oob_element.id());
+        self.with_raw_oob(InsertStrategy::OuterHtml, target, oob_element)
+    }
+
+    /// Add an out-of-band insert to the response using the specified insert strategy.
+    ///
+    /// This method lets you set the HTMX target as a raw string, which can be useful if the
+    /// target is not a simple HTML ID (e.g. a class selector or an attribute selector).
+    pub fn with_raw_oob(
         mut self,
+        insert_strategy: InsertStrategy,
         target: impl Into<Cow<'static, str>>,
         oob_element: impl Display + 'static,
     ) -> Self {
-        self.oob_elements.push((
-            InsertStrategy::InnerHtml,
-            target.into(),
-            Box::new(oob_element),
-        ));
+        self.oob_elements
+            .push((insert_strategy, target.into(), Box::new(oob_element)));
 
         self
     }
@@ -289,6 +296,33 @@ pub trait ResponseExt: Sized {
 }
 
 impl<T> ResponseExt for T where T: Sized {}
+
+/// A trait for HTML elements that have an identity.
+///
+/// Types that implement this trait MUST render as a HTML fragment with a root element that has
+/// an `id` attribute matching the value returned by the `id` method.
+///
+/// A common way in most template engines is to use the `id_attribute` method to get the proper
+/// declaration for the `id` attribute.
+///
+/// Here's an example implementation using the `askama` template engine:
+///
+/// ```ignore
+/// <div {{ id_attribute()|safe }}>
+/// ```
+pub trait Identity: Display {
+    /// Get the unique identifier for the HTML element.
+    fn id(&self) -> Cow<'static, str>;
+
+    /// Get the `id` attribute declaration for the HTML element.
+    ///
+    /// This is a convenience method that formats the `id` attribute for use in HTML.
+    ///
+    /// In most cases, this method should not be overridden.
+    fn id_attribute(&self) -> String {
+        format!(r#"id="{}""#, self.id())
+    }
+}
 
 /// An extension trait for providing convenience methods on `Result<T, E>`.
 pub trait ResultExt<T> {

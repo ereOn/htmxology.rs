@@ -35,8 +35,10 @@ async fn main() -> anyhow::Result<()> {
 /// For some of the types, the `DisplayDelegate` derive macro is used to implement the `Display`
 /// trait which eases the rendering of the views in an HTMX context.
 mod views {
+    use std::borrow::Cow;
+
     use askama::Template;
-    use htmxology::{DisplayDelegate, Route};
+    use htmxology::{DisplayDelegate, Route, htmx::Identity};
 
     use crate::controller::AppRoute;
 
@@ -82,6 +84,12 @@ mod views {
 
         /// The active menu item.
         pub active: usize,
+    }
+
+    impl Identity for Menu {
+        fn id(&self) -> Cow<'static, str> {
+            "menu".into()
+        }
     }
 
     #[derive(Debug)]
@@ -375,10 +383,9 @@ mod controller {
                             base_url,
                         }
                         .render_into_response(),
-                        HtmxRequest::Htmx { .. } => page
-                            .into_htmx_response()
-                            .with_oob("#menu", menu)
-                            .into_response(),
+                        HtmxRequest::Htmx { .. } => {
+                            page.into_htmx_response().with_oob(menu).into_response()
+                        }
                     }
                 }
                 AppRoute::Messages => {
@@ -410,7 +417,7 @@ mod controller {
                         .with_caching_disabled(),
                         HtmxRequest::Htmx { .. } => page
                             .into_htmx_response()
-                            .with_oob("#menu", menu)
+                            .with_oob(menu)
                             .into_response()
                             .with_caching_disabled(),
                     }
@@ -454,7 +461,7 @@ mod controller {
                         .with_caching_disabled(),
                         HtmxRequest::Htmx { .. } => page
                             .into_htmx_response()
-                            .with_oob("#menu", menu)
+                            .with_oob(menu)
                             .into_response()
                             .with_caching_disabled(),
                     }
@@ -495,10 +502,9 @@ mod controller {
                             base_url,
                         }
                         .render_into_response(),
-                        HtmxRequest::Htmx { .. } => page
-                            .into_htmx_response()
-                            .with_oob("#menu", menu)
-                            .into_response(),
+                        HtmxRequest::Htmx { .. } => {
+                            page.into_htmx_response().with_oob(menu).into_response()
+                        }
                     }
                 }
                 AppRoute::Error => {
@@ -512,10 +518,9 @@ mod controller {
                             base_url,
                         }
                         .render_into_response(),
-                        HtmxRequest::Htmx { .. } => page
-                            .into_htmx_response()
-                            .with_oob("#menu", menu)
-                            .into_response(),
+                        HtmxRequest::Htmx { .. } => {
+                            page.into_htmx_response().with_oob(menu).into_response()
+                        }
                     }
                 }
             };

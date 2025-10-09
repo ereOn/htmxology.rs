@@ -34,10 +34,7 @@ mod components {
         htmx::{Request as HtmxRequest, ResponseExt},
     };
 
-    use crate::{
-        controller::{AppRoute, TodoListElementCreateRoute},
-        views::IdentifiedElement,
-    };
+    use crate::controller::{AppRoute, TodoListElementCreateRoute};
 
     pub struct TodoListElementCreateForm;
 
@@ -65,7 +62,7 @@ mod components {
 
                             Ok(crate::views::TodoListElementCreateForm { backend_name }
                                 .into_htmx_response()
-                                .with_oob(format!("#{}", todo_list.id()), todo_list)
+                                .with_oob(todo_list)
                                 .into_response())
                         }
                     }
@@ -79,7 +76,7 @@ mod views {
     use std::borrow::Cow;
 
     use askama::Template;
-    use htmxology::Route;
+    use htmxology::{Route, htmx::Identity};
 
     use crate::{
         backend::{Backend, BackendName, Backends, TodoElement},
@@ -115,11 +112,6 @@ mod views {
         }
     }
 
-    /// An element that has an ID.
-    pub trait IdentifiedElement {
-        fn id(&self) -> Cow<'static, str>;
-    }
-
     pub trait HtmxForm {
         /// Get the action route for the form.
         fn action(&self) -> AppRoute;
@@ -136,7 +128,7 @@ mod views {
         items: Vec<TodoElement>,
     }
 
-    impl IdentifiedElement for TodoList {
+    impl Identity for TodoList {
         fn id(&self) -> Cow<'static, str> {
             let Self {
                 backend_name: backend,
@@ -173,7 +165,7 @@ mod views {
         pub backend_name: BackendName,
     }
 
-    impl IdentifiedElement for TodoListElementCreateForm {
+    impl Identity for TodoListElementCreateForm {
         fn id(&self) -> Cow<'static, str> {
             let Self { backend_name } = self;
 

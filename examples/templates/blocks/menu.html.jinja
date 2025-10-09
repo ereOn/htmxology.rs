@@ -1,10 +1,16 @@
-<nav class="flex-1 px-2 py-4 bg-gray-800">
-    {% for item in menu %}
-        <a href="{{ item.url }}"
-           hx-target="#page"
-           class="flex items-center px-4 py-2 hover:bg-gray-700 {% if loop.index0 == active %}text-blue-400 font-bold{% else %}text-gray-100{% endif %}">
-            {{ item.icon|safe }}
-            {{ item.title }}
-        </a>
-    {% endfor %}
+<nav class="flex-1 px-2 py-4 bg-gray-800" {{ id_attribute()|safe }}>
+  {% for item in menu %}
+    <a
+      href="{{ item.url }}"
+      hx-target="#page"
+      class="flex items-center px-4 py-2 hover:bg-gray-700 {% if loop.index0 == active %}
+        text-blue-400 font-bold
+      {% else %}
+        text-gray-100
+      {% endif %}"
+    >
+      {{ item.icon|safe }}
+      {{ item.title }}
+    </a>
+  {% endfor %}
 </nav>
