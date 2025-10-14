@@ -73,10 +73,12 @@ mod components {
 }
 
 mod views {
-    use std::borrow::Cow;
 
     use askama::Template;
-    use htmxology::{Route, htmx::Identity};
+    use htmxology::{
+        Route,
+        htmx::{HtmlId, Identity},
+    };
 
     use crate::{
         backend::{Backend, BackendName, Backends, TodoElement},
@@ -129,13 +131,15 @@ mod views {
     }
 
     impl Identity for TodoList {
-        fn id(&self) -> Cow<'static, str> {
+        fn id(&self) -> HtmlId {
             let Self {
                 backend_name: backend,
                 ..
             } = self;
 
-            format!("todo-list-{backend}").into()
+            format!("todo-list-{backend}")
+                .parse()
+                .expect("valid HTML id")
         }
     }
 
@@ -166,10 +170,12 @@ mod views {
     }
 
     impl Identity for TodoListElementCreateForm {
-        fn id(&self) -> Cow<'static, str> {
+        fn id(&self) -> HtmlId {
             let Self { backend_name } = self;
 
-            format!("todo-list-element-create-form-{backend_name}").into()
+            format!("todo-list-element-create-form-{backend_name}")
+                .parse()
+                .expect("valid HTML id")
         }
     }
 

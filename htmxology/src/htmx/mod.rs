@@ -1,6 +1,6 @@
 //! HTMX-related types.
 //!
-use std::{borrow::Cow, convert::Infallible, fmt::Display};
+use std::{borrow::Cow, convert::Infallible, fmt::Display, str::FromStr};
 
 use axum::response::IntoResponse;
 use http::request::Parts;
@@ -297,6 +297,212 @@ pub trait ResponseExt: Sized {
 
 impl<T> ResponseExt for T where T: Sized {}
 
+/// A type that represents a valid HTML identifier, as per RFC 1866.
+///
+/// As the content of `HtmlId` is checked, it is guaranteed to be a valid HTML identifier which
+/// requires no escaping when used as the value of an `id` attribute.
+pub struct HtmlId(Cow<'static, str>);
+
+/// An error that occurs when trying to create an `HtmlId` from an invalid string.
+#[derive(Debug, thiserror::Error)]
+#[error("invalid HTML id: {0}")]
+pub struct InvalidHtmlId(String);
+
+impl Display for HtmlId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl FromStr for HtmlId {
+    type Err = InvalidHtmlId;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::new(s.to_owned().into())
+    }
+}
+
+impl TryFrom<&'static str> for HtmlId {
+    type Error = InvalidHtmlId;
+
+    fn try_from(value: &'static str) -> Result<Self, Self::Error> {
+        Self::from_static(value)
+    }
+}
+
+impl TryFrom<String> for HtmlId {
+    type Error = InvalidHtmlId;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value.into())
+    }
+}
+
+impl TryFrom<Cow<'static, str>> for HtmlId {
+    type Error = InvalidHtmlId;
+
+    fn try_from(value: Cow<'static, str>) -> Result<Self, Self::Error> {
+        match value {
+            Cow::Borrowed(s) => Self::from_static(s),
+            Cow::Owned(s) => Self::new(s.into()),
+        }
+    }
+}
+
+impl HtmlId {
+    /// Create a new `HtmlId` from the given static string.
+    pub fn from_static(id: &'static str) -> Result<Self, InvalidHtmlId> {
+        Self::check_valid_html_id(id).map(|_| Self(Cow::Borrowed(id)))
+    }
+
+    /// Create a new `HtmlId` from the given string.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InvalidHtmlId` error if the string is not a valid HTML identifier.
+    fn new(id: Cow<'static, str>) -> Result<Self, InvalidHtmlId> {
+        Self::check_valid_html_id(&id).map(|_| Self(id))
+    }
+
+    /// Check if the given string is a valid HTML identifier.
+    ///
+    /// # Rules
+    ///
+    /// - Cannot be empty.
+    /// - The first character must be a letter (A-Z or a-z) or an underscore (_).
+    /// - The remaining characters can be letters, digits (0-9), hyphens (-), underscores (_),
+    ///   colons (:), or periods (.).
+    /// - Cannot contain spaces.
+    /// - Cannot contain special characters other than hyphens, underscores, colons, or periods.
+    fn check_valid_html_id(id: &str) -> Result<(), InvalidHtmlId> {
+        let mut chars = id.chars();
+
+        let first_char = match chars.next() {
+            Some(c) => c,
+            None => return Err(InvalidHtmlId("empty string".to_owned())),
+        };
+
+        if !first_char.is_ascii_alphanumeric() && first_char != '_' {
+            return Err(InvalidHtmlId(format!(
+                "invalid first character: '{first_char}' in '{id}'",
+            )));
+        }
+
+        for c in chars {
+            if !(c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == ':' || c == '.') {
+                return Err(InvalidHtmlId(
+                    format!("invalid character: '{c}' in '{id}'",),
+                ));
+            }
+        }
+
+        Ok(())
+    }
+}
+
+/// A type that represents a valid HTML attribute name, as per RFC 1866.
+///
+/// As the content of `HtmlName` is checked, it is guaranteed to be a valid HTML name which
+/// requires no escaping when used as the value of a `name` attribute.
+pub struct HtmlName(Cow<'static, str>);
+
+/// An error that occurs when trying to create an `HtmlName` from an invalid string.
+#[derive(Debug, thiserror::Error)]
+#[error("invalid HTML name: {0}")]
+pub struct InvalidHtmlName(String);
+
+impl Display for HtmlName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl FromStr for HtmlName {
+    type Err = InvalidHtmlName;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Self::new(s.to_owned().into())
+    }
+}
+
+impl TryFrom<&'static str> for HtmlName {
+    type Error = InvalidHtmlName;
+
+    fn try_from(value: &'static str) -> Result<Self, Self::Error> {
+        Self::from_static(value)
+    }
+}
+
+impl TryFrom<String> for HtmlName {
+    type Error = InvalidHtmlName;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        Self::new(value.into())
+    }
+}
+
+impl TryFrom<Cow<'static, str>> for HtmlName {
+    type Error = InvalidHtmlName;
+
+    fn try_from(value: Cow<'static, str>) -> Result<Self, Self::Error> {
+        match value {
+            Cow::Borrowed(s) => Self::from_static(s),
+            Cow::Owned(s) => Self::new(s.into()),
+        }
+    }
+}
+
+impl HtmlName {
+    /// Create a new `HtmlName` from the given static string.
+    pub fn from_static(id: &'static str) -> Result<Self, InvalidHtmlName> {
+        Self::check_valid_html_name(id).map(|_| Self(Cow::Borrowed(id)))
+    }
+
+    /// Create a new `HtmlName` from the given string.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `InvalidHtmlName` error if the string is not a valid HTML identifier.
+    fn new(id: Cow<'static, str>) -> Result<Self, InvalidHtmlName> {
+        Self::check_valid_html_name(&id).map(|_| Self(id))
+    }
+
+    /// Check if the given string is a valid HTML name, as per RFC 1866
+    ///
+    /// # Rules
+    ///
+    /// - Cannot be empty.
+    /// - The first character must be a letter (A-Z or a-z) or an underscore (_).
+    /// - The remaining characters can be letters, digits (0-9), hyphens (-), underscores (_),
+    ///   colons (:), or periods (.).
+    /// - Cannot contain spaces.
+    /// - Cannot contain special characters other than hyphens, underscores, colons, or periods.
+    fn check_valid_html_name(id: &str) -> Result<(), InvalidHtmlName> {
+        let mut chars = id.chars();
+
+        let first_char = match chars.next() {
+            Some(c) => c,
+            None => return Err(InvalidHtmlName("empty string".to_owned())),
+        };
+
+        if !first_char.is_ascii_alphanumeric() && first_char != '_' {
+            return Err(InvalidHtmlName(format!(
+                "invalid first character: '{first_char}' in '{id}'",
+            )));
+        }
+
+        for c in chars {
+            if !(c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == ':' || c == '.') {
+                return Err(InvalidHtmlName(format!(
+                    "invalid character: '{c}' in '{id}'",
+                )));
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// A trait for HTML elements that have an identity.
 ///
 /// Types that implement this trait MUST render as a HTML fragment with a root element that has
@@ -312,7 +518,7 @@ impl<T> ResponseExt for T where T: Sized {}
 /// ```
 pub trait Identity: Display {
     /// Get the unique identifier for the HTML element.
-    fn id(&self) -> Cow<'static, str>;
+    fn id(&self) -> HtmlId;
 
     /// Get the `id` attribute declaration for the HTML element.
     ///
@@ -321,6 +527,27 @@ pub trait Identity: Display {
     /// In most cases, this method should not be overridden.
     fn id_attribute(&self) -> String {
         format!(r#"id="{}""#, self.id())
+    }
+}
+
+/// A trait for HTML elements that have a form attribute name.
+///
+/// Types that implement this trait MUST render as a HTML fragment that contains an unique form
+/// element with a `name` attribute matching the value returned by the `name` method.
+///
+/// A common way in most template engines is to use the `name_attribute` method to get the proper
+/// declaration for the `name` attribute.
+pub trait Named: Display {
+    /// Get the name of the form element.
+    fn name(&self) -> HtmlName;
+
+    /// Get the `name` attribute declaration for the form element.
+    ///
+    /// This is a convenience method that formats the `name` attribute for use in HTML.
+    ///
+    /// In most cases, this method should not be overridden.
+    fn name_attribute(&self) -> String {
+        format!(r#"name="{}""#, self.name())
     }
 }
 
@@ -402,5 +629,95 @@ impl<T> OptionExt<T> for Option<T> {
         message: impl Into<Cow<'static, str>>,
     ) -> Result<T, axum::response::Response> {
         self.ok_or_else(|| (status_code, message.into()).into_response())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_html_ids() {
+        let valid_ids = [
+            "validId", "valid-id", "valid_id", "valid:id", "valid.id", "valid123", "v", "_valid",
+            "1valid",
+        ];
+
+        for id in valid_ids {
+            assert!(
+                HtmlId::from_str(id).is_ok(),
+                "Expected '{}' to be a valid HTML id",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn test_invalid_html_ids() {
+        let invalid_ids = [
+            "",
+            "-invalid",
+            ".invalid",
+            ":invalid",
+            "invalid id",
+            "invalid$id",
+            "invalid/id",
+            " invalid",
+            "invalid ",
+            "inva!lid",
+        ];
+        for id in invalid_ids {
+            assert!(
+                HtmlId::from_str(id).is_err(),
+                "Expected '{}' to be an invalid HTML id",
+                id
+            );
+        }
+    }
+
+    #[test]
+    fn test_valid_html_names() {
+        let valid_names = [
+            "validName",
+            "valid-name",
+            "valid_name",
+            "valid:name",
+            "valid.name",
+            "valid123",
+            "v",
+            "_valid",
+            "1valid",
+        ];
+
+        for name in valid_names {
+            assert!(
+                HtmlName::from_str(name).is_ok(),
+                "Expected '{}' to be a valid HTML name",
+                name
+            );
+        }
+    }
+
+    #[test]
+    fn test_invalid_html_names() {
+        let invalid_names = [
+            "",
+            "-invalid",
+            ".invalid",
+            ":invalid",
+            "invalid name",
+            "invalid$name",
+            "invalid/name",
+            " invalid",
+            "invalid ",
+            "inva!lid",
+        ];
+        for name in invalid_names {
+            assert!(
+                HtmlName::from_str(name).is_err(),
+                "Expected '{}' to be an invalid HTML name",
+                name
+            );
+        }
     }
 }

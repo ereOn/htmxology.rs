@@ -35,10 +35,12 @@ async fn main() -> anyhow::Result<()> {
 /// For some of the types, the `DisplayDelegate` derive macro is used to implement the `Display`
 /// trait which eases the rendering of the views in an HTMX context.
 mod views {
-    use std::borrow::Cow;
 
     use askama::Template;
-    use htmxology::{DisplayDelegate, Route, htmx::Identity};
+    use htmxology::{
+        DisplayDelegate, Route,
+        htmx::{HtmlId, Identity},
+    };
 
     use crate::controller::AppRoute;
 
@@ -87,8 +89,8 @@ mod views {
     }
 
     impl Identity for Menu {
-        fn id(&self) -> Cow<'static, str> {
-            "menu".into()
+        fn id(&self) -> HtmlId {
+            "menu".try_into().expect("valid HTML ID")
         }
     }
 
