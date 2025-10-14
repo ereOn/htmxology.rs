@@ -75,10 +75,7 @@ mod components {
 mod views {
 
     use askama::Template;
-    use htmxology::{
-        Route,
-        htmx::{HtmlId, Identity},
-    };
+    use htmxology::htmx::{HtmlForm, HtmlId, Identity};
 
     use crate::{
         backend::{Backend, BackendName, Backends, TodoElement},
@@ -112,11 +109,6 @@ mod views {
         ) -> TodoListElementCreateForm {
             TodoListElementCreateForm { backend_name }
         }
-    }
-
-    pub trait HtmxForm {
-        /// Get the action route for the form.
-        fn action(&self) -> AppRoute;
     }
 
     /// The todo-list.
@@ -179,8 +171,10 @@ mod views {
         }
     }
 
-    impl HtmxForm for TodoListElementCreateForm {
-        fn action(&self) -> AppRoute {
+    impl HtmlForm for TodoListElementCreateForm {
+        type Route = AppRoute;
+
+        fn action_route(&self) -> AppRoute {
             AppRoute::Forms(crate::controller::FormsRoute::TodoListElementCreate(
                 crate::controller::TodoListElementCreateRoute::Submit {
                     backend_name: self.backend_name,

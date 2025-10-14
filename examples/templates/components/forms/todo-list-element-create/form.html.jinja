@@ -1,5 +1,5 @@
 <div class="card" id="{{ id() }}" hx-target="#{{ id() }}" hx-swap="outerHTML">
-  <form {{ action().as_htmx_attribute()|safe }}>
+  <form {{ action_attribute()|safe }}>
     <div class="card-header bg-primary text-white">
       <h4 class="mb-0">
         Add a todo to backend <code>{{ backend_name }}</code>

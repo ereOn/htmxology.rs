@@ -5,6 +5,8 @@ use std::{borrow::Cow, convert::Infallible, fmt::Display, str::FromStr};
 use axum::response::IntoResponse;
 use http::request::Parts;
 
+use crate::Route;
+
 mod header {
     /// Request headers.
     pub(super) const HX_BOOSTED: http::HeaderName = http::HeaderName::from_static("hx-boosted");
@@ -548,6 +550,20 @@ pub trait Named: Display {
     /// In most cases, this method should not be overridden.
     fn name_attribute(&self) -> String {
         format!(r#"name="{}""#, self.name())
+    }
+}
+
+/// A trait for HTML elements that contain a form.
+pub trait HtmlForm: Display {
+    /// The associated type for the route that handles the form submission.
+    type Route: Route;
+
+    /// Get the route that handles the form submission.
+    fn action_route(&self) -> Self::Route;
+
+    /// Get the `action` attribute declaration for the form element.
+    fn action_attribute(&self) -> String {
+        self.action_route().as_htmx_attribute()
     }
 }
 
