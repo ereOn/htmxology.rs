@@ -139,7 +139,10 @@ impl Server {
     }
 
     /// Serve the specified controller.
-    pub async fn serve<C: super::Controller>(self, controller: C) -> Result<(), ServeError> {
+    pub async fn serve<C: super::Controller + 'static>(
+        self,
+        controller: C,
+    ) -> Result<(), ServeError> {
         self.serve_with_router(ControllerRouter::new(controller))
             .await
     }

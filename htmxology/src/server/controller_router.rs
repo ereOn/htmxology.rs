@@ -24,7 +24,7 @@ impl ControllerRouter {
     }
 
     /// Create a new controller router from a controller.
-    pub fn new<C: Controller>(controller: C) -> Self {
+    pub fn new<C: Controller + 'static>(controller: C) -> Self {
         let router = Router::new()
             .fallback(
                 |axum::extract::State(controller): axum::extract::State<C>,

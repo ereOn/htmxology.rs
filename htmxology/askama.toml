@@ -1,2 +1,2 @@
 [general]
-dirs = ["../examples/templates", "src/web_components/templates"]
+dirs = ["../examples/templates"]

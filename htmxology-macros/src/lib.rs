@@ -2,6 +2,7 @@
 
 use syn::parse_macro_input;
 
+mod components_controller;
 mod display_delegate;
 mod route;
 
@@ -26,6 +27,19 @@ pub fn derive_display_delegate(input: proc_macro::TokenStream) -> proc_macro::To
     let mut input = parse_macro_input!(input as syn::DeriveInput);
 
     display_delegate::derive(&mut input)
+        .unwrap_or_else(syn::Error::into_compile_error)
+        .into()
+}
+
+/// Implement the `ComponentsController` trait for a controller.
+///
+/// This derive macro allows to automatically implement components conversions for a controller
+/// type.
+#[proc_macro_derive(ComponentsController, attributes(component))]
+pub fn derive_components_controller(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+    let mut input = parse_macro_input!(input as syn::DeriveInput);
+
+    components_controller::derive(&mut input)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
