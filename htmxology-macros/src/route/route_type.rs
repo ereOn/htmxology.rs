@@ -17,6 +17,9 @@ pub enum RouteType {
 
     /// A prefixed sub-route.
     SubRoute,
+
+    /// A catch-all route.
+    CatchAll,
 }
 
 /// An extension trait for `http::Method`.

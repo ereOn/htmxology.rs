@@ -15,6 +15,7 @@ use route_url::{ParseError, RouteUrl};
 
 mod attributes {
     pub(super) const ROUTE: &str = "route";
+    pub(super) const CATCH_ALL: &str = "catch_all";
     pub(super) const METHOD: &str = "method";
     pub(super) const SUBROUTE: &str = "subroute";
     pub(super) const QUERY: &str = "query";
@@ -45,6 +46,9 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
 
     let mut simple_routes = BTreeMap::new();
     let mut sub_routes = BTreeMap::new();
+    let mut catch_all = quote! {
+        Err(http::StatusCode::NOT_FOUND.into_response())
+    };
 
     for variant in &data.variants {
         let ident = &variant.ident;
@@ -643,6 +647,44 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
                     return Err(Error::new_spanned(variant, "duplicate subroute prefix"));
                 }
             }
+            RouteType::CatchAll => {
+                match &variant.fields {
+                    // Enum::Unit
+                    Fields::Unit | Fields::Named(_) => {
+                        return Err(Error::new_spanned(variant, "expected single tuple variant"));
+                    }
+                    // Enum::Unnamed(...)
+                    Fields::Unnamed(fields) => {
+                        let mut fields = fields.unnamed.pairs().map(|pair| pair.into_value());
+
+                        let field = fields.next().ok_or_else(|| {
+                            Error::new_spanned(
+                                variant,
+                                "expected single field in catch-all variant",
+                            )
+                        })?;
+
+                        if let Some(field) = fields.next() {
+                            return Err(Error::new_spanned(
+                                field,
+                                "expected single field in catch-all variant",
+                            ));
+                        }
+
+                        let field_ty = &field.ty;
+
+                        methods.push(quote_spanned! { variant.span() => Self::#ident(catch_all) => catch_all.method() });
+                        to_urls.push(quote_spanned! { variant.span() =>
+                            Self::#ident(catch_all) => catch_all.fmt(f)?
+                        });
+                        catch_all = quote_spanned! { variant.span() => {{
+                           <#field_ty as axum::extract::FromRequest<S>>::from_request(__req, __state)
+                                .await
+                                .map(Self::#ident)
+                        }}};
+                    }
+                };
+            }
         }
     }
 
@@ -664,7 +706,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
     // Then we add the simple routes, with more specific routes first.
     for (url, methods_and_handlers) in simple_routes.into_iter().rev() {
         let url = url.to_path_regex();
-        let methods: Vec<_> = methods_and_handlers
+        let local_methods: Vec<_> = methods_and_handlers
             .into_iter()
             .map(|(method, handler)| {
                 let method = method.to_ident();
@@ -678,7 +720,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
 
             if let Some(__captures) = RE.captures(&__req.uri().path()) {
                 return match __req.method() {
-                    #(#methods),*,
+                    #(#local_methods),*,
                     _ => Err(http::StatusCode::METHOD_NOT_ALLOWED.into_response()),
                 };
             }
@@ -717,7 +759,7 @@ pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::T
 
                 #(#parsing)*
 
-                Err(http::StatusCode::NOT_FOUND.into_response())
+                #catch_all
             }
         }
     })
@@ -731,7 +773,11 @@ fn parse_route_info(variant: &Variant) -> syn::Result<(RouteUrl, RouteType)> {
             if result.is_some() {
                 return Err(Error::new_spanned(
                     attr,
-                    format!("expected at most one `{}` attribute", attributes::ROUTE,),
+                    format!(
+                        "expected exactly one `{}` or `{}` attribute",
+                        attributes::ROUTE,
+                        attributes::CATCH_ALL
+                    ),
                 ));
             }
 
@@ -761,10 +807,42 @@ fn parse_route_info(variant: &Variant) -> syn::Result<(RouteUrl, RouteType)> {
             } else {
                 return Err(Error::new_spanned(attr, "expected at most two arguments"));
             }
+        } else if attr.path().is_ident(attributes::CATCH_ALL) {
+            if result.is_some() {
+                return Err(Error::new_spanned(
+                    attr,
+                    format!(
+                        "expected exactly one `{}` or `{}` attribute",
+                        attributes::ROUTE,
+                        attributes::CATCH_ALL
+                    ),
+                ));
+            }
+
+            if !matches!(attr.meta, syn::Meta::Path(_)) {
+                return Err(Error::new_spanned(
+                    attr,
+                    format!(
+                        "`{}` attribute does not take any arguments",
+                        attributes::CATCH_ALL
+                    ),
+                ));
+            }
+
+            result = Some((RouteUrl::default(), RouteType::CatchAll));
         }
     }
 
-    result.ok_or_else(|| Error::new_spanned(variant, "expected `route` or `subroute` attribute"))
+    result.ok_or_else(|| {
+        Error::new_spanned(
+            variant,
+            format!(
+                "expected one `{}` or `{}` attribute",
+                attributes::ROUTE,
+                attributes::CATCH_ALL
+            ),
+        )
+    })
 }
 
 fn parse_raw_url(expr: &Expr) -> syn::Result<String> {

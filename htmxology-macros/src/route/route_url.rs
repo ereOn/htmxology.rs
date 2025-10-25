@@ -17,7 +17,7 @@ use syn::Ident;
 /// If they end with a slash, they will be considered as a path prefix.
 ///
 /// Route URLs can be empty, usually to indicate the `index` resource.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct RouteUrl(Vec<RouteUrlSegment>);
 
 /// A route URL segment.

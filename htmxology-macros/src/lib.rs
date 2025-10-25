@@ -9,7 +9,7 @@ mod route;
 /// Derive a route type.
 ///
 /// Route types are enum types that represent the possible routes in an HTMX application.
-#[proc_macro_derive(Route, attributes(route, subroute, query, body))]
+#[proc_macro_derive(Route, attributes(route, subroute, catch_all, query, body))]
 pub fn derive_route(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut input = parse_macro_input!(input as syn::DeriveInput);
 

@@ -22,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
         .build();
 
     server
-        .serve(MainController::default())
+        .serve(MainController::default().into_components_controller())
         .await
         .map_err(Into::into)
 }
@@ -39,12 +39,6 @@ mod controller {
         /// The home route.
         #[route("")]
         Home,
-
-        /// The components route.
-        ///
-        /// This is the base route for all components routes.
-        #[route("components/")]
-        Components(#[subroute] ComponentsRoute),
     }
 
     /// The main controller implementation.
@@ -70,58 +64,77 @@ mod controller {
         async fn handle_request(
             &self,
             route: Self::Route,
-            htmx: HtmxRequest,
-            parts: http::request::Parts,
-            server_info: &ServerInfo,
+            _htmx: HtmxRequest,
+            _parts: http::request::Parts,
+            _server_info: &ServerInfo,
         ) -> Result<axum::response::Response, axum::response::Response> {
             match route {
                 AppRoute::Home => Ok((
                     [(http::header::CONTENT_TYPE, "text/html")],
-                    r#"
+                    format!(r#"
 <p>Welcome to the HTMX-SSR Components Example!</p>
-<p>Visit the <a href="components/hello-world/">Hello World Component</a> or the <a href="components/image-gallery/">Image Gallery Component</a>.</p>
-"#,
-                )
+<p>Visit the <a href="{}">Hello World Component</a> or the <a href="{}">Image Gallery Component</a>.</p>
+"#, MainControllerComponentsRoute::HelloWorld(HelloWorldRoute::Index), MainControllerComponentsRoute::ImageGallery(ImageGalleryRoute::Index)
+                ),)
                     .into_response()),
-                AppRoute::Components(route) => {
-                    { self.handle_components_route(route, htmx, parts, server_info) }.await
-                }
             }
         }
     }
 
     // TODO: Generate those with a derive?
 
+    /// A components controller wrapping the main controller.
+    #[derive(Debug, Clone)]
+    pub struct MainControllerComponents(MainController);
+
+    impl MainController {
+        /// Convert into the components controller.
+        pub fn into_components_controller(self) -> MainControllerComponents {
+            MainControllerComponents(self)
+        }
+    }
+
     /// The components routes.
     #[derive(Debug, Clone, Route)]
-    pub enum ComponentsRoute {
+    pub enum MainControllerComponentsRoute {
         /// Hello world component route.
         #[route("hello-world/")]
-        HelloWorld(#[subroute] HelloWorldRoute),
+        HelloWorld(#[subroute] <HelloWorldController as Controller>::Route),
 
         /// The image gallery component route.
         #[route("image-gallery/")]
-        ImageGallery(#[subroute] ImageGalleryRoute),
+        ImageGallery(#[subroute] <ImageGalleryController<'static> as Controller>::Route),
+
+        /// The catch-all.
+        #[catch_all]
+        CatchAll(<MainController as Controller>::Route),
     }
 
-    impl MainController {
-        pub async fn handle_components_route(
+    impl Controller for MainControllerComponents {
+        type Route = MainControllerComponentsRoute;
+
+        async fn handle_request(
             &self,
-            route: ComponentsRoute,
+            route: Self::Route,
             htmx: HtmxRequest,
             parts: http::request::Parts,
             server_info: &ServerInfo,
         ) -> Result<axum::response::Response, axum::response::Response> {
             match route {
-                ComponentsRoute::HelloWorld(route) => {
-                    self.get_component::<HelloWorldController>()
+                Self::Route::HelloWorld(route) => {
+                    self.0
+                        .get_component::<HelloWorldController>()
                         .handle_request(route, htmx, parts, server_info)
                         .await
                 }
-                ComponentsRoute::ImageGallery(route) => {
-                    self.get_component::<ImageGalleryController>()
+                Self::Route::ImageGallery(route) => {
+                    self.0
+                        .get_component::<ImageGalleryController>()
                         .handle_request(route, htmx, parts, server_info)
                         .await
+                }
+                Self::Route::CatchAll(route) => {
+                    self.0.handle_request(route, htmx, parts, server_info).await
                 }
             }
         }
