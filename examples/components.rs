@@ -22,7 +22,7 @@ async fn main() -> anyhow::Result<()> {
         .build();
 
     server
-        .serve(MainController::default().into_components_controller())
+        .serve(MainController::default())
         .await
         .map_err(Into::into)
 }
@@ -33,18 +33,15 @@ mod controller {
     use htmxology::{ComponentsController, Route, ServerInfo};
     use htmxology::{Controller, ControllerExt, htmx::Request as HtmxRequest};
 
-    /// The main application routes.
-    #[derive(Debug, Clone, Route)]
-    pub enum AppRoute {
-        /// The home route.
-        #[route("")]
-        Home,
-    }
+    // TODO: Derive the route variant names without the "Controller" suffix? Or allow/require to
+    // specify it?
 
     /// The main controller implementation.
     #[derive(Debug, Clone, ComponentsController)]
-    #[component(HelloWorldController)]
-    #[component(ImageGalleryController<'_>, convert_with = "ImageGalleryController::from_main_controller")]
+    #[controller(AppRoute)]
+    #[component(HelloWorldController, route = "hello-world/")]
+    #[component(ImageGalleryController<'_>, route = "image-gallery", convert_with = "ImageGalleryController::from_main_controller")]
+    #[component(DelegatedController, catch_all)]
     pub struct MainController {
         image_gallery_base_url: String,
     }
@@ -57,46 +54,89 @@ mod controller {
         }
     }
 
-    /// Custom implementation.
-    impl Controller for MainController {
-        type Route = AppRoute;
+    #[derive(Debug, Clone, Default)]
+    pub struct DelegatedController;
+
+    /// The delegated application routes.
+    #[derive(Debug, Clone, Route)]
+    pub enum DelegatedRoute {
+        /// The home route.
+        #[route("")]
+        Home,
+
+        /// The echo route.
+        #[route("echo/{message}", method = "GET")]
+        Echo { message: String },
+    }
+
+    impl Controller for DelegatedController {
+        type Route = DelegatedRoute;
 
         async fn handle_request(
             &self,
             route: Self::Route,
+            htmx: HtmxRequest,
+            parts: http::request::Parts,
+            server_info: &ServerInfo,
+        ) -> Result<axum::response::Response, axum::response::Response> {
+            match route {
+                DelegatedRoute::Home => self.handle_home_request(htmx, parts, server_info).await,
+                DelegatedRoute::Echo { message } => {
+                    self.handle_echo_request(htmx, parts, server_info, &message)
+                        .await
+                }
+            }
+        }
+    }
+
+    impl DelegatedController {
+        async fn handle_home_request(
+            &self,
             _htmx: HtmxRequest,
             _parts: http::request::Parts,
             _server_info: &ServerInfo,
         ) -> Result<axum::response::Response, axum::response::Response> {
-            match route {
-                AppRoute::Home => Ok((
-                    [(http::header::CONTENT_TYPE, "text/html")],
-                    format!(r#"
+            Ok((
+                [(http::header::CONTENT_TYPE, "text/html")],
+                format!(
+                    r#"
 <p>Welcome to the HTMX-SSR Components Example!</p>
-<p>Visit the <a href="{}">Hello World Component</a> or the <a href="{}">Image Gallery Component</a>.</p>
-"#, MainControllerComponentsRoute::HelloWorld(HelloWorldRoute::Index), MainControllerComponentsRoute::ImageGallery(ImageGalleryRoute::Index)
-                ),)
-                    .into_response()),
-            }
+<p>Visit the <a href="{}">Hello World Component</a> or The
+ <a href="{}">Image Gallery Component</a>.</p>
+"#,
+                    AppRoute::HelloWorld(HelloWorldRoute::Index),
+                    AppRoute::ImageGallery(ImageGalleryRoute::Index)
+                ),
+            )
+                .into_response())
+        }
+
+        async fn handle_echo_request(
+            &self,
+            _htmx: HtmxRequest,
+            _parts: http::request::Parts,
+            _server_info: &ServerInfo,
+            message: &String,
+        ) -> Result<axum::response::Response, axum::response::Response> {
+            Ok((
+                [(http::header::CONTENT_TYPE, "text/html")],
+                format!("<p>Message echoed: {message}</p>"),
+            )
+                .into_response())
+        }
+    }
+
+    impl From<&'_ MainController> for DelegatedController {
+        fn from(_main_controller: &'_ MainController) -> Self {
+            Self
         }
     }
 
     // TODO: Generate those with a derive?
 
-    /// A components controller wrapping the main controller.
-    #[derive(Debug, Clone)]
-    pub struct MainControllerComponents(MainController);
-
-    impl MainController {
-        /// Convert into the components controller.
-        pub fn into_components_controller(self) -> MainControllerComponents {
-            MainControllerComponents(self)
-        }
-    }
-
-    /// The components routes.
+    /// The main application routes.
     #[derive(Debug, Clone, Route)]
-    pub enum MainControllerComponentsRoute {
+    pub enum AppRoute {
         /// Hello world component route.
         #[route("hello-world/")]
         HelloWorld(#[subroute] <HelloWorldController as Controller>::Route),
@@ -105,13 +145,13 @@ mod controller {
         #[route("image-gallery/")]
         ImageGallery(#[subroute] <ImageGalleryController<'static> as Controller>::Route),
 
-        /// The catch-all.
+        /// The delegated route.
         #[catch_all]
-        CatchAll(<MainController as Controller>::Route),
+        Delegated(<DelegatedController as Controller>::Route),
     }
 
-    impl Controller for MainControllerComponents {
-        type Route = MainControllerComponentsRoute;
+    impl Controller for MainController {
+        type Route = AppRoute;
 
         async fn handle_request(
             &self,
@@ -122,19 +162,19 @@ mod controller {
         ) -> Result<axum::response::Response, axum::response::Response> {
             match route {
                 Self::Route::HelloWorld(route) => {
-                    self.0
-                        .get_component::<HelloWorldController>()
+                    self.get_component::<HelloWorldController>()
                         .handle_request(route, htmx, parts, server_info)
                         .await
                 }
                 Self::Route::ImageGallery(route) => {
-                    self.0
-                        .get_component::<ImageGalleryController>()
+                    self.get_component::<ImageGalleryController>()
                         .handle_request(route, htmx, parts, server_info)
                         .await
                 }
-                Self::Route::CatchAll(route) => {
-                    self.0.handle_request(route, htmx, parts, server_info).await
+                Self::Route::Delegated(route) => {
+                    self.get_component::<DelegatedController>()
+                        .handle_request(route, htmx, parts, server_info)
+                        .await
                 }
             }
         }
