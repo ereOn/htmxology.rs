@@ -16,7 +16,10 @@
       "Bash(cargo clippy:*)",
       "Bash(just)",
       "Bash(just build:*)",
-      "Bash(cargo expand:*)"
+      "Bash(cargo expand:*)",
+      "Bash(git mv:*)",
+      "Bash(tree:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
