@@ -18,7 +18,7 @@ full = ["auto-reload", "interfaces", "ws", "derive", "templating"]
 auto-reload = ["dep:listenfd", "tokio/net"]
 interfaces = ["dep:netdev"]
 ws = ["axum/ws", "dep:uuid"]
-derive = ["dep:htmxology-macros", "dep:serde_urlencoded", "dep:regex"]
+derive = ["dep:htmxology-macros", "dep:serde_html_form", "dep:regex", "dep:axum-extra"]
 templating = ["dep:askama"]
 examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros", "dep:axum-extra", "dep:askama", "dep:serde_json"]
 
@@ -35,12 +35,16 @@ name = "components"
 path = "../examples/components.rs"
 required-features = ["auto-reload", "interfaces", "examples"]
 
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt"] }
+http = { workspace = true }
+
 [dependencies]
 htmxology-macros = { workspace = true, optional = true }
 
 anyhow = { workspace = true, optional = true }
 axum.workspace = true
-axum-extra = { workspace = true, optional = true }
+axum-extra = { workspace = true, optional = true, features = ["query"] }
 askama = { workspace = true, optional = true }
 hex.workspace = true
 md-5.workspace = true
@@ -51,7 +55,7 @@ percent-encoding.workspace = true
 regex = { workspace = true, optional = true }
 serde.workspace = true
 serde_json = { workspace = true, optional = true }
-serde_urlencoded = { workspace = true, optional = true }
+serde_html_form = { workspace = true, optional = true }
 thiserror.workspace = true
 tokio.workspace = true
 tracing.workspace = true

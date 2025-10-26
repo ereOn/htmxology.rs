@@ -33,9 +33,6 @@ mod controller {
     use htmxology::{ComponentsController, Route, ServerInfo};
     use htmxology::{Controller, ControllerExt, htmx::Request as HtmxRequest};
 
-    // TODO: Derive the route variant names without the "Controller" suffix? Or allow/require to
-    // specify it?
-
     /// The main controller implementation.
     #[derive(Debug, Clone, ComponentsController)]
     #[controller(AppRoute)]

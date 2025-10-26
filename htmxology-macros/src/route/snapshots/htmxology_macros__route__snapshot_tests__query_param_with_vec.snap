@@ -8,17 +8,17 @@ mod __test {
     impl htmxology::Route for MyRoute {
         fn method(&self) -> http::Method {
             match self {
-                Self::Search(..) => http::Method::GET,
+                Self::Search { .. } => http::Method::GET,
             }
         }
     }
     impl std::fmt::Display for MyRoute {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             match self {
-                Self::Search(arg0) => {
+                Self::Search { tags } => {
                     std::fmt::Write::write_char(f, '/')?;
                     f.write_str("search")?;
-                    let qs = &serde_html_form::to_string(&arg0)
+                    let qs = &serde_html_form::to_string(&tags)
                         .map_err(|_| std::fmt::Error)?;
                     if !qs.is_empty() {
                         std::fmt::Write::write_char(f, '?')?;
@@ -44,14 +44,14 @@ mod __test {
                         &http::Method::GET => {
                             Ok({
                                 let (mut __parts, __body) = __req.into_parts();
-                                let axum_extra::extract::Query(arg0) = axum_extra::extract::Query::from_request_parts(
+                                let axum_extra::extract::Query(tags) = axum_extra::extract::Query::from_request_parts(
                                         &mut __parts,
                                         __state,
                                     )
                                     .await
                                     .map_err(|err| err.into_response())?;
                                 let __req = http::Request::from_parts(__parts, __body);
-                                Self::Search(arg0)
+                                Self::Search { tags }
                             })
                         }
                         _ => Err(http::StatusCode::METHOD_NOT_ALLOWED.into_response()),

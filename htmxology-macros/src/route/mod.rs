@@ -501,6 +501,20 @@ mod snapshot_tests {
     }
 
     #[test]
+    fn query_param_with_vec() {
+        let input = r#"
+            enum MyRoute {
+                #[route("search")]
+                Search {
+                    #[query]
+                    tags: Vec<String>,
+                },
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
     fn named_body_param() {
         let input = r#"
             enum MyRoute {

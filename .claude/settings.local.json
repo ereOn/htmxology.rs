@@ -20,7 +20,12 @@
       "Bash(git mv:*)",
       "Bash(tree:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Read(//private/tmp/**)",
+      "Bash(rustc:*)",
+      "Bash(cargo run:*)",
+      "mcp__github__update_issue",
+      "WebFetch(domain:docs.rs)"
     ],
     "deny": [],
     "ask": []

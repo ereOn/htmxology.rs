@@ -33,10 +33,12 @@ mod __test {
                 Self::Search { q } => {
                     std::fmt::Write::write_char(f, '/')?;
                     f.write_str("search")?;
-                    std::fmt::Write::write_char(f, '?')?;
-                    let qs = &serde_urlencoded::to_string(&q)
+                    let qs = &serde_html_form::to_string(&q)
                         .map_err(|_| std::fmt::Error)?;
-                    f.write_str(&qs)?;
+                    if !qs.is_empty() {
+                        std::fmt::Write::write_char(f, '?')?;
+                        f.write_str(&qs)?;
+                    }
                 }
                 Self::DeletePost { post_id } => {
                     std::fmt::Write::write_char(f, '/')?;
@@ -103,7 +105,7 @@ mod __test {
                         &http::Method::GET => {
                             Ok({
                                 let (mut __parts, __body) = __req.into_parts();
-                                let axum::extract::Query(q) = axum::extract::Query::from_request_parts(
+                                let axum_extra::extract::Query(q) = axum_extra::extract::Query::from_request_parts(
                                         &mut __parts,
                                         __state,
                                     )

@@ -120,9 +120,11 @@ pub fn generate_pattern(config: &VariantConfig, mode: PatternMode) -> TokenStrea
 ///     f.write_str("users")?;
 ///     std::fmt::Write::write_char(f, '/')?;
 ///     user_id.fmt(f)?;
-///     std::fmt::Write::write_char(f, '?')?;
-///     let qs = &serde_urlencoded::to_string(&page).map_err(|_| std::fmt::Error)?;
-///     f.write_str(&qs)?;
+///     let qs = &serde_html_form::to_string(&page).map_err(|_| std::fmt::Error)?;
+///     if !qs.is_empty() {
+///         std::fmt::Write::write_char(f, '?')?;
+///         f.write_str(&qs)?;
+///     }
 /// }
 /// ```
 pub fn generate_url_format(config: &VariantConfig) -> syn::Result<TokenStream> {
@@ -259,7 +261,7 @@ fn generate_query_parsing(config: &VariantConfig) -> TokenStream {
         let ident = &query_field.ident;
         quote! {
             let (mut __parts, __body) = __req.into_parts();
-            let axum::extract::Query(#ident) = axum::extract::Query::from_request_parts(
+            let axum_extra::extract::Query(#ident) = axum_extra::extract::Query::from_request_parts(
                 &mut __parts,
                 __state
             )

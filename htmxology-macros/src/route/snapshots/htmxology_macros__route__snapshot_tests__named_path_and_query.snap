@@ -22,10 +22,12 @@ mod __test {
                     user_id.fmt(f)?;
                     std::fmt::Write::write_char(f, '/')?;
                     f.write_str("posts")?;
-                    std::fmt::Write::write_char(f, '?')?;
-                    let qs = &serde_urlencoded::to_string(&page)
+                    let qs = &serde_html_form::to_string(&page)
                         .map_err(|_| std::fmt::Error)?;
-                    f.write_str(&qs)?;
+                    if !qs.is_empty() {
+                        std::fmt::Write::write_char(f, '?')?;
+                        f.write_str(&qs)?;
+                    }
                 }
             };
             Ok(())
@@ -50,7 +52,7 @@ mod __test {
                                     &__captures[stringify!(user_id)],
                                 )?;
                                 let (mut __parts, __body) = __req.into_parts();
-                                let axum::extract::Query(page) = axum::extract::Query::from_request_parts(
+                                let axum_extra::extract::Query(page) = axum_extra::extract::Query::from_request_parts(
                                         &mut __parts,
                                         __state,
                                     )
