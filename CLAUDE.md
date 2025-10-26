@@ -58,6 +58,24 @@ cargo test -p htmxology
 cargo test -p htmxology-macros
 ```
 
+### Code Formatting
+
+**IMPORTANT**: Always run `cargo fmt` after creating or modifying files to ensure consistent code formatting.
+
+```bash
+# Format all code in the workspace
+cargo fmt --all
+
+# Check formatting without modifying files
+cargo fmt --all -- --check
+```
+
+This should be done:
+- After creating new files
+- After making significant changes to existing files
+- Before running tests to verify changes
+- Before committing code
+
 ## Architecture
 
 ### Workspace Structure

@@ -44,7 +44,7 @@ mod __test {
                     std::fmt::Write::write_char(f, '/')?;
                     post_id.fmt(f)?;
                 }
-                Self::Login { .. } => {
+                Self::Login { credentials: _ } => {
                     std::fmt::Write::write_char(f, '/')?;
                     f.write_str("login")?;
                 }
@@ -166,13 +166,11 @@ mod __test {
                 }
             }
             {
-                {
-                    <NotFoundRoute as axum::extract::FromRequest<
-                        S,
-                    >>::from_request(__req, __state)
-                        .await
-                        .map(Self::NotFound)
-                }
+                <NotFoundRoute as axum::extract::FromRequest<
+                    S,
+                >>::from_request(__req, __state)
+                    .await
+                    .map(Self::NotFound)
             }
         }
     }

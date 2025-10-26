@@ -42,13 +42,11 @@ mod __test {
                 }
             }
             {
-                {
-                    <NotFoundRoute as axum::extract::FromRequest<
-                        S,
-                    >>::from_request(__req, __state)
-                        .await
-                        .map(Self::NotFound)
-                }
+                <NotFoundRoute as axum::extract::FromRequest<
+                    S,
+                >>::from_request(__req, __state)
+                    .await
+                    .map(Self::NotFound)
             }
         }
     }

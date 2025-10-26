@@ -8,7 +8,15 @@
       "Bash(cargo clean:*)",
       "Bash(cargo insta test:*)",
       "Bash(cargo build:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(cargo fmt:*)",
+      "Bash(cargo insta review:*)",
+      "Bash(cargo insta accept:*)",
+      "Bash(cargo check:*)",
+      "Bash(cargo clippy:*)",
+      "Bash(just)",
+      "Bash(just build:*)",
+      "Bash(cargo expand:*)"
     ],
     "deny": [],
     "ask": []

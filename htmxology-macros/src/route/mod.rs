@@ -2,15 +2,16 @@
 
 use std::collections::BTreeMap;
 
-use quote::{format_ident, quote, quote_spanned};
-use syn::{
-    Data, Error, Expr, Fields, Ident, Token, Variant, punctuated::Punctuated, spanned::Spanned,
-};
+use quote::quote;
+use syn::{Data, Error, Expr, Token, Variant, punctuated::Punctuated};
 
+mod codegen;
+mod config;
 mod route_type;
 mod route_url;
 
-use route_type::{MethodExt, RouteType, append_query_arg, to_block};
+pub(crate) use config::{FieldsConfig, VariantConfig};
+use route_type::{MethodExt, RouteType};
 use route_url::{ParseError, RouteUrl};
 
 mod attributes {
@@ -41,8 +42,15 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         }
     };
 
-    let mut to_urls = Vec::with_capacity(data.variants.len());
-    let mut methods = Vec::with_capacity(data.variants.len());
+    // Parse all variants into configurations
+    let configs: Vec<VariantConfig> = data
+        .variants
+        .iter()
+        .map(VariantConfig::from_variant)
+        .collect::<syn::Result<Vec<_>>>()?;
+
+    let mut to_urls = Vec::with_capacity(configs.len());
+    let mut methods = Vec::with_capacity(configs.len());
 
     let mut simple_routes = BTreeMap::new();
     let mut sub_routes = BTreeMap::new();
@@ -50,640 +58,37 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         Err(http::StatusCode::NOT_FOUND.into_response())
     };
 
-    for variant in &data.variants {
-        let ident = &variant.ident;
+    for config in &configs {
+        // Generate Display and method() match arms
+        let display_match = codegen::generate_display_match(config)?;
+        let method_match = codegen::generate_method_match(config);
 
-        let (url, route_type) = parse_route_info(variant)?;
+        to_urls.push(display_match);
+        methods.push(method_match);
 
-        match route_type {
+        // Generate routing logic based on route type
+        match &config.route_type {
             RouteType::Simple { method } => {
-                let handler = match &variant.fields {
-                    // Enum::Unit - no query or body parameters.
-                    Fields::Unit => {
-                        let url = to_block(url.to_unparameterized_string(variant)?);
-
-                        to_urls.push(quote! {
-                            Self::#ident => #url
-                        });
-
-                        let method_ident = method.to_ident();
-                        methods.push(
-                            quote_spanned! { variant.span() => Self::#ident => http::Method::#method_ident },
-                        );
-
-                        quote_spanned! { variant.span() => Self::#ident }
-                    }
-                    // Enum::Named{} - no query or body parameters.
-                    Fields::Named(fields) if fields.named.is_empty() => {
-                        let url = to_block(url.to_unparameterized_string(variant)?);
-
-                        to_urls.push(quote! {
-                            Self::#ident{} => #url
-                        });
-
-                        let method_ident = method.to_ident();
-                        methods.push(
-                            quote_spanned! { variant.span() => Self::#ident{} => http::Method::#method_ident },
-                        );
-
-                        quote_spanned! { variant.span() => Self::#ident{} }
-                    }
-                    // Enum::Unnamed() - no query or body parameters.
-                    Fields::Unnamed(fields) if fields.unnamed.is_empty() => {
-                        let url = to_block(url.to_unparameterized_string(variant)?);
-
-                        to_urls.push(quote! {
-                            Self::#ident() => #url
-                        });
-
-                        let method_ident = method.to_ident();
-                        methods.push(
-                            quote_spanned! { variant.span() => Self::#ident() => http::Method::#method_ident },
-                        );
-
-                        quote_spanned! { variant.span() => Self::#ident() }
-                    }
-                    // Enum::Named{...}
-                    Fields::Named(fields) => {
-                        // Will contain all the arguments.
-                        let mut args = Vec::with_capacity(fields.named.len());
-                        let mut args_defs = Vec::with_capacity(fields.named.len());
-
-                        // All the arguments used for URL formatting.
-                        let mut url_args = Vec::with_capacity(fields.named.len());
-
-                        // All the path arguments.
-                        let mut path_args = Vec::with_capacity(fields.named.len());
-                        let mut path_args_names = BTreeMap::new();
-
-                        // If there is a query argument, this will be set to its ident.
-                        let mut query_arg = None;
-
-                        // If there is a body argument, this will be set to its ident.
-                        let mut body_arg = None;
-
-                        for field in &fields.named {
-                            let field_ident = field
-                                .ident
-                                .as_ref()
-                                .expect("field of named variant has no ident");
-                            let field_ty = &field.ty;
-
-                            args.push(quote_spanned! { field_ident.span() =>
-                                #field_ident
-                            });
-                            args_defs.push(quote_spanned! { field_ident.span() =>
-                                #field_ident: #field_ty
-                            });
-
-                            let is_query = field
-                                .attrs
-                                .iter()
-                                .any(|attr| attr.path().is_ident(attributes::QUERY));
-
-                            let is_body = field
-                                .attrs
-                                .iter()
-                                .any(|attr| attr.path().is_ident(attributes::BODY));
-
-                            if is_body {
-                                url_args.push(quote! { .. });
-                            } else {
-                                url_args.push(quote_spanned! { field_ident.span() =>
-                                    #field_ident
-                                });
-                            }
-
-                            match (is_query, is_body) {
-                                (true, true) => {
-                                    return Err(Error::new_spanned(
-                                        field,
-                                        "field cannot be both query and body parameter",
-                                    ));
-                                }
-                                (true, false) => {
-                                    if query_arg.is_some() {
-                                        return Err(Error::new_spanned(
-                                            field,
-                                            "only one field can be a query parameter",
-                                        ));
-                                    }
-
-                                    query_arg = Some(field_ident.clone());
-                                }
-                                (false, true) => {
-                                    if body_arg.is_some() {
-                                        return Err(Error::new_spanned(
-                                            field,
-                                            "only one field can be a body parameter",
-                                        ));
-                                    }
-
-                                    body_arg = Some(field_ident.clone());
-                                }
-                                (false, false) => {
-                                    path_args.push(quote_spanned! { field_ident.span() =>
-                                        #field_ident
-                                    });
-                                    path_args_names
-                                        .insert(field_ident.to_string(), field_ident.clone());
-                                }
-                            };
-                        }
-
-                        let url = {
-                            let mut statements = if path_args_names.is_empty() {
-                                url.to_unparameterized_string(variant)?
-                            } else {
-                                url.to_named_parameters_format(variant, path_args_names)?
-                            };
-
-                            append_query_arg(&mut statements, query_arg.as_ref());
-                            to_block(statements)
-                        };
-
-                        to_urls.push(quote! {
-                            Self::#ident{#(#url_args),*} => #url
-                        });
-
-                        let method_ident = method.to_ident();
-                        methods.push(
-                            quote_spanned! { variant.span() => Self::#ident{..} => http::Method::#method_ident },
-                        );
-
-                        let path_parse = if path_args.is_empty() {
-                            quote!()
-                        } else {
-                            let mut args_parse = Vec::with_capacity(path_args.len());
-                            for path_arg in &path_args {
-                                args_parse.push(quote! {
-                                    let #path_arg = htmxology::decode_path_argument(stringify!(#path_arg), &__captures[stringify!(#path_arg)])?;
-                                });
-                            }
-
-                            quote! {
-                                #(#args_parse)*
-                            }
-                        };
-
-                        let query_parse = match query_arg {
-                            None => quote!(),
-                            Some(query_ident) => {
-                                quote! {
-                                    let (mut __parts, __body) = __req.into_parts();
-                                    let axum::extract::Query(#query_ident) =
-                                    axum::extract::Query::from_request_parts(&mut __parts, __state)
-                                        .await
-                                        .map_err(|err| err.into_response())?;
-                                    let __req = http::Request::from_parts(__parts, __body);
-                                }
-                            }
-                        };
-
-                        let body_parse = match body_arg {
-                            None => quote!(),
-                            Some(body_ident) => {
-                                quote! {
-                                    let axum_extra::extract::Form(#body_ident) =
-                                    axum_extra::extract::Form::from_request(__req, __state)
-                                        .await
-                                        .map_err(|err| err.into_response())?;
-                                }
-                            }
-                        };
-
-                        quote_spanned! { variant.span() => {
-                            #path_parse
-                            #query_parse
-                            #body_parse
-
-                            Self::#ident { #(#args),* }
-                        }}
-                    }
-                    // Enum::Unnamed(...)
-                    Fields::Unnamed(fields) => {
-                        // Will contain all the arguments.
-                        let mut args = Vec::with_capacity(fields.unnamed.len());
-                        let mut args_defs = Vec::with_capacity(fields.unnamed.len());
-
-                        // All the arguments used for URL formatting.
-                        let mut url_args = Vec::with_capacity(fields.unnamed.len());
-
-                        // All the path arguments.
-                        let mut path_args = Vec::with_capacity(fields.unnamed.len());
-                        let mut path_args_unnamed = Vec::with_capacity(fields.unnamed.len());
-
-                        // If there is a query argument, this will be set to its ident.
-                        let mut query_arg = None;
-
-                        // If there is a body argument, this will be set to its ident.
-                        let mut body_arg = None;
-
-                        for (i, field) in fields.unnamed.iter().enumerate() {
-                            let field_ident = Ident::new(&format!("arg{i}"), field.span());
-                            let field_ty = &field.ty;
-
-                            args.push(quote_spanned! { field_ident.span() =>
-                                #field_ident
-                            });
-                            args_defs.push(quote_spanned! { field_ident.span() =>
-                                #field_ident: #field_ty
-                            });
-
-                            let is_query = field
-                                .attrs
-                                .iter()
-                                .any(|attr| attr.path().is_ident(attributes::QUERY));
-
-                            let is_body = field
-                                .attrs
-                                .iter()
-                                .any(|attr| attr.path().is_ident(attributes::BODY));
-
-                            if is_body {
-                                url_args.push(quote! { .. });
-                            } else {
-                                url_args.push(quote_spanned! { field_ident.span() =>
-                                    #field_ident
-                                });
-                            }
-
-                            match (is_query, is_body) {
-                                (true, true) => {
-                                    return Err(Error::new_spanned(
-                                        field,
-                                        "field cannot be both query and body parameter",
-                                    ));
-                                }
-                                (true, false) => {
-                                    if query_arg.is_some() {
-                                        return Err(Error::new_spanned(
-                                            field,
-                                            "only one field can be a query parameter",
-                                        ));
-                                    }
-
-                                    query_arg = Some(field_ident.clone());
-                                }
-                                (false, true) => {
-                                    if body_arg.is_some() {
-                                        return Err(Error::new_spanned(
-                                            field,
-                                            "only one field can be a body parameter",
-                                        ));
-                                    }
-
-                                    body_arg = Some(field_ident.clone());
-                                }
-                                (false, false) => {
-                                    path_args.push(quote_spanned! { field_ident.span() =>
-                                        #field_ident
-                                    });
-                                    path_args_unnamed.push(field_ident.clone());
-                                }
-                            };
-                        }
-
-                        let url = {
-                            let mut statements = if path_args.is_empty() {
-                                url.to_unparameterized_string(variant)?
-                            } else {
-                                url.to_unnamed_parameters_format(variant, path_args_unnamed)?
-                            };
-
-                            append_query_arg(&mut statements, query_arg.as_ref());
-                            to_block(statements)
-                        };
-
-                        to_urls.push(quote! {
-                            Self::#ident(#(#url_args),*) => #url
-                        });
-
-                        let method_ident = method.to_ident();
-                        methods.push(
-                            quote_spanned! { variant.span() => Self::#ident(..) => http::Method::#method_ident },
-                        );
-
-                        let path_parse = if path_args.is_empty() {
-                            quote!()
-                        } else {
-                            let mut args_parse = Vec::with_capacity(path_args.len());
-                            for (i, path_arg) in path_args.iter().enumerate() {
-                                let idx = i + 1;
-                                args_parse.push(quote! {
-                                    let #path_arg = htmxology::decode_path_argument(stringify!(#path_arg), &__captures[#idx])?;
-                                });
-                            }
-
-                            quote! {
-                                #(#args_parse)*
-                            }
-                        };
-
-                        let query_parse = match query_arg {
-                            None => quote!(),
-                            Some(query_ident) => {
-                                quote! {
-                                    let (mut __parts, __body) = __req.into_parts();
-                                    let axum::extract::Query(#query_ident) =
-                                    axum::extract::Query::from_request_parts(&mut __parts, __state)
-                                        .await
-                                        .map_err(|err| err.into_response())?;
-                                    let __req = http::Request::from_parts(__parts, __body);
-                                }
-                            }
-                        };
-
-                        let body_parse = match body_arg {
-                            None => quote!(),
-                            Some(body_ident) => {
-                                quote! {
-                                    let axum_extra::extract::Form(#body_ident) =
-                                    axum_extra::extract::Form::from_request(__req, __state)
-                                        .await
-                                        .map_err(|err| err.into_response())?;
-                                }
-                            }
-                        };
-
-                        quote_spanned! { variant.span() => {
-                            #path_parse
-                            #query_parse
-                            #body_parse
-
-                            Self::#ident ( #(#args),* )
-                        }}
-                    }
-                };
-
+                let handler = codegen::generate_request_parsing(config);
                 simple_routes
-                    .entry(url)
+                    .entry(config.route_url.clone())
                     .or_insert_with(Vec::new)
-                    .push((method, handler));
+                    .push((method.clone(), handler));
             }
             RouteType::SubRoute => {
-                let router = match &variant.fields {
-                    // Enum::Unit
-                    Fields::Unit => {
-                        return Err(Error::new_spanned(
-                            variant,
-                            "expected struct or tuple variant",
-                        ));
-                    }
-                    // Enum::Named{...}
-                    Fields::Named(fields) => {
-                        // Will contain all the arguments.
-                        let mut args = Vec::with_capacity(fields.named.len());
-                        let mut args_defs = Vec::with_capacity(fields.named.len());
-
-                        // All the path arguments.
-                        let mut path_args = Vec::with_capacity(fields.named.len());
-                        let mut path_args_names = BTreeMap::new();
-
-                        let mut subroute_arg = None;
-
-                        for field in &fields.named {
-                            let field_ident = field
-                                .ident
-                                .as_ref()
-                                .expect("field of named variant has no ident");
-                            let field_ty = &field.ty;
-
-                            args.push(quote_spanned! { field_ident.span() =>
-                                #field_ident
-                            });
-                            args_defs.push(quote_spanned! { field_ident.span() =>
-                                #field_ident: #field_ty
-                            });
-
-                            let is_subroute = field
-                                .attrs
-                                .iter()
-                                .any(|attr| attr.path().is_ident(attributes::SUBROUTE));
-
-                            if is_subroute {
-                                if subroute_arg.is_some() {
-                                    return Err(Error::new_spanned(
-                                        field,
-                                        "only one field can be a subroute",
-                                    ));
-                                }
-
-                                subroute_arg = Some((field_ident.clone(), field_ty.clone()));
-                            } else {
-                                path_args.push(quote_spanned! { field_ident.span() =>
-                                    #field_ident
-                                });
-                                path_args_names
-                                    .insert(field_ident.to_string(), field_ident.clone());
-                            }
-                        }
-
-                        let (subroute_arg, subroute_ty) = subroute_arg.ok_or_else(|| {
-                            Error::new_spanned(
-                                variant,
-                                "expected a field with `subroute` attribute",
-                            )
-                        })?;
-
-                        let url = {
-                            let mut statements = if path_args_names.is_empty() {
-                                url.to_unparameterized_string(variant)?
-                            } else {
-                                url.to_named_parameters_format(variant, path_args_names)?
-                            };
-
-                            statements.push(quote! {
-                                #subroute_arg.fmt(f)?;
-                            });
-
-                            to_block(statements)
-                        };
-
-                        methods.push(quote_spanned! { variant.span() => Self::#ident{#subroute_arg, ..} => #subroute_arg.method()});
-
-                        to_urls.push(quote! {
-                            Self::#ident{#(#args),*} => #url
-                        });
-
-                        let path_parse = if path_args.is_empty() {
-                            quote!()
-                        } else {
-                            let mut args_parse = Vec::with_capacity(path_args.len());
-                            for path_arg in &path_args {
-                                args_parse.push(quote! {
-                                    let #path_arg = htmxology::decode_path_argument(stringify!(#path_arg), &__captures[stringify!(#path_arg)])?;
-                                });
-                            }
-
-                            quote! {
-                                #(#args_parse)*
-                            }
-                        };
-
-                        quote_spanned! { variant.span() => {
-                            #path_parse
-
-                            let __new_path = __captures["subroute"].to_owned();
-                            let __req = htmxology::replace_request_path(__req, __new_path);
-
-                            let #subroute_arg = #subroute_ty::from_request(__req, __state)
-                                .await?;
-
-                            return Ok(Self::#ident { #(#args),* });
-                        }}
-                    }
-                    // Enum::Unnamed(...)
-                    Fields::Unnamed(fields) => {
-                        // Will contain all the arguments.
-                        let mut args = Vec::with_capacity(fields.unnamed.len());
-                        let mut args_defs = Vec::with_capacity(fields.unnamed.len());
-
-                        // All the path arguments.
-                        let mut path_args = Vec::with_capacity(fields.unnamed.len());
-                        let mut path_args_unnamed = Vec::with_capacity(fields.unnamed.len());
-
-                        let mut subroute_arg = None;
-
-                        for (i, field) in fields.unnamed.iter().enumerate() {
-                            let field_ident = format_ident!("arg{i}");
-                            let field_ty = &field.ty;
-
-                            args.push(quote_spanned! { field_ident.span() =>
-                                #field_ident
-                            });
-                            args_defs.push(quote_spanned! { field_ident.span() =>
-                                #field_ident: #field_ty
-                            });
-
-                            let is_subroute = field
-                                .attrs
-                                .iter()
-                                .any(|attr| attr.path().is_ident(attributes::SUBROUTE));
-
-                            if is_subroute {
-                                if subroute_arg.is_some() {
-                                    return Err(Error::new_spanned(
-                                        field,
-                                        "only one field can be a subroute",
-                                    ));
-                                }
-
-                                subroute_arg = Some((i, field_ident.clone(), field_ty.clone()));
-                            } else {
-                                path_args.push(quote_spanned! { field_ident.span() =>
-                                    #field_ident
-                                });
-                                path_args_unnamed.push(field_ident.clone());
-                            }
-                        }
-
-                        let (subroute_arg_idx, subroute_arg, subroute_ty) = subroute_arg
-                            .ok_or_else(|| {
-                                Error::new_spanned(
-                                    variant,
-                                    "expected a field with `subroute` attribute",
-                                )
-                            })?;
-
-                        let url = {
-                            let mut statements = if path_args.is_empty() {
-                                url.to_unparameterized_string(variant)?
-                            } else {
-                                url.to_unnamed_parameters_format(variant, path_args_unnamed)?
-                            };
-
-                            statements.push(quote! {
-                                #subroute_arg.fmt(f)?;
-                            });
-
-                            to_block(statements)
-                        };
-
-                        to_urls.push(quote! {
-                            Self::#ident(#(#args),*) => #url
-                        });
-
-                        let margs = (0..args.len()).map(|i| {
-                            if i == subroute_arg_idx {
-                                quote! { #subroute_arg }
-                            } else {
-                                quote! { _ }
-                            }
-                        });
-
-                        methods.push(quote_spanned! { variant.span() => Self::#ident(#(#margs),*) => #subroute_arg.method() });
-
-                        let path_parse = if path_args.is_empty() {
-                            quote!()
-                        } else {
-                            let mut args_parse = Vec::with_capacity(path_args.len());
-                            for path_arg in &path_args {
-                                args_parse.push(quote! {
-                                    let #path_arg = htmxology::decode_path_argument(stringify!(#path_arg), &__captures[stringify!(#path_arg)])?;
-                                });
-                            }
-
-                            quote! {
-                                #(#args_parse)*
-                            }
-                        };
-
-                        quote_spanned! { variant.span() => {
-                            #path_parse
-
-                            let __new_path = __captures["subroute"].to_owned();
-                            let __req = htmxology::replace_request_path(__req, __new_path);
-
-                            let #subroute_arg = #subroute_ty::from_request(__req, __state)
-                                .await?;
-
-                            return Ok(Self::#ident ( #(#args),* ));
-                        }}
-                    }
-                };
-
-                if sub_routes.insert(url, router).is_some() {
-                    return Err(Error::new_spanned(variant, "duplicate subroute prefix"));
+                let handler = generate_subroute_handler(config)?;
+                if sub_routes
+                    .insert(config.route_url.clone(), handler)
+                    .is_some()
+                {
+                    return Err(Error::new_spanned(
+                        &config.ident,
+                        "duplicate subroute prefix",
+                    ));
                 }
             }
             RouteType::CatchAll => {
-                match &variant.fields {
-                    // Enum::Unit
-                    Fields::Unit | Fields::Named(_) => {
-                        return Err(Error::new_spanned(variant, "expected single tuple variant"));
-                    }
-                    // Enum::Unnamed(...)
-                    Fields::Unnamed(fields) => {
-                        let mut fields = fields.unnamed.pairs().map(|pair| pair.into_value());
-
-                        let field = fields.next().ok_or_else(|| {
-                            Error::new_spanned(
-                                variant,
-                                "expected single field in catch-all variant",
-                            )
-                        })?;
-
-                        if let Some(field) = fields.next() {
-                            return Err(Error::new_spanned(
-                                field,
-                                "expected single field in catch-all variant",
-                            ));
-                        }
-
-                        let field_ty = &field.ty;
-
-                        methods.push(quote_spanned! { variant.span() => Self::#ident(catch_all) => catch_all.method() });
-                        to_urls.push(quote_spanned! { variant.span() =>
-                            Self::#ident(catch_all) => catch_all.fmt(f)?
-                        });
-                        catch_all = quote_spanned! { variant.span() => {{
-                           <#field_ty as axum::extract::FromRequest<S>>::from_request(__req, __state)
-                                .await
-                                .map(Self::#ident)
-                        }}};
-                    }
-                };
+                catch_all = generate_catch_all_handler(config)?;
             }
         }
     }
@@ -763,6 +168,100 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
             }
         }
     })
+}
+
+/// Generates the handler code for a subroute variant.
+fn generate_subroute_handler(config: &VariantConfig) -> syn::Result<proc_macro2::TokenStream> {
+    let subroute_field = config
+        .subroute_param()
+        .expect("SubRoute should have subroute field");
+
+    let subroute_ident = &subroute_field.ident;
+    let subroute_ty = &subroute_field.ty;
+    let ident = &config.ident;
+
+    // Generate path parameter parsing
+    let path_params: Vec<_> = config.fields.iter().filter(|f| f.is_path_param()).collect();
+
+    let path_parse = if path_params.is_empty() {
+        quote!()
+    } else if config.fields.is_named() {
+        let parse_stmts: Vec<_> = path_params
+            .iter()
+            .map(|field| {
+                let field_ident = &field.ident;
+                quote! {
+                    let #field_ident = htmxology::decode_path_argument(
+                        stringify!(#field_ident),
+                        &__captures[stringify!(#field_ident)]
+                    )?;
+                }
+            })
+            .collect();
+        quote! { #(#parse_stmts)* }
+    } else {
+        let parse_stmts: Vec<_> = path_params
+            .iter()
+            .enumerate()
+            .map(|(i, field)| {
+                let field_ident = &field.ident;
+                let idx = i + 1;
+                quote! {
+                    let #field_ident = htmxology::decode_path_argument(
+                        stringify!(#field_ident),
+                        &__captures[#idx]
+                    )?;
+                }
+            })
+            .collect();
+        quote! { #(#parse_stmts)* }
+    };
+
+    // Generate variant construction
+    let construction = match &config.fields {
+        FieldsConfig::Named(fields) => {
+            let field_idents: Vec<_> = fields.iter().map(|f| &f.ident).collect();
+            quote! { Self::#ident { #(#field_idents),* } }
+        }
+        FieldsConfig::Unnamed(fields) => {
+            let field_idents: Vec<_> = fields.iter().map(|f| &f.ident).collect();
+            quote! { Self::#ident(#(#field_idents),*) }
+        }
+        _ => unreachable!("SubRoute must have fields"),
+    };
+
+    Ok(quote! {{
+        #path_parse
+
+        let __new_path = __captures["subroute"].to_owned();
+        let __req = htmxology::replace_request_path(__req, __new_path);
+
+        let #subroute_ident = #subroute_ty::from_request(__req, __state).await?;
+
+        return Ok(#construction);
+    }})
+}
+
+/// Generates the handler code for a catch-all variant.
+fn generate_catch_all_handler(config: &VariantConfig) -> syn::Result<proc_macro2::TokenStream> {
+    // Catch-all should have exactly one unnamed field
+    if let FieldsConfig::Unnamed(fields) = &config.fields
+        && fields.len() == 1
+    {
+        let field_ty = &fields[0].ty;
+        let ident = &config.ident;
+
+        return Ok(quote! {{
+            <#field_ty as axum::extract::FromRequest<S>>::from_request(__req, __state)
+                .await
+                .map(Self::#ident)
+        }});
+    }
+
+    Err(Error::new_spanned(
+        &config.ident,
+        "catch-all variant must have exactly one unnamed field",
+    ))
 }
 
 fn parse_route_info(variant: &Variant) -> syn::Result<(RouteUrl, RouteType)> {
