@@ -1,0 +1,15 @@
+---
+source: htmxology-macros/src/display_delegate.rs
+expression: test_display_delegate(input)
+---
+#[allow(unused)]
+mod __test {
+    impl<'a> std::fmt::Display for Cow<'a> {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Borrowed(page) => write!(f, "{page}"),
+                Self::Owned(page) => write!(f, "{page}"),
+            }
+        }
+    }
+}

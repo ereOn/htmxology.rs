@@ -1,0 +1,17 @@
+---
+source: htmxology-macros/src/display_delegate.rs
+expression: test_display_delegate(input)
+---
+#[allow(unused)]
+mod __test {
+    impl<T> std::fmt::Display for Wrapper<T>
+    where
+        T: std::fmt::Display,
+    {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Value(page) => write!(f, "{page}"),
+            }
+        }
+    }
+}

@@ -1,0 +1,35 @@
+---
+source: htmxology-macros/src/components_controller.rs
+expression: test_components_controller(input)
+---
+#[allow(unused)]
+mod __test {
+    impl htmxology::AsComponent<'_, BlogController> for AppController {
+        fn as_component_controller(&self) -> BlogController {
+            Self::get_blog(self)
+        }
+    }
+    #[derive(Debug, Clone, htmxology::Route)]
+    pub enum AppRoute {
+        #[route("blog/")]
+        Blog(#[subroute] <BlogController as htmxology::Controller>::Route),
+    }
+    impl htmxology::Controller for AppController {
+        type Route = AppRoute;
+        async fn handle_request(
+            &self,
+            route: Self::Route,
+            htmx: htmxology::htmx::Request,
+            parts: http::request::Parts,
+            server_info: &htmxology::ServerInfo,
+        ) -> Result<axum::response::Response, axum::response::Response> {
+            match route {
+                Self::Route::Blog(route) => {
+                    self.get_component::<BlogController>()
+                        .handle_request(route, htmx, parts, server_info)
+                        .await
+                }
+            }
+        }
+    }
+}

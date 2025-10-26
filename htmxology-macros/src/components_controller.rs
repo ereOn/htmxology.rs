@@ -16,7 +16,7 @@ pub(super) const PATH: &str = "path";
 pub(super) const DOC: &str = "doc";
 pub(super) const CONVERT_WITH: &str = "convert_with";
 
-pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     // Get the name of the root type.
     let root_ident = &input.ident;
 
@@ -353,7 +353,6 @@ fn remove_lifetimes_mut(ty: &mut Type) {
                             }
                             GenericArgument::Type(ty) => {
                                 remove_lifetimes_mut(ty);
-                                println!("Removed lifetime in type arg: {:?}", ty);
                             }
                             _ => {}
                         };
@@ -431,5 +430,121 @@ mod tests {
         let ty: Type = syn::parse_str("i32").unwrap();
         let new_ty = remove_lifetimes(&ty);
         assert_eq!(quote! { #new_ty }.to_string(), "i32");
+    }
+}
+
+#[cfg(test)]
+mod snapshot_tests {
+    use super::*;
+    use insta::assert_snapshot;
+    use quote::quote;
+
+    fn test_components_controller(input: &str) -> String {
+        let mut input: syn::DeriveInput = syn::parse_str(input).expect("Failed to parse input");
+        let output = derive(&mut input).expect("Derive failed");
+
+        let wrapped = quote! {
+            #[allow(unused)]
+            mod __test {
+                #output
+            }
+        };
+
+        let syntax_tree: syn::File = syn::parse2(wrapped).expect("Failed to parse output");
+        prettyplease::unparse(&syntax_tree)
+    }
+
+    #[test]
+    fn single_component_with_path() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[component(BlogController, route = Blog, path = "blog/")]
+            struct AppController {
+                blog: BlogController,
+            }
+        "#;
+        assert_snapshot!(test_components_controller(input));
+    }
+
+    #[test]
+    fn single_component_catch_all() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[component(NotFoundController, route = NotFound)]
+            struct AppController {
+                not_found: NotFoundController,
+            }
+        "#;
+        assert_snapshot!(test_components_controller(input));
+    }
+
+    #[test]
+    fn multiple_components() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[component(HomeController, route = Home, path = "")]
+            #[component(BlogController, route = Blog, path = "blog/")]
+            #[component(ShopController, route = Shop, path = "shop/")]
+            struct AppController {
+                home: HomeController,
+                blog: BlogController,
+                shop: ShopController,
+            }
+        "#;
+        assert_snapshot!(test_components_controller(input));
+    }
+
+    #[test]
+    fn component_with_lifetime() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[component(&'a DataController, route = Data, path = "data/")]
+            struct AppController<'a> {
+                data: &'a DataController,
+            }
+        "#;
+        assert_snapshot!(test_components_controller(input));
+    }
+
+    #[test]
+    fn component_with_convert() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[component(BlogController, route = Blog, path = "blog/", convert_with = "Self::get_blog")]
+            struct AppController {
+                state: AppState,
+            }
+        "#;
+        assert_snapshot!(test_components_controller(input));
+    }
+
+    #[test]
+    fn component_with_doc() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[component(BlogController, route = Blog, path = "blog/", doc = "Blog section")]
+            struct AppController {
+                blog: BlogController,
+            }
+        "#;
+        assert_snapshot!(test_components_controller(input));
+    }
+
+    #[test]
+    fn complex_app() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[component(HomeController, route = Home, path = "", doc = "Home page")]
+            #[component(AuthController, route = Auth, path = "auth/", doc = "Authentication")]
+            #[component(ApiController, route = Api, path = "api/", doc = "API endpoints")]
+            #[component(NotFoundController, route = NotFound, doc = "404 handler")]
+            struct AppController {
+                home: HomeController,
+                auth: AuthController,
+                api: ApiController,
+                not_found: NotFoundController,
+            }
+        "#;
+        assert_snapshot!(test_components_controller(input));
     }
 }

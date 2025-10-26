@@ -22,7 +22,7 @@ mod attributes {
     pub(super) const BODY: &str = "body";
 }
 
-pub(super) fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
+pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let root_ident = &input.ident;
 
     let data = match &input.data {
@@ -896,5 +896,250 @@ fn parse_method(expr: Expr) -> syn::Result<http::Method> {
             expr,
             format!("expected `{} = \"<GET|POST|...>\"`", attributes::METHOD),
         )),
+    }
+}
+
+#[cfg(test)]
+mod snapshot_tests {
+    use super::*;
+    use insta::assert_snapshot;
+    use quote::quote;
+
+    fn test_route_derive(input: &str) -> String {
+        let mut input: syn::DeriveInput = syn::parse_str(input).expect("Failed to parse input");
+        let output = derive(&mut input).expect("Derive failed");
+
+        // Wrap in a module to make it valid Rust
+        let wrapped = quote! {
+            #[allow(unused)]
+            mod __test {
+                #output
+            }
+        };
+
+        let syntax_tree: syn::File = syn::parse2(wrapped).expect("Failed to parse output");
+        prettyplease::unparse(&syntax_tree)
+    }
+
+    #[test]
+    fn unit_variant_get() {
+        let input = r#"
+            enum MyRoute {
+                #[route("")]
+                Home,
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn unit_variant_post() {
+        let input = r#"
+            enum MyRoute {
+                #[route("submit", method = "POST")]
+                Submit,
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn named_single_path_param() {
+        let input = r#"
+            enum MyRoute {
+                #[route("users/{user_id}")]
+                User { user_id: u32 },
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn named_multiple_path_params() {
+        let input = r#"
+            enum MyRoute {
+                #[route("users/{user_id}/posts/{post_id}")]
+                Post { user_id: u32, post_id: u32 },
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn unnamed_single_path_param() {
+        let input = r#"
+            enum MyRoute {
+                #[route("users/{user_id}")]
+                User(u32),
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn unnamed_multiple_path_params() {
+        let input = r#"
+            enum MyRoute {
+                #[route("users/{user_id}/posts/{post_id}")]
+                Post(u32, u32),
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn named_query_param() {
+        let input = r#"
+            enum MyRoute {
+                #[route("search")]
+                Search {
+                    #[query]
+                    q: String,
+                },
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn named_path_and_query() {
+        let input = r#"
+            enum MyRoute {
+                #[route("users/{user_id}/posts")]
+                UserPosts {
+                    user_id: u32,
+                    #[query]
+                    page: Option<u32>,
+                },
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn unnamed_query_param() {
+        let input = r#"
+            enum MyRoute {
+                #[route("search")]
+                Search(#[query] String),
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn named_body_param() {
+        let input = r#"
+            enum MyRoute {
+                #[route("submit", method = "POST")]
+                Submit {
+                    #[body("application/x-www-form-urlencoded")]
+                    data: FormData,
+                },
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn unnamed_body_param() {
+        let input = r#"
+            enum MyRoute {
+                #[route("submit", method = "POST")]
+                Submit(#[body("application/x-www-form-urlencoded")] FormData),
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn named_subroute() {
+        let input = r#"
+            enum MyRoute {
+                #[route("api/")]
+                Api {
+                    #[subroute]
+                    route: ApiRoute,
+                },
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn named_subroute_with_path() {
+        let input = r#"
+            enum MyRoute {
+                #[route("users/{user_id}/")]
+                UserSubroutes {
+                    user_id: u32,
+                    #[subroute]
+                    route: UserRoute,
+                },
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn unnamed_subroute() {
+        let input = r#"
+            enum MyRoute {
+                #[route("api/")]
+                Api(#[subroute] ApiRoute),
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn catch_all() {
+        let input = r#"
+            enum MyRoute {
+                #[route("")]
+                Home,
+                #[catch_all]
+                NotFound(NotFoundRoute),
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn full_application() {
+        let input = r#"
+            enum AppRoute {
+                #[route("")]
+                Home,
+
+                #[route("users/{user_id}")]
+                UserProfile { user_id: u32 },
+
+                #[route("search")]
+                Search {
+                    #[query]
+                    q: String,
+                },
+
+                #[route("posts/{post_id}", method = "DELETE")]
+                DeletePost { post_id: u32 },
+
+                #[route("login", method = "POST")]
+                Login {
+                    #[body("application/x-www-form-urlencoded")]
+                    credentials: LoginForm,
+                },
+
+                #[route("admin/")]
+                Admin {
+                    #[subroute]
+                    route: AdminRoute,
+                },
+
+                #[catch_all]
+                NotFound(NotFoundRoute),
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
     }
 }

@@ -1,0 +1,16 @@
+---
+source: htmxology-macros/src/display_delegate.rs
+expression: test_display_delegate(input)
+---
+#[allow(unused)]
+mod __test {
+    impl std::fmt::Display for Page {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Home(page) => write!(f, "{page}"),
+                Self::About(page) => write!(f, "{page}"),
+                Self::Contact(page) => write!(f, "{page}"),
+            }
+        }
+    }
+}

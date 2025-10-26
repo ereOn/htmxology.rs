@@ -1,0 +1,55 @@
+---
+source: htmxology-macros/src/route/mod.rs
+expression: test_route_derive(input)
+---
+#[allow(unused)]
+mod __test {
+    use axum::response::IntoResponse as _;
+    impl htmxology::Route for MyRoute {
+        fn method(&self) -> http::Method {
+            match self {
+                Self::Home => http::Method::GET,
+                Self::NotFound(catch_all) => catch_all.method(),
+            }
+        }
+    }
+    impl std::fmt::Display for MyRoute {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            match self {
+                Self::Home => {
+                    std::fmt::Write::write_char(f, '/')?;
+                }
+                Self::NotFound(catch_all) => catch_all.fmt(f)?,
+            };
+            Ok(())
+        }
+    }
+    impl<S: Send + Sync> axum::extract::FromRequest<S> for MyRoute {
+        type Rejection = axum::response::Response;
+        async fn from_request(
+            __req: axum::extract::Request,
+            __state: &S,
+        ) -> Result<Self, Self::Rejection> {
+            use axum::extract::FromRequestParts;
+            {
+                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
+                regex::Regex::new("^/$").unwrap());
+                if let Some(__captures) = RE.captures(&__req.uri().path()) {
+                    return match __req.method() {
+                        &http::Method::GET => Ok(Self::Home),
+                        _ => Err(http::StatusCode::METHOD_NOT_ALLOWED.into_response()),
+                    };
+                }
+            }
+            {
+                {
+                    <NotFoundRoute as axum::extract::FromRequest<
+                        S,
+                    >>::from_request(__req, __state)
+                        .await
+                        .map(Self::NotFound)
+                }
+            }
+        }
+    }
+}

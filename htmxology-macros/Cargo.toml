@@ -27,3 +27,6 @@ thiserror.workspace = true
 
 [dev-dependencies]
 regex.workspace = true
+insta.workspace = true
+prettyplease.workspace = true
+syn = { workspace = true, features = ["extra-traits"] }

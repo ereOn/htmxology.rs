@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo test:*)",
+      "mcp__github__get_me",
+      "mcp__github__search_issues",
+      "mcp__github__list_issues",
+      "Bash(cargo clean:*)",
+      "Bash(cargo insta test:*)",
+      "Bash(cargo build:*)",
+      "Bash(cat:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

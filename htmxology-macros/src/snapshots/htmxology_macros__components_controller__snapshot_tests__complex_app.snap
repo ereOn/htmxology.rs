@@ -1,0 +1,75 @@
+---
+source: htmxology-macros/src/components_controller.rs
+expression: test_components_controller(input)
+---
+#[allow(unused)]
+mod __test {
+    impl htmxology::AsComponent<'_, HomeController> for AppController {
+        fn as_component_controller(&self) -> HomeController {
+            self.into()
+        }
+    }
+    impl htmxology::AsComponent<'_, AuthController> for AppController {
+        fn as_component_controller(&self) -> AuthController {
+            self.into()
+        }
+    }
+    impl htmxology::AsComponent<'_, ApiController> for AppController {
+        fn as_component_controller(&self) -> ApiController {
+            self.into()
+        }
+    }
+    impl htmxology::AsComponent<'_, NotFoundController> for AppController {
+        fn as_component_controller(&self) -> NotFoundController {
+            self.into()
+        }
+    }
+    #[derive(Debug, Clone, htmxology::Route)]
+    pub enum AppRoute {
+        ///Home page
+        #[route("")]
+        Home(#[subroute] <HomeController as htmxology::Controller>::Route),
+        ///Authentication
+        #[route("auth/")]
+        Auth(#[subroute] <AuthController as htmxology::Controller>::Route),
+        ///API endpoints
+        #[route("api/")]
+        Api(#[subroute] <ApiController as htmxology::Controller>::Route),
+        ///404 handler
+        #[catch_all]
+        NotFound(<NotFoundController as htmxology::Controller>::Route),
+    }
+    impl htmxology::Controller for AppController {
+        type Route = AppRoute;
+        async fn handle_request(
+            &self,
+            route: Self::Route,
+            htmx: htmxology::htmx::Request,
+            parts: http::request::Parts,
+            server_info: &htmxology::ServerInfo,
+        ) -> Result<axum::response::Response, axum::response::Response> {
+            match route {
+                Self::Route::Home(route) => {
+                    self.get_component::<HomeController>()
+                        .handle_request(route, htmx, parts, server_info)
+                        .await
+                }
+                Self::Route::Auth(route) => {
+                    self.get_component::<AuthController>()
+                        .handle_request(route, htmx, parts, server_info)
+                        .await
+                }
+                Self::Route::Api(route) => {
+                    self.get_component::<ApiController>()
+                        .handle_request(route, htmx, parts, server_info)
+                        .await
+                }
+                Self::Route::NotFound(route) => {
+                    self.get_component::<NotFoundController>()
+                        .handle_request(route, htmx, parts, server_info)
+                        .await
+                }
+            }
+        }
+    }
+}
