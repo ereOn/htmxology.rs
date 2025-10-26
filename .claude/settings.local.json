@@ -19,7 +19,8 @@
       "Bash(cargo expand:*)",
       "Bash(git mv:*)",
       "Bash(tree:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
