@@ -39,9 +39,9 @@ mod controller {
     /// The main controller implementation.
     #[derive(Debug, Clone, ComponentsController)]
     #[controller(AppRoute)]
-    #[component(HelloWorldController, route = "hello-world/")]
-    #[component(ImageGalleryController<'_>, route = "image-gallery", convert_with = "ImageGalleryController::from_main_controller")]
-    #[component(DelegatedController, catch_all)]
+    #[component(HelloWorldController, route=HelloWorld, path = "hello-world/")]
+    #[component(ImageGalleryController<'_>, route=ImageGallery, path = "image-gallery/", convert_with = "ImageGalleryController::from_main_controller")]
+    #[component(DelegatedController, route=Delegated)]
     pub struct MainController {
         image_gallery_base_url: String,
     }
@@ -129,54 +129,6 @@ mod controller {
     impl From<&'_ MainController> for DelegatedController {
         fn from(_main_controller: &'_ MainController) -> Self {
             Self
-        }
-    }
-
-    // TODO: Generate those with a derive?
-
-    /// The main application routes.
-    #[derive(Debug, Clone, Route)]
-    pub enum AppRoute {
-        /// Hello world component route.
-        #[route("hello-world/")]
-        HelloWorld(#[subroute] <HelloWorldController as Controller>::Route),
-
-        /// The image gallery component route.
-        #[route("image-gallery/")]
-        ImageGallery(#[subroute] <ImageGalleryController<'static> as Controller>::Route),
-
-        /// The delegated route.
-        #[catch_all]
-        Delegated(<DelegatedController as Controller>::Route),
-    }
-
-    impl Controller for MainController {
-        type Route = AppRoute;
-
-        async fn handle_request(
-            &self,
-            route: Self::Route,
-            htmx: HtmxRequest,
-            parts: http::request::Parts,
-            server_info: &ServerInfo,
-        ) -> Result<axum::response::Response, axum::response::Response> {
-            match route {
-                Self::Route::HelloWorld(route) => {
-                    self.get_component::<HelloWorldController>()
-                        .handle_request(route, htmx, parts, server_info)
-                        .await
-                }
-                Self::Route::ImageGallery(route) => {
-                    self.get_component::<ImageGalleryController>()
-                        .handle_request(route, htmx, parts, server_info)
-                        .await
-                }
-                Self::Route::Delegated(route) => {
-                    self.get_component::<DelegatedController>()
-                        .handle_request(route, htmx, parts, server_info)
-                        .await
-                }
-            }
         }
     }
 

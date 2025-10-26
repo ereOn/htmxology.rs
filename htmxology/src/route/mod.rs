@@ -42,6 +42,7 @@ pub trait RouteExt: Route {
 impl<T: Route> RouteExt for T {}
 
 /// Decode a path argument into a value.
+#[expect(clippy::result_large_err)]
 pub fn decode_path_argument<T: serde::de::DeserializeOwned>(
     key: &'static str,
     value: &str,

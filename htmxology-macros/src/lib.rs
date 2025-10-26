@@ -35,7 +35,7 @@ pub fn derive_display_delegate(input: proc_macro::TokenStream) -> proc_macro::To
 ///
 /// This derive macro allows to automatically implement components conversions for a controller
 /// type.
-#[proc_macro_derive(ComponentsController, attributes(component))]
+#[proc_macro_derive(ComponentsController, attributes(controller, component))]
 pub fn derive_components_controller(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut input = parse_macro_input!(input as syn::DeriveInput);
 
