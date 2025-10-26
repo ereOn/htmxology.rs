@@ -187,13 +187,12 @@ struct ComponentSpec {
 }
 
 /// A parameter specification for a component route.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct ParamSpec {
     name: Ident,
     ty: Type,
 }
 
-#[derive(Debug)]
 enum ComponentArg {
     Route(Ident, Ident),
     Path(Ident, String),
