@@ -436,22 +436,11 @@ mod tests {
 #[cfg(test)]
 mod snapshot_tests {
     use super::*;
+    use crate::utils::testing::test_derive;
     use insta::assert_snapshot;
-    use quote::quote;
 
     fn test_components_controller(input: &str) -> String {
-        let mut input: syn::DeriveInput = syn::parse_str(input).expect("Failed to parse input");
-        let output = derive(&mut input).expect("Derive failed");
-
-        let wrapped = quote! {
-            #[allow(unused)]
-            mod __test {
-                #output
-            }
-        };
-
-        let syntax_tree: syn::File = syn::parse2(wrapped).expect("Failed to parse output");
-        prettyplease::unparse(&syntax_tree)
+        test_derive(input, derive)
     }
 
     #[test]

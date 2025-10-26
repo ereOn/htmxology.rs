@@ -2,8 +2,9 @@
 
 use std::collections::BTreeMap;
 
+use crate::utils::expect_enum;
 use quote::quote;
-use syn::{Data, Error, Expr, Token, Variant, punctuated::Punctuated};
+use syn::{Error, Expr, Token, Variant, punctuated::Punctuated};
 
 mod codegen;
 mod config;
@@ -25,22 +26,7 @@ mod attributes {
 
 pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let root_ident = &input.ident;
-
-    let data = match &input.data {
-        Data::Struct(_) => {
-            return Err(Error::new_spanned(
-                root_ident,
-                "can't derive Route for a struct",
-            ));
-        }
-        Data::Enum(data_enum) => data_enum,
-        Data::Union(_) => {
-            return Err(Error::new_spanned(
-                root_ident,
-                "can't derive Route for a union",
-            ));
-        }
-    };
+    let data = expect_enum(input, "Route")?;
 
     // Parse all variants into configurations
     let configs: Vec<VariantConfig> = data
@@ -401,23 +387,11 @@ fn parse_method(expr: Expr) -> syn::Result<http::Method> {
 #[cfg(test)]
 mod snapshot_tests {
     use super::*;
+    use crate::utils::testing::test_derive;
     use insta::assert_snapshot;
-    use quote::quote;
 
     fn test_route_derive(input: &str) -> String {
-        let mut input: syn::DeriveInput = syn::parse_str(input).expect("Failed to parse input");
-        let output = derive(&mut input).expect("Derive failed");
-
-        // Wrap in a module to make it valid Rust
-        let wrapped = quote! {
-            #[allow(unused)]
-            mod __test {
-                #output
-            }
-        };
-
-        let syntax_tree: syn::File = syn::parse2(wrapped).expect("Failed to parse output");
-        prettyplease::unparse(&syntax_tree)
+        test_derive(input, derive)
     }
 
     #[test]

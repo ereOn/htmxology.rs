@@ -5,6 +5,7 @@ use syn::parse_macro_input;
 mod components_controller;
 mod display_delegate;
 mod route;
+mod utils;
 
 /// Derive a route type.
 ///
