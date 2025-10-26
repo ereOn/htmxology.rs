@@ -9,24 +9,32 @@ mod __test {
             self.into()
         }
     }
-    impl htmxology::AsComponent<'_, BlogController, ()> for AppController {
-        fn as_component_controller(&self, args: ()) -> BlogController {
-            self.into()
+    impl htmxology::AsComponent<'_, BlogController, (u32,)> for AppController {
+        fn as_component_controller(&self, args: (u32,)) -> BlogController {
+            <BlogController>::from((self, args.0))
         }
     }
-    impl htmxology::AsComponent<'_, ShopController, ()> for AppController {
-        fn as_component_controller(&self, args: ()) -> ShopController {
-            self.into()
+    impl htmxology::AsComponent<'_, UserController, (String,)> for AppController {
+        fn as_component_controller(&self, args: (String,)) -> UserController {
+            <UserController>::from((self, args.0))
         }
     }
     #[derive(Debug, Clone, htmxology::Route)]
     pub enum AppRoute {
         #[route("")]
         Home(#[subroute] <HomeController as htmxology::Controller>::Route),
-        #[route("blog/")]
-        Blog(#[subroute] <BlogController as htmxology::Controller>::Route),
-        #[route("shop/")]
-        Shop(#[subroute] <ShopController as htmxology::Controller>::Route),
+        #[route("blog/{blog_id}/")]
+        Blog {
+            blog_id: u32,
+            #[subroute]
+            subroute: <BlogController as htmxology::Controller>::Route,
+        },
+        #[route("user/{user_id}/")]
+        User {
+            user_id: String,
+            #[subroute]
+            subroute: <UserController as htmxology::Controller>::Route,
+        },
     }
     impl htmxology::Controller for AppController {
         type Route = AppRoute;
@@ -44,14 +52,14 @@ mod __test {
                         .handle_request(route, htmx, parts, server_info)
                         .await
                 }
-                Self::Route::Blog(route) => {
-                    self.get_component::<BlogController>()
-                        .handle_request(route, htmx, parts, server_info)
+                Self::Route::Blog { blog_id, subroute } => {
+                    self.get_component_with::<BlogController>((blog_id,))
+                        .handle_request(subroute, htmx, parts, server_info)
                         .await
                 }
-                Self::Route::Shop(route) => {
-                    self.get_component::<ShopController>()
-                        .handle_request(route, htmx, parts, server_info)
+                Self::Route::User { user_id, subroute } => {
+                    self.get_component_with::<UserController>((user_id,))
+                        .handle_request(subroute, htmx, parts, server_info)
                         .await
                 }
             }

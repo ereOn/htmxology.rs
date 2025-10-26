@@ -106,13 +106,33 @@ See `design/app_routes.md` for comprehensive routing examples.
 #### Controllers (`Controller` trait)
 
 Controllers handle requests for specific routes. They:
-- Are associated with a `Route` type
+- Are associated with a `Route` type and an `Args` type
+- The `Args` associated type specifies what parameters are needed to construct the controller
+  - Set to `()` for controllers that don't need construction parameters
+  - Use tuple types like `(u32,)` or `(u32, String)` for parameterized controllers
 - Implement `handle_request()` to process incoming requests
 - Receive HTMX request context, HTTP parts, and server info
 - Can be composed using the `AsComponent` trait for sub-components
-- Use `ControllerExt::get_component()` to access sub-controllers
+- Use `ControllerExt::get_component()` to access sub-controllers without parameters
+- Use `ControllerExt::get_component_with(args)` for parameterized sub-controllers
 
 The `#[derive(ComponentsController)]` macro helps implement component relationships.
+
+**Parameterized Routes**: The `ComponentsController` macro supports path parameters:
+```rust
+#[derive(ComponentsController)]
+#[controller(AppRoute)]
+#[component(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32))]
+#[component(PostController, route = Post, path = "blog/{blog_id}/post/{post_id}/", params(blog_id: u32, post_id: String))]
+struct AppController {
+    state: AppState,
+}
+```
+
+This generates route variants with typed parameters and automatically extracts them for sub-controller construction:
+- Path parameters are declared with `params(name: Type, ...)`
+- Parameters are extracted from the URL and passed to the sub-controller via `get_component_with(tuple)`
+- Use `convert_with` to specify a custom function that accepts the parameters
 
 #### Caching
 

@@ -27,6 +27,7 @@ where
     C::Route: crate::Route + Send + Sync + axum::extract::FromRequest<Self>,
 {
     type Route = C::Route;
+    type Args = C::Args;
 
     fn handle_request(
         &self,

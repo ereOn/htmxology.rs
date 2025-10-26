@@ -15,6 +15,7 @@ pub(super) const ROUTE: &str = "route";
 pub(super) const PATH: &str = "path";
 pub(super) const DOC: &str = "doc";
 pub(super) const CONVERT_WITH: &str = "convert_with";
+pub(super) const PARAMS: &str = "params";
 
 pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     // Get the name of the root type.
@@ -44,30 +45,81 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 quote! {}
             };
 
-            route_variants.push(match spec.path {
-                Some(path) => {
-                    quote_spanned! { spec.route_variant.span() =>
-                        #doc_attr
-                        #[route(#path)]
-                        #route_variant(#[subroute] <#controller_type as htmxology::Controller>::Route),
+            // Generate route variant with or without params
+            route_variants.push(if spec.params.is_empty() {
+                // No params - generate simple variant
+                match spec.path {
+                    Some(path) => {
+                        quote_spanned! { spec.route_variant.span() =>
+                            #doc_attr
+                            #[route(#path)]
+                            #route_variant(#[subroute] <#controller_type as htmxology::Controller>::Route),
+                        }
+                    }
+                    None => {
+                        quote_spanned! { spec.route_variant.span() =>
+                            #doc_attr
+                            #[catch_all]
+                            #route_variant(<#controller_type as htmxology::Controller>::Route),
+                        }
                     }
                 }
-                None => {
-                    quote_spanned! { spec.route_variant.span() =>
-                        #doc_attr
-                        #[catch_all]
-                        #route_variant(<#controller_type as htmxology::Controller>::Route),
+            } else {
+                // Has params - generate struct variant with param fields
+                let param_fields = spec.params.iter().map(|p| {
+                    let name = &p.name;
+                    let ty = &p.ty;
+                    quote! { #name: #ty }
+                });
+
+                match spec.path {
+                    Some(path) => {
+                        quote_spanned! { spec.route_variant.span() =>
+                            #doc_attr
+                            #[route(#path)]
+                            #route_variant {
+                                #(#param_fields,)*
+                                #[subroute]
+                                subroute: <#controller_type as htmxology::Controller>::Route,
+                            },
+                        }
+                    }
+                    None => {
+                        quote_spanned! { spec.route_variant.span() =>
+                            #doc_attr
+                            #[catch_all]
+                            #route_variant {
+                                #(#param_fields,)*
+                                subroute: <#controller_type as htmxology::Controller>::Route,
+                            },
+                        }
                     }
                 }
             });
 
             let controller_type = remove_lifetimes(controller_type);
 
-            handle_request_variants.push(quote_spanned! { spec.route_variant.span() =>
-                Self::Route::#route_variant(route) => {
-                    self.get_component::<#controller_type>()
-                        .handle_request(route, htmx, parts, server_info)
-                        .await
+            // Generate handle_request match arm with or without params
+            handle_request_variants.push(if spec.params.is_empty() {
+                // No params - use get_component()
+                quote_spanned! { spec.route_variant.span() =>
+                    Self::Route::#route_variant(route) => {
+                        self.get_component::<#controller_type>()
+                            .handle_request(route, htmx, parts, server_info)
+                            .await
+                    }
+                }
+            } else {
+                // Has params - use get_component_with(tuple)
+                let param_names = spec.params.iter().map(|p| &p.name);
+                let param_tuple_items = spec.params.iter().map(|p| &p.name);
+
+                quote_spanned! { spec.route_variant.span() =>
+                    Self::Route::#route_variant { #(#param_names,)* subroute } => {
+                        self.get_component_with::<#controller_type>((#(#param_tuple_items,)*))
+                            .handle_request(subroute, htmx, parts, server_info)
+                            .await
+                    }
                 }
             });
         } else if attr.path().is_ident(CONTROLLER) {
@@ -102,6 +154,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let controller_impl = quote_spanned! { root_ident.span() =>
         impl htmxology::Controller for #root_ident {
             type Route = #route_ident;
+            type Args = ();
 
             async fn handle_request(
                 &self,
@@ -130,6 +183,14 @@ struct ComponentSpec {
     route_variant: Ident,
     path: Option<String>,
     doc: Option<String>,
+    params: Vec<ParamSpec>,
+}
+
+/// A parameter specification for a component route.
+#[derive(Debug, Clone)]
+struct ParamSpec {
+    name: Ident,
+    ty: Type,
 }
 
 #[derive(Debug)]
@@ -138,6 +199,7 @@ enum ComponentArg {
     Path(Ident, String),
     ConvertWith(proc_macro2::TokenStream),
     Doc(Ident, String),
+    Params(Vec<ParamSpec>),
 }
 
 impl Parse for ComponentArg {
@@ -175,11 +237,31 @@ impl Parse for ComponentArg {
 
                 Ok(Self::Doc(key, desc.value()))
             }
+            PARAMS => {
+                // Parse params(name: Type, name2: Type2, ...)
+                let content;
+                syn::parenthesized!(content in input);
+
+                let params: Punctuated<ParamSpec, Token![,]> =
+                    content.parse_terminated(ParamSpec::parse, Token![,])?;
+
+                Ok(Self::Params(params.into_iter().collect()))
+            }
             _ => Err(syn::Error::new_spanned(
                 key,
-                "expected `catch_all`, `route`, or `convert_with`",
+                "expected `route`, `path`, `convert_with`, `doc`, or `params`",
             )),
         }
+    }
+}
+
+impl Parse for ParamSpec {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let name: Ident = input.parse()?;
+        input.parse::<Token![:]>()?;
+        let ty: Type = input.parse()?;
+
+        Ok(ParamSpec { name, ty })
     }
 }
 
@@ -199,7 +281,9 @@ impl Parse for ComponentSpec {
         let mut route = None;
         let mut path = None;
         let mut doc = None;
+        let mut params = Vec::new();
         let mut body_impl = quote! { self.into() };
+        let mut convert_with_fn = None;
 
         if input.peek(Token![,]) {
             input.parse::<Token![,]>()?;
@@ -209,6 +293,7 @@ impl Parse for ComponentSpec {
             for arg in args {
                 match arg {
                     ComponentArg::ConvertWith(fn_expr) => {
+                        convert_with_fn = Some(fn_expr.clone());
                         body_impl = quote! { #fn_expr(self) };
                     }
                     ComponentArg::Route(key, ident) => {
@@ -241,6 +326,16 @@ impl Parse for ComponentSpec {
 
                         doc = Some(desc);
                     }
+                    ComponentArg::Params(param_specs) => {
+                        if !params.is_empty() {
+                            return Err(syn::Error::new_spanned(
+                                &param_specs[0].name,
+                                "only one `params` can be specified",
+                            ));
+                        }
+
+                        params = param_specs;
+                    }
                 }
             }
         };
@@ -255,13 +350,39 @@ impl Parse for ComponentSpec {
             }
         };
 
+        // Build the Args tuple type if params are present
+        let args_type = if params.is_empty() {
+            quote! { () }
+        } else {
+            let param_types = params.iter().map(|p| &p.ty);
+            quote! { (#(#param_types,)*) }
+        };
+
+        // Build the conversion body that unpacks args if needed
+        let conversion_body = if params.is_empty() {
+            body_impl
+        } else if let Some(fn_expr) = convert_with_fn {
+            // Unpack tuple and pass to convert_with function
+            let param_indices = (0..params.len()).map(syn::Index::from);
+            quote! {
+                #fn_expr(self, #(args.#param_indices),*)
+            }
+        } else {
+            // For Into, we need to somehow pass args to the Into impl
+            // This is tricky - the user will need to implement From with the right signature
+            let param_indices = (0..params.len()).map(syn::Index::from);
+            quote! {
+                <#controller_type_with_spec_lifetime>::from((self, #(args.#param_indices),*))
+            }
+        };
+
         let as_component_impl_fn: Box<dyn Fn(&Ident) -> proc_macro2::TokenStream> = {
             if has_lifetime {
                 Box::new(move |root_ident: &Ident| {
                     quote! {
-                        impl<#lifetime> htmxology::AsComponent<#lifetime, #controller_type_with_spec_lifetime> for #root_ident {
-                            fn as_component_controller(&#lifetime self) -> #controller_type_with_spec_lifetime {
-                                #body_impl
+                        impl<#lifetime> htmxology::AsComponent<#lifetime, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
+                            fn as_component_controller(&#lifetime self, args: #args_type) -> #controller_type_with_spec_lifetime {
+                                #conversion_body
                             }
                         }
                     }
@@ -269,9 +390,9 @@ impl Parse for ComponentSpec {
             } else {
                 Box::new(move |root_ident: &Ident| {
                     quote! {
-                        impl htmxology::AsComponent<'_, #controller_type_with_spec_lifetime> for #root_ident {
-                            fn as_component_controller(&self) -> #controller_type_with_spec_lifetime {
-                                #body_impl
+                        impl htmxology::AsComponent<'_, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
+                            fn as_component_controller(&self, args: #args_type) -> #controller_type_with_spec_lifetime {
+                                #conversion_body
                             }
                         }
                     }
@@ -285,6 +406,7 @@ impl Parse for ComponentSpec {
             route_variant: route,
             path,
             doc,
+            params,
         })
     }
 }
@@ -532,6 +654,68 @@ mod snapshot_tests {
                 auth: AuthController,
                 api: ApiController,
                 not_found: NotFoundController,
+            }
+        "#;
+        assert_snapshot!(test_components_controller(input));
+    }
+
+    #[test]
+    fn component_with_single_param() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[component(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32))]
+            struct AppController {
+                state: AppState,
+            }
+        "#;
+        assert_snapshot!(test_components_controller(input));
+    }
+
+    #[test]
+    fn component_with_multiple_params() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[component(PostController, route = Post, path = "blog/{blog_id}/post/{post_id}/", params(blog_id: u32, post_id: String))]
+            struct AppController {
+                state: AppState,
+            }
+        "#;
+        assert_snapshot!(test_components_controller(input));
+    }
+
+    #[test]
+    fn component_with_params_and_convert() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[component(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32), convert_with = "Self::make_blog")]
+            struct AppController {
+                state: AppState,
+            }
+        "#;
+        assert_snapshot!(test_components_controller(input));
+    }
+
+    #[test]
+    fn mixed_params_and_no_params() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[component(HomeController, route = Home, path = "")]
+            #[component(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32))]
+            #[component(UserController, route = User, path = "user/{user_id}/", params(user_id: String))]
+            struct AppController {
+                state: AppState,
+            }
+        "#;
+        assert_snapshot!(test_components_controller(input));
+    }
+
+    #[test]
+    fn catch_all_with_params() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[component(DynamicController, route = Dynamic, params(resource_id: u64))]
+            struct AppController {
+                state: AppState,
             }
         "#;
         assert_snapshot!(test_components_controller(input));

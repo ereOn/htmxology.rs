@@ -4,15 +4,18 @@ expression: test_components_controller(input)
 ---
 #[allow(unused)]
 mod __test {
-    impl htmxology::AsComponent<'_, BlogController, ()> for AppController {
-        fn as_component_controller(&self, args: ()) -> BlogController {
-            self.into()
+    impl htmxology::AsComponent<'_, DynamicController, (u64,)> for AppController {
+        fn as_component_controller(&self, args: (u64,)) -> DynamicController {
+            <DynamicController>::from((self, args.0))
         }
     }
     #[derive(Debug, Clone, htmxology::Route)]
     pub enum AppRoute {
-        #[route("blog/")]
-        Blog(#[subroute] <BlogController as htmxology::Controller>::Route),
+        #[catch_all]
+        Dynamic {
+            resource_id: u64,
+            subroute: <DynamicController as htmxology::Controller>::Route,
+        },
     }
     impl htmxology::Controller for AppController {
         type Route = AppRoute;
@@ -25,9 +28,9 @@ mod __test {
             server_info: &htmxology::ServerInfo,
         ) -> Result<axum::response::Response, axum::response::Response> {
             match route {
-                Self::Route::Blog(route) => {
-                    self.get_component::<BlogController>()
-                        .handle_request(route, htmx, parts, server_info)
+                Self::Route::Dynamic { resource_id, subroute } => {
+                    self.get_component_with::<DynamicController>((resource_id,))
+                        .handle_request(subroute, htmx, parts, server_info)
                         .await
                 }
             }

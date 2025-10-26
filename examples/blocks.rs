@@ -364,6 +364,7 @@ mod controller {
     /// Custom implementation.
     impl Controller for MainController {
         type Route = AppRoute;
+        type Args = ();
 
         async fn handle_request(
             &self,

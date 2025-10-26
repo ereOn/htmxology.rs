@@ -1,26 +1,26 @@
 ---
-source: htmxology-macros/src/components_controller.rs
+source: htmxology-macros/src/components_controller/mod.rs
 expression: test_components_controller(input)
 ---
 #[allow(unused)]
 mod __test {
-    impl htmxology::AsComponent<'_, HomeController> for AppController {
-        fn as_component_controller(&self) -> HomeController {
+    impl htmxology::AsComponent<'_, HomeController, ()> for AppController {
+        fn as_component_controller(&self, args: ()) -> HomeController {
             self.into()
         }
     }
-    impl htmxology::AsComponent<'_, AuthController> for AppController {
-        fn as_component_controller(&self) -> AuthController {
+    impl htmxology::AsComponent<'_, AuthController, ()> for AppController {
+        fn as_component_controller(&self, args: ()) -> AuthController {
             self.into()
         }
     }
-    impl htmxology::AsComponent<'_, ApiController> for AppController {
-        fn as_component_controller(&self) -> ApiController {
+    impl htmxology::AsComponent<'_, ApiController, ()> for AppController {
+        fn as_component_controller(&self, args: ()) -> ApiController {
             self.into()
         }
     }
-    impl htmxology::AsComponent<'_, NotFoundController> for AppController {
-        fn as_component_controller(&self) -> NotFoundController {
+    impl htmxology::AsComponent<'_, NotFoundController, ()> for AppController {
+        fn as_component_controller(&self, args: ()) -> NotFoundController {
             self.into()
         }
     }
@@ -41,6 +41,7 @@ mod __test {
     }
     impl htmxology::Controller for AppController {
         type Route = AppRoute;
+        type Args = ();
         async fn handle_request(
             &self,
             route: Self::Route,

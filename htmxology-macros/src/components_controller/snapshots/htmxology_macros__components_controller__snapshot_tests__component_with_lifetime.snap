@@ -1,5 +1,5 @@
 ---
-source: htmxology-macros/src/components_controller.rs
+source: htmxology-macros/src/components_controller/mod.rs
 expression: test_components_controller(input)
 ---
 #[allow(unused)]
@@ -9,9 +9,11 @@ mod __test {
     > htmxology::AsComponent<
         '_component_spec_lifetime,
         &'_component_spec_lifetime DataController,
+        (),
     > for AppController {
         fn as_component_controller(
             &'_component_spec_lifetime self,
+            args: (),
         ) -> &'_component_spec_lifetime DataController {
             self.into()
         }
@@ -23,6 +25,7 @@ mod __test {
     }
     impl htmxology::Controller for AppController {
         type Route = AppRoute;
+        type Args = ();
         async fn handle_request(
             &self,
             route: Self::Route,

@@ -41,6 +41,7 @@ mod controller {
     #[controller(AppRoute)]
     #[component(HelloWorldController, route=HelloWorld, path = "hello-world/")]
     #[component(ImageGalleryController<'_>, route=ImageGallery, path = "image-gallery/", convert_with = "ImageGalleryController::from_main_controller")]
+    #[component(UserPostController, route=UserPost, path = "user/{user_id}/post/{post_id}/", params(user_id: u32, post_id: String), convert_with = "Self::make_user_post_controller")]
     #[component(DelegatedController, route=Delegated)]
     pub struct MainController {
         image_gallery_base_url: String,
@@ -51,6 +52,12 @@ mod controller {
             Self {
                 image_gallery_base_url: "https://picsum.photos/id/".to_string(),
             }
+        }
+    }
+
+    impl MainController {
+        fn make_user_post_controller(&self, user_id: u32, post_id: String) -> UserPostController {
+            UserPostController { user_id, post_id }
         }
     }
 
@@ -71,6 +78,7 @@ mod controller {
 
     impl Controller for DelegatedController {
         type Route = DelegatedRoute;
+        type Args = ();
 
         async fn handle_request(
             &self,
@@ -101,11 +109,17 @@ mod controller {
                 format!(
                     r#"
 <p>Welcome to the HTMX-SSR Components Example!</p>
-<p>Visit the <a href="{}">Hello World Component</a> or The
- <a href="{}">Image Gallery Component</a>.</p>
+<p>Visit the <a href="{}">Hello World Component</a>,
+ the <a href="{}">Image Gallery Component</a>,
+ or see <a href="{}">User #42's Post "hello-world"</a>.</p>
 "#,
                     AppRoute::HelloWorld(HelloWorldRoute::Index),
-                    AppRoute::ImageGallery(ImageGalleryRoute::Index)
+                    AppRoute::ImageGallery(ImageGalleryRoute::Index),
+                    AppRoute::UserPost {
+                        user_id: 42,
+                        post_id: "hello-world".to_string(),
+                        subroute: UserPostRoute::Index,
+                    }
                 ),
             )
                 .into_response())
@@ -153,6 +167,7 @@ mod controller {
 
     impl Controller for HelloWorldController {
         type Route = HelloWorldRoute;
+        type Args = ();
 
         async fn handle_request(
             &self,
@@ -196,6 +211,7 @@ mod controller {
 
     impl<'c> Controller for ImageGalleryController<'c> {
         type Route = ImageGalleryRoute;
+        type Args = ();
 
         async fn handle_request(
             &self,
@@ -216,6 +232,120 @@ mod controller {
                         <img src=\"{base_url}2/200/200\" alt=\"Random Image 2\" />
                         <img src=\"{base_url}3/200/200\" alt=\"Random Image 3\" />
                     </div>",
+                    ),
+                )
+                    .into_response()),
+            }
+        }
+    }
+
+    // A parameterized sub-component that demonstrates route parameters.
+
+    #[derive(Debug, Clone)]
+    pub struct UserPostController {
+        user_id: u32,
+        post_id: String,
+    }
+
+    /// The user post routes.
+    #[derive(Debug, Clone, Route)]
+    pub enum UserPostRoute {
+        /// The index route.
+        #[route("")]
+        Index,
+
+        /// View comments on the post.
+        #[route("comments")]
+        Comments,
+
+        /// Edit the post.
+        #[route("edit")]
+        Edit,
+    }
+
+    impl Controller for UserPostController {
+        type Route = UserPostRoute;
+        type Args = (u32, String);
+
+        async fn handle_request(
+            &self,
+            route: Self::Route,
+            _htmx: HtmxRequest,
+            _parts: http::request::Parts,
+            _server_info: &ServerInfo,
+        ) -> Result<axum::response::Response, axum::response::Response> {
+            let user_id = self.user_id;
+            let post_id = &self.post_id;
+
+            match route {
+                UserPostRoute::Index => Ok((
+                    [(http::header::CONTENT_TYPE, "text/html")],
+                    format!(
+                        r#"
+                    <div class="user-post">
+                        <h2>Post: {post_id}</h2>
+                        <p>Author: User #{user_id}</p>
+                        <p>This is a demonstration of parameterized routes in htmxology.</p>
+                        <p>The controller received user_id={user_id} and post_id="{post_id}" as parameters.</p>
+                        <nav>
+                            <a href="{}">View Comments</a> |
+                            <a href="{}">Edit Post</a>
+                        </nav>
+                    </div>"#,
+                        AppRoute::UserPost {
+                            user_id,
+                            post_id: post_id.clone(),
+                            subroute: UserPostRoute::Comments,
+                        },
+                        AppRoute::UserPost {
+                            user_id,
+                            post_id: post_id.clone(),
+                            subroute: UserPostRoute::Edit,
+                        }
+                    ),
+                )
+                    .into_response()),
+                UserPostRoute::Comments => Ok((
+                    [(http::header::CONTENT_TYPE, "text/html")],
+                    format!(
+                        r#"
+                    <div class="comments">
+                        <h2>Comments on "{post_id}"</h2>
+                        <p>User #{user_id} has written an amazing post!</p>
+                        <ul>
+                            <li><strong>Alice:</strong> Great post, User #{user_id}!</li>
+                            <li><strong>Bob:</strong> Very informative about "{post_id}"</li>
+                            <li><strong>Charlie:</strong> Thanks for sharing!</li>
+                        </ul>
+                        <p><a href="{}">Back to Post</a></p>
+                    </div>"#,
+                        AppRoute::UserPost {
+                            user_id,
+                            post_id: post_id.clone(),
+                            subroute: UserPostRoute::Index,
+                        }
+                    ),
+                )
+                    .into_response()),
+                UserPostRoute::Edit => Ok((
+                    [(http::header::CONTENT_TYPE, "text/html")],
+                    format!(
+                        r#"
+                    <div class="edit-post">
+                        <h2>Edit Post: {post_id}</h2>
+                        <p>Editing post by User #{user_id}</p>
+                        <form>
+                            <label>Post ID: <input type="text" value="{post_id}" readonly /></label><br/>
+                            <label>Content: <textarea rows="5" cols="50">This demonstrates how parameters (user_id={user_id}, post_id="{post_id}") flow through the routing system.</textarea></label><br/>
+                            <button type="submit">Save Changes</button>
+                        </form>
+                        <p><a href="{}">Cancel and go back</a></p>
+                    </div>"#,
+                        AppRoute::UserPost {
+                            user_id,
+                            post_id: post_id.clone(),
+                            subroute: UserPostRoute::Index,
+                        }
                     ),
                 )
                     .into_response()),
