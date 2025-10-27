@@ -540,6 +540,22 @@ mod snapshot_tests {
     }
 
     #[test]
+    fn query_and_body_params() {
+        let input = r#"
+            enum MyRoute {
+                #[route("users", method = "POST")]
+                CreateUser {
+                    #[query]
+                    notify: bool,
+                    #[body("application/x-www-form-urlencoded")]
+                    user_data: UserForm,
+                },
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
     fn named_subroute() {
         let input = r#"
             enum MyRoute {

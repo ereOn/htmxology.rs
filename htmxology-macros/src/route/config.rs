@@ -124,14 +124,6 @@ impl FieldsConfig {
             }
         }
 
-        // Check for conflicting attributes
-        if query_count > 0 && body_count > 0 {
-            return Err(Error::new(
-                proc_macro2::Span::call_site(),
-                "cannot have both query and body parameters",
-            ));
-        }
-
         Ok(())
     }
 
