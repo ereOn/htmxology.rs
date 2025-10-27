@@ -94,6 +94,13 @@ mod views {
         }
     }
 
+    impl htmxology::htmx::Fragment for Menu {
+        fn insert_strategy(&self) -> htmxology::htmx::InsertStrategy {
+            // Replace the outer HTML of the menu element
+            htmxology::htmx::InsertStrategy::OuterHtml
+        }
+    }
+
     #[derive(Debug)]
     pub(super) struct MenuItem {
         /// The URL of the menu item.

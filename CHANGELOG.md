@@ -7,12 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **`Fragment` trait**: New trait for HTML fragments that can specify their own HTMX swap strategy
+  - Extends `Identity` trait to maintain ID-based targeting
+  - Requires implementors to provide an `InsertStrategy` via `insert_strategy()` method
+  - Allows different fragments to use different swap strategies (innerHTML, outerHTML, beforeend, etc.)
+  - See `htmxology::htmx::Fragment` documentation for usage examples
+
+### Changed
+- **BREAKING**: `Response::with_oob()` now requires `Fragment` trait instead of just `Identity`
+  - Elements must implement `Fragment` and specify their swap strategy
+  - Migration: Add `Fragment` implementation to your types that use `with_oob()`
+  - Example:
+    ```rust
+    impl Fragment for MyElement {
+        fn insert_strategy(&self) -> InsertStrategy {
+            InsertStrategy::OuterHtml
+        }
+    }
+    ```
+
 ### Fixed
-- **BREAKING**: Fixed `with_oob()` implementation to properly inject `hx-swap-oob` attributes
+- Fixed `with_oob()` implementation to properly inject `hx-swap-oob` attributes
   - The `hx-swap-oob` attribute is now injected directly into the root element instead of wrapping in a `<div>`
   - Multiple root elements are automatically wrapped in a `<template>` tag
-  - Documentation now correctly states that `with_oob()` uses `outerHTML` strategy
-  - Added `scraper` dependency for HTML parsing and manipulation
+  - Added `scraper` dependency (ISC license) for HTML parsing and manipulation
   - Supports all HTMX swap-oob use cases as documented at https://htmx.org/attributes/hx-swap-oob/
 
 ## [0.13.0] - 2025-10-27

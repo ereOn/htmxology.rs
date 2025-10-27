@@ -295,14 +295,26 @@ impl<T> Response<T> {
         self
     }
 
-    /// Add an out-of-band insert to the response using the `outerHTML` swap strategy.
+    /// Add an out-of-band insert to the response using the fragment's specified swap strategy.
     ///
-    /// This method uses the element's ID (from the `Identity` trait) as the target selector.
+    /// This method uses the element's ID (from the `Identity` trait) as the target selector
+    /// and the swap strategy from the `Fragment` trait's `insert_strategy()` method.
     /// The `hx-swap-oob` attribute will be injected directly into the root element of the
     /// rendered HTML fragment.
-    pub fn with_oob(self, oob_element: impl Identity + 'static) -> Self {
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Given a type that implements Fragment
+    /// let notification = Notification::new("Saved!");
+    ///
+    /// // The strategy comes from notification.insert_strategy()
+    /// response.with_oob(notification)
+    /// ```
+    pub fn with_oob(self, oob_element: impl Fragment + 'static) -> Self {
         let target = format!("#{}", oob_element.id());
-        self.with_raw_oob(InsertStrategy::OuterHtml, target, oob_element)
+        let strategy = oob_element.insert_strategy();
+        self.with_raw_oob(strategy, target, oob_element)
     }
 
     /// Add an out-of-band insert to the response using the specified insert strategy.
@@ -642,6 +654,50 @@ pub trait Identity: Display {
     }
 }
 
+/// A trait for HTML fragments that can be used in out-of-band swaps.
+///
+/// This trait extends [`Identity`] and requires implementors to specify the HTMX swap strategy
+/// that should be used when this fragment is added as an out-of-band element.
+///
+/// Types that implement this trait MUST render as a valid HTML fragment and include an `id`
+/// attribute matching the value from [`Identity::id()`].
+///
+/// # Example
+///
+/// ```ignore
+/// use htmxology::htmx::{Fragment, Identity, InsertStrategy, HtmlId};
+///
+/// struct Notification {
+///     message: String,
+/// }
+///
+/// impl Identity for Notification {
+///     fn id(&self) -> HtmlId {
+///         HtmlId::from_static("notification").unwrap()
+///     }
+/// }
+///
+/// impl Fragment for Notification {
+///     fn insert_strategy(&self) -> InsertStrategy {
+///         // This notification should replace the inner content
+///         InsertStrategy::InnerHtml
+///     }
+/// }
+///
+/// impl Display for Notification {
+///     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+///         write!(f, "<div id=\"notification\">{}</div>", self.message)
+///     }
+/// }
+/// ```
+pub trait Fragment: Identity {
+    /// Get the HTMX insert strategy for this fragment.
+    ///
+    /// This determines how the fragment will be swapped into the page when used as an
+    /// out-of-band element.
+    fn insert_strategy(&self) -> InsertStrategy;
+}
+
 /// A trait for HTML elements that have a form attribute name.
 ///
 /// Types that implement this trait MUST render as a HTML fragment that contains an unique form
@@ -941,5 +997,102 @@ mod tests {
             result,
             r#"<div class="notification" hx-swap-oob="beforeend:.notification">Alert</div>"#
         );
+    }
+
+    // Tests for Fragment trait
+    struct TestFragment {
+        id: &'static str,
+        strategy: InsertStrategy,
+        content: &'static str,
+    }
+
+    impl Display for TestFragment {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, r#"<div id="{}">{}</div>"#, self.id, self.content)
+        }
+    }
+
+    impl Identity for TestFragment {
+        fn id(&self) -> HtmlId {
+            HtmlId::from_static(self.id).expect("valid ID")
+        }
+    }
+
+    impl Fragment for TestFragment {
+        fn insert_strategy(&self) -> InsertStrategy {
+            self.strategy.clone()
+        }
+    }
+
+    #[test]
+    fn test_fragment_with_inner_html() {
+        let fragment = TestFragment {
+            id: "notification",
+            strategy: InsertStrategy::InnerHtml,
+            content: "Alert!",
+        };
+
+        // Verify the fragment returns the correct strategy
+        assert_eq!(fragment.insert_strategy().to_string(), "innerHTML");
+        assert_eq!(fragment.id().to_string(), "notification");
+    }
+
+    #[test]
+    fn test_fragment_with_before_end() {
+        let fragment = TestFragment {
+            id: "list",
+            strategy: InsertStrategy::BeforeEnd,
+            content: "<li>New item</li>",
+        };
+
+        // Verify the fragment returns the correct strategy
+        assert_eq!(fragment.insert_strategy().to_string(), "beforeend");
+    }
+
+    #[test]
+    fn test_response_with_fragment() {
+        let fragment = TestFragment {
+            id: "test-id",
+            strategy: InsertStrategy::OuterHtml,
+            content: "Test content",
+        };
+
+        let response = Response::new("Main content").with_oob(fragment);
+
+        // Verify that the fragment is stored with the correct strategy
+        assert_eq!(response.oob_elements.len(), 1);
+        let (strategy, target, _) = &response.oob_elements[0];
+        assert_eq!(strategy.to_string(), "outerHTML");
+        assert_eq!(target.as_ref(), "#test-id");
+    }
+
+    #[test]
+    fn test_multiple_fragments_with_different_strategies() {
+        let fragment1 = TestFragment {
+            id: "alert",
+            strategy: InsertStrategy::OuterHtml,
+            content: "Alert 1",
+        };
+
+        let fragment2 = TestFragment {
+            id: "notification",
+            strategy: InsertStrategy::InnerHtml,
+            content: "Notification",
+        };
+
+        let response = Response::new("Main")
+            .with_oob(fragment1)
+            .with_oob(fragment2);
+
+        // Verify that both fragments are stored
+        assert_eq!(response.oob_elements.len(), 2);
+
+        // Verify strategies
+        assert_eq!(response.oob_elements[0].0.to_string(), "outerHTML");
+        assert_eq!(response.oob_elements[1].0.to_string(), "innerHTML");
+
+        // Verify targets
+        assert_eq!(response.oob_elements[0].1.as_ref(), "#alert");
+        assert_eq!(response.oob_elements[1].1.as_ref(), "#notification");
     }
 }
