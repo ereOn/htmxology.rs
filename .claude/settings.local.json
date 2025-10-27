@@ -25,7 +25,11 @@
       "Bash(rustc:*)",
       "Bash(cargo run:*)",
       "mcp__github__update_issue",
-      "WebFetch(domain:docs.rs)"
+      "WebFetch(domain:docs.rs)",
+      "Bash(git tag:*)",
+      "Bash(git log:*)",
+      "mcp__github__issue_read",
+      "Bash(git show:*)"
     ],
     "deny": [],
     "ask": []
