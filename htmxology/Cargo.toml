@@ -53,6 +53,7 @@ http.workspace = true
 netdev = { workspace = true, optional = true }
 percent-encoding.workspace = true
 regex = { workspace = true, optional = true }
+scraper.workspace = true
 serde.workspace = true
 serde_json = { workspace = true, optional = true }
 serde_html_form = { workspace = true, optional = true }

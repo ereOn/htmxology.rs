@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **BREAKING**: Fixed `with_oob()` implementation to properly inject `hx-swap-oob` attributes
+  - The `hx-swap-oob` attribute is now injected directly into the root element instead of wrapping in a `<div>`
+  - Multiple root elements are automatically wrapped in a `<template>` tag
+  - Documentation now correctly states that `with_oob()` uses `outerHTML` strategy
+  - Added `scraper` dependency for HTML parsing and manipulation
+  - Supports all HTMX swap-oob use cases as documented at https://htmx.org/attributes/hx-swap-oob/
+
 ## [0.13.0] - 2025-10-27
 
 ### Added

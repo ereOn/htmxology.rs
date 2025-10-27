@@ -29,7 +29,10 @@
       "Bash(git tag:*)",
       "Bash(git log:*)",
       "mcp__github__issue_read",
-      "Bash(git show:*)"
+      "Bash(git show:*)",
+      "WebFetch(domain:htmx.org)",
+      "WebFetch(domain:crates.io)",
+      "Bash(cargo metadata:*)"
     ],
     "deny": [],
     "ask": []

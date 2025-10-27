@@ -4,6 +4,7 @@ use std::{borrow::Cow, convert::Infallible, fmt::Display, str::FromStr};
 
 use axum::response::IntoResponse;
 use http::request::Parts;
+use scraper::Html;
 
 use crate::Route;
 
@@ -108,8 +109,7 @@ pub struct Response<T> {
     /// The out-of-band inserts that are added to the body of the response, but will be processed
     /// out-of-band by HTMX.
     ///
-    /// The swap method strategy used for these are `innerHTML`, as the elements are automatically wrapped in a
-    /// `div` element.
+    /// The `hx-swap-oob` attribute is injected directly into the root element of each OOB fragment.
     oob_elements: Vec<(InsertStrategy, Cow<'static, str>, Box<dyn Display>)>,
 }
 
@@ -159,6 +159,108 @@ impl Display for InsertStrategy {
     }
 }
 
+/// Inject the `hx-swap-oob` attribute into an HTML fragment.
+///
+/// This function parses the HTML, finds the root element, and adds the `hx-swap-oob` attribute.
+/// If there are multiple root elements or if the fragment cannot be parsed, it wraps the content
+/// in a `<template>` tag with the attribute.
+///
+/// # Arguments
+///
+/// * `html` - The HTML fragment to modify
+/// * `strategy` - The swap strategy to use
+/// * `target` - The CSS selector target for the swap
+///
+/// # Returns
+///
+/// The modified HTML with the `hx-swap-oob` attribute injected.
+fn inject_oob_attribute(html: &str, strategy: &InsertStrategy, target: &str) -> String {
+    // Parse the HTML fragment
+    let fragment = Html::parse_fragment(html);
+
+    // Try to find root elements - scraper puts fragment children directly under the root
+    // We need to collect all element nodes at the root level
+    let root_elements: Vec<_> = fragment
+        .root_element()
+        .children()
+        .filter_map(scraper::ElementRef::wrap)
+        .collect();
+
+    // If we have exactly one root element, inject the attribute
+    if root_elements.len() == 1 {
+        let root = root_elements[0];
+        let tag_name = root.value().name();
+
+        // Build the hx-swap-oob attribute value
+        let oob_value = if target.starts_with('#') && strategy.to_string() == "outerHTML" {
+            // Simple case: if it's an ID selector and outerHTML, we can use "true"
+            // But only if the element has a matching id attribute
+            if let Some(id_attr) = root.value().attr("id") {
+                if format!("#{}", id_attr) == target {
+                    "true".to_string()
+                } else {
+                    format!("{}:{}", strategy, target)
+                }
+            } else {
+                format!("{}:{}", strategy, target)
+            }
+        } else {
+            format!("{}:{}", strategy, target)
+        };
+
+        // Get all attributes
+        let mut attrs = Vec::new();
+        for (name, value) in root.value().attrs() {
+            // Skip existing hx-swap-oob attributes
+            if name != "hx-swap-oob" {
+                attrs.push(format!("{}=\"{}\"", name, value));
+            }
+        }
+
+        // Add the hx-swap-oob attribute
+        attrs.push(format!("hx-swap-oob=\"{}\"", oob_value));
+
+        // Reconstruct the element with the new attribute
+        let attrs_str = attrs.join(" ");
+        let inner_html = root.inner_html();
+
+        // Handle self-closing tags
+        if inner_html.is_empty() && is_void_element(tag_name) {
+            format!("<{} {} />", tag_name, attrs_str)
+        } else {
+            format!("<{} {}>{}</{}>", tag_name, attrs_str, inner_html, tag_name)
+        }
+    } else {
+        // Multiple root elements or no root elements - wrap in template
+        let oob_value = format!("{}:{}", strategy, target);
+        format!(
+            "<template hx-swap-oob=\"{}\">{}</template>",
+            oob_value, html
+        )
+    }
+}
+
+/// Check if an HTML tag is a void element (self-closing).
+fn is_void_element(tag: &str) -> bool {
+    matches!(
+        tag,
+        "area"
+            | "base"
+            | "br"
+            | "col"
+            | "embed"
+            | "hr"
+            | "img"
+            | "input"
+            | "link"
+            | "meta"
+            | "param"
+            | "source"
+            | "track"
+            | "wbr"
+    )
+}
+
 impl<T> Response<T> {
     /// Create a new HTMX response with the given body.
     pub fn new(body: T) -> Self {
@@ -193,7 +295,11 @@ impl<T> Response<T> {
         self
     }
 
-    /// Add an out-of-band insert to the response using the `innerHTML` swap method.
+    /// Add an out-of-band insert to the response using the `outerHTML` swap strategy.
+    ///
+    /// This method uses the element's ID (from the `Identity` trait) as the target selector.
+    /// The `hx-swap-oob` attribute will be injected directly into the root element of the
+    /// rendered HTML fragment.
     pub fn with_oob(self, oob_element: impl Identity + 'static) -> Self {
         let target = format!("#{}", oob_element.id());
         self.with_raw_oob(InsertStrategy::OuterHtml, target, oob_element)
@@ -203,6 +309,10 @@ impl<T> Response<T> {
     ///
     /// This method lets you set the HTMX target as a raw string, which can be useful if the
     /// target is not a simple HTML ID (e.g. a class selector or an attribute selector).
+    ///
+    /// The `hx-swap-oob` attribute will be injected directly into the root element of the
+    /// rendered HTML fragment. If the fragment has multiple root elements, it will be wrapped
+    /// in a `<template>` tag.
     pub fn with_raw_oob(
         mut self,
         insert_strategy: InsertStrategy,
@@ -276,9 +386,9 @@ impl<T: Display> axum::response::IntoResponse for Response<T> {
         let mut body = self.body.to_string();
 
         for (strategy, target, oob_element) in self.oob_elements {
-            body.push_str(&format!(
-                "<div hx-swap-oob=\"{strategy}:{target}\">{oob_element}</div>"
-            ));
+            let oob_html = oob_element.to_string();
+            let injected_html = inject_oob_attribute(&oob_html, &strategy, &target);
+            body.push_str(&injected_html);
         }
 
         (headers, body).into_response()
@@ -735,5 +845,101 @@ mod tests {
                 name
             );
         }
+    }
+
+    #[test]
+    fn test_inject_oob_attribute_single_element() {
+        let html = r#"<div id="test">Content</div>"#;
+        let result = inject_oob_attribute(html, &InsertStrategy::OuterHtml, "#test");
+
+        // Should inject hx-swap-oob="true" since ID matches and strategy is outerHTML
+        assert!(
+            result.contains(r#"hx-swap-oob="true""#),
+            "Expected hx-swap-oob=\"true\", got: {}",
+            result
+        );
+        assert!(result.contains("Content"), "Content should be preserved");
+    }
+
+    #[test]
+    fn test_inject_oob_attribute_with_different_target() {
+        let html = r#"<div id="source">Content</div>"#;
+        let result = inject_oob_attribute(html, &InsertStrategy::OuterHtml, "#target");
+
+        // Should inject hx-swap-oob="outerHTML:#target" since IDs don't match
+        assert!(
+            result.contains(r#"hx-swap-oob="outerHTML:#target""#),
+            "Expected hx-swap-oob=\"outerHTML:#target\", got: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_inject_oob_attribute_with_strategy() {
+        let html = r#"<div id="test">Content</div>"#;
+        let result = inject_oob_attribute(html, &InsertStrategy::InnerHtml, "#test");
+
+        // Should inject hx-swap-oob="innerHTML:#test" since strategy is not outerHTML
+        assert!(
+            result.contains(r#"hx-swap-oob="innerHTML:#test""#),
+            "Expected hx-swap-oob=\"innerHTML:#test\", got: {}",
+            result
+        );
+    }
+
+    #[test]
+    fn test_inject_oob_attribute_multiple_elements() {
+        let html = r#"<div>First</div><div>Second</div>"#;
+        let result = inject_oob_attribute(html, &InsertStrategy::OuterHtml, "#target");
+
+        // Should wrap in template tag
+        assert!(
+            result.starts_with("<template"),
+            "Expected to wrap multiple elements in template, got: {}",
+            result
+        );
+        assert!(
+            result.contains(r#"hx-swap-oob="outerHTML:#target""#),
+            "Template should have hx-swap-oob attribute"
+        );
+        assert!(
+            result.contains("First") && result.contains("Second"),
+            "Content should be preserved"
+        );
+    }
+
+    #[test]
+    fn test_inject_oob_attribute_preserves_attributes() {
+        let html = r#"<div id="test" class="foo" data-value="bar">Content</div>"#;
+        let result = inject_oob_attribute(html, &InsertStrategy::OuterHtml, "#test");
+
+        // Should preserve existing attributes
+        assert!(
+            result.contains(r#"id="test""#),
+            "id attribute should be preserved"
+        );
+        assert!(
+            result.contains(r#"class="foo""#),
+            "class attribute should be preserved"
+        );
+        assert!(
+            result.contains(r#"data-value="bar""#),
+            "data attribute should be preserved"
+        );
+        assert!(
+            result.contains(r#"hx-swap-oob="true""#),
+            "hx-swap-oob attribute should be added"
+        );
+    }
+
+    #[test]
+    fn test_inject_oob_attribute_class_selector() {
+        let html = r#"<div class="notification">Alert</div>"#;
+        let result = inject_oob_attribute(html, &InsertStrategy::BeforeEnd, ".notification");
+
+        assert_eq!(
+            result,
+            r#"<div class="notification" hx-swap-oob="beforeend:.notification">Alert</div>"#
+        );
     }
 }
