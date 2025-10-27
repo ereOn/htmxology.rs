@@ -7,15 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.13.0] - 2025-10-27
+
 ### Added
 - Added test for combined query and body parameters in routes
+- Routes can now have both `#[query]` and `#[body]` parameters simultaneously
 
 ### Changed
 - **BREAKING**: Route derive macro errors now point to the correct source location instead of `call_site()`
-- Removed artificial restriction preventing routes from having both `#[query]` and `#[body]` parameters
 
 ### Fixed
 - Error spans in derive macros now correctly point to the problematic code location
+- Removed artificial restriction that prevented routes from having both query and body parameters
 
 ## [0.12.0] - 2025-10-26
 
@@ -325,5 +328,6 @@ enum MyRoute {
 - [ ] Update any manual query parameter serialization code
 - [ ] Add `axum-extra` dependency if using `derive` feature
 
-[Unreleased]: https://github.com/your-repo/htmxology.rs/compare/v0.12.0...HEAD
+[Unreleased]: https://github.com/your-repo/htmxology.rs/compare/v0.13.0...HEAD
+[0.13.0]: https://github.com/your-repo/htmxology.rs/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/your-repo/htmxology.rs/releases/tag/v0.12.0
