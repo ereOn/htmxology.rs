@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.15.0] - 2025-10-28
+
 ### Changed
 - **BREAKING**: Renamed `ComponentsController` derive macro to `RoutingController` for better clarity
 - **BREAKING**: Renamed `#[component(...)]` attribute to `#[subcontroller(...)]` for consistency with the controller/subcontroller terminology
