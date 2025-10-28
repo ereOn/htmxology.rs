@@ -6,6 +6,7 @@ use syn::spanned::Spanned;
 pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let root_ident = &input.ident;
     let root_generics_params = &input.generics.params;
+    let root_param_idents = crate::utils::extract_generic_param_idents(&input.generics.params);
     let root_where_clause = &input.generics.where_clause;
 
     // Find the #[identity(...)] attribute
@@ -65,7 +66,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     };
 
     Ok(quote! {
-        impl<#root_generics_params> htmxology::htmx::Identity for #root_ident<#root_generics_params>
+        impl<#root_generics_params> htmxology::htmx::Identity for #root_ident<#root_param_idents>
             #root_where_clause
         {
             fn id(&self) -> htmxology::htmx::HtmlId {
@@ -148,6 +149,47 @@ mod snapshot_tests {
             #[identity(id = "view")]
             struct View<'a> {
                 data: &'a str,
+            }
+        "#;
+        assert_snapshot!(test_identity(input));
+    }
+
+    #[test]
+    fn generic_with_default() {
+        let input = r#"
+            #[identity(id = "foo")]
+            struct Foo<T = Bar>;
+        "#;
+        assert_snapshot!(test_identity(input));
+    }
+
+    #[test]
+    fn generic_with_bounds_and_default() {
+        let input = r#"
+            #[identity(id = "baz")]
+            struct Baz<T: Display = String>;
+        "#;
+        assert_snapshot!(test_identity(input));
+    }
+
+    #[test]
+    fn multiple_generics_with_defaults() {
+        let input = r#"
+            #[identity(id = "multi")]
+            struct Multi<T = Foo, U: Clone = Vec<u8>> {
+                value: T,
+                other: U,
+            }
+        "#;
+        assert_snapshot!(test_identity(input));
+    }
+
+    #[test]
+    fn mixed_lifetime_and_generic_with_default() {
+        let input = r#"
+            #[identity(id = "mixed")]
+            struct Mixed<'a, T = &'a str> {
+                value: T,
             }
         "#;
         assert_snapshot!(test_identity(input));

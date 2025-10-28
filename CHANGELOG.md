@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING**: All `with_fn` attributes now require full function paths (e.g., `Foo::method` or `Self::method`) instead of just method names (Issue #9)
 - `#[fragment(...)]` attribute is now optional and defaults to `outerHTML` strategy (Issue #8)
 
+### Fixed
+- Fixed `Identity`, `Named`, and `Fragment` derive macros to support generic type parameters with default values (Issue #10)
+  - Previously, types like `struct Foo<T: Display = Bar>` would generate invalid syntax
+  - Added `extract_generic_param_idents()` utility function to separate parameter declarations from usage
+
 ## [0.15.0] - 2025-10-28
 
 ### Changed

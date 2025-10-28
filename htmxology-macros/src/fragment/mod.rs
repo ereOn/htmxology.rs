@@ -5,6 +5,7 @@ use quote::quote;
 pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let root_ident = &input.ident;
     let root_generics_params = &input.generics.params;
+    let root_param_idents = crate::utils::extract_generic_param_idents(&input.generics.params);
     let root_where_clause = &input.generics.where_clause;
 
     // Find the #[fragment(...)] attribute (optional, defaults to outerHTML)
@@ -72,7 +73,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     };
 
     Ok(quote! {
-        impl<#root_generics_params> htmxology::htmx::Fragment for #root_ident<#root_generics_params>
+        impl<#root_generics_params> htmxology::htmx::Fragment for #root_ident<#root_param_idents>
             #root_where_clause
         {
             fn insert_strategy(&self) -> htmxology::htmx::InsertStrategy {
@@ -136,6 +137,36 @@ mod snapshot_tests {
     fn default_strategy() {
         let input = r#"
             struct DefaultElement;
+        "#;
+        assert_snapshot!(test_fragment(input));
+    }
+
+    #[test]
+    fn generic_with_default() {
+        let input = r#"
+            #[fragment(strategy = "innerHTML")]
+            struct FooFragment<T = Bar>;
+        "#;
+        assert_snapshot!(test_fragment(input));
+    }
+
+    #[test]
+    fn generic_with_bounds_and_default() {
+        let input = r#"
+            #[fragment(strategy = "outerHTML")]
+            struct BazFragment<T: Display = String>;
+        "#;
+        assert_snapshot!(test_fragment(input));
+    }
+
+    #[test]
+    fn multiple_generics_with_defaults() {
+        let input = r#"
+            #[fragment(strategy = "beforeend")]
+            struct MultiFragment<T = Foo, U: Clone = Vec<u8>> {
+                value: T,
+                other: U,
+            }
         "#;
         assert_snapshot!(test_fragment(input));
     }

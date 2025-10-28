@@ -1,0 +1,13 @@
+---
+source: htmxology-macros/src/named/mod.rs
+expression: test_named(input)
+---
+#[allow(unused)]
+mod __test {
+    impl<T = Foo, U: Clone = Vec<u8>> htmxology::htmx::Named for MultiField<T, U> {
+        fn name(&self) -> htmxology::htmx::HtmlName {
+            htmxology::htmx::HtmlName::from_static("multi-field")
+                .expect("name was validated at compile time")
+        }
+    }
+}

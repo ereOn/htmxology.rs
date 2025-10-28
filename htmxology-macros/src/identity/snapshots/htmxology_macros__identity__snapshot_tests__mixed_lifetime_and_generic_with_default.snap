@@ -1,0 +1,13 @@
+---
+source: htmxology-macros/src/identity/mod.rs
+expression: test_identity(input)
+---
+#[allow(unused)]
+mod __test {
+    impl<'a, T = &'a str> htmxology::htmx::Identity for Mixed<'a, T> {
+        fn id(&self) -> htmxology::htmx::HtmlId {
+            htmxology::htmx::HtmlId::from_static("mixed")
+                .expect("ID was validated at compile time")
+        }
+    }
+}

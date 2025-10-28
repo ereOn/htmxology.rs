@@ -6,6 +6,7 @@ use syn::spanned::Spanned;
 pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     let root_ident = &input.ident;
     let root_generics_params = &input.generics.params;
+    let root_param_idents = crate::utils::extract_generic_param_idents(&input.generics.params);
     let root_where_clause = &input.generics.where_clause;
 
     // Find the #[named(...)] attribute
@@ -65,7 +66,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     };
 
     Ok(quote! {
-        impl<#root_generics_params> htmxology::htmx::Named for #root_ident<#root_generics_params>
+        impl<#root_generics_params> htmxology::htmx::Named for #root_ident<#root_param_idents>
             #root_where_clause
         {
             fn name(&self) -> htmxology::htmx::HtmlName {
@@ -137,6 +138,36 @@ mod snapshot_tests {
             #[named(name = "input-field")]
             struct InputField<T> {
                 value: T,
+            }
+        "#;
+        assert_snapshot!(test_named(input));
+    }
+
+    #[test]
+    fn generic_with_default() {
+        let input = r#"
+            #[named(name = "foo-field")]
+            struct FooField<T = Bar>;
+        "#;
+        assert_snapshot!(test_named(input));
+    }
+
+    #[test]
+    fn generic_with_bounds_and_default() {
+        let input = r#"
+            #[named(name = "baz-field")]
+            struct BazField<T: Display = String>;
+        "#;
+        assert_snapshot!(test_named(input));
+    }
+
+    #[test]
+    fn multiple_generics_with_defaults() {
+        let input = r#"
+            #[named(name = "multi-field")]
+            struct MultiField<T = Foo, U: Clone = Vec<u8>> {
+                value: T,
+                other: U,
             }
         "#;
         assert_snapshot!(test_named(input));

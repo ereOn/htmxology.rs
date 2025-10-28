@@ -1,0 +1,13 @@
+---
+source: htmxology-macros/src/identity/mod.rs
+expression: test_identity(input)
+---
+#[allow(unused)]
+mod __test {
+    impl<T = Foo, U: Clone = Vec<u8>> htmxology::htmx::Identity for Multi<T, U> {
+        fn id(&self) -> htmxology::htmx::HtmlId {
+            htmxology::htmx::HtmlId::from_static("multi")
+                .expect("ID was validated at compile time")
+        }
+    }
+}

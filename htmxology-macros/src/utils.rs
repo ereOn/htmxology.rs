@@ -124,6 +124,40 @@ pub fn parse_with_fn_attribute_as_path(meta: &syn::MetaNameValue) -> syn::Result
     })
 }
 
+/// Extracts only the identifiers from generic parameters (without bounds or defaults).
+///
+/// This is needed because `syn::Generics::params` includes bounds and default values,
+/// which are only valid in impl signatures, not in type instantiations.
+///
+/// # Example
+///
+/// ```ignore
+/// // For: <T: Display = Bar, U>
+/// // Returns tokens for: T, U
+/// ```
+pub fn extract_generic_param_idents(
+    params: &syn::punctuated::Punctuated<syn::GenericParam, syn::token::Comma>,
+) -> proc_macro2::TokenStream {
+    use quote::quote;
+
+    let idents = params.iter().map(|param| match param {
+        syn::GenericParam::Type(type_param) => {
+            let ident = &type_param.ident;
+            quote! { #ident }
+        }
+        syn::GenericParam::Lifetime(lifetime_param) => {
+            let lifetime = &lifetime_param.lifetime;
+            quote! { #lifetime }
+        }
+        syn::GenericParam::Const(const_param) => {
+            let ident = &const_param.ident;
+            quote! { #ident }
+        }
+    });
+
+    quote! { #(#idents),* }
+}
+
 #[cfg(test)]
 pub mod testing {
     //! Test utilities for snapshot testing derive macros.

@@ -1,0 +1,12 @@
+---
+source: htmxology-macros/src/fragment/mod.rs
+expression: test_fragment(input)
+---
+#[allow(unused)]
+mod __test {
+    impl<T: Display = String> htmxology::htmx::Fragment for BazFragment<T> {
+        fn insert_strategy(&self) -> htmxology::htmx::InsertStrategy {
+            htmxology::htmx::InsertStrategy::OuterHtml
+        }
+    }
+}
