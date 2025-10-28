@@ -19,8 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `#[derive(Fragment)]` with `#[fragment(strategy = "...")]` attribute
   - Compile-time validation of HTML IDs and names
   - Supports all standard HTMX swap strategies plus custom strategies
+  - **Dynamic value support**: All three macros now support `with_fn` for computing values at runtime
+    - `#[identity(with_fn = "get_id")]` - Call a function to get the HTML ID
+    - `#[named(with_fn = "get_name")]` - Call a function to get the HTML name
+    - `#[fragment(with_fn = "get_strategy")]` - Call a function to get the swap strategy
+    - The function should be a method on the type that returns the appropriate type (HtmlId, HtmlName, or InsertStrategy)
   - Examples:
     ```rust
+    // Static values
     #[derive(Identity, Fragment)]
     #[identity("notification")]
     #[fragment(strategy = "innerHTML")]
@@ -32,6 +38,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     #[named("user-email")]
     struct EmailField {
         value: String,
+    }
+
+    // Dynamic values
+    #[derive(Identity, Fragment)]
+    #[identity(with_fn = "get_id")]
+    #[fragment(with_fn = "get_strategy")]
+    struct DynamicElement {
+        index: usize,
+    }
+
+    impl DynamicElement {
+        fn get_id(&self) -> HtmlId {
+            HtmlId::from_string(format!("element-{}", self.index))
+                .expect("valid ID")
+        }
+
+        fn get_strategy(&self) -> InsertStrategy {
+            InsertStrategy::InnerHtml
+        }
     }
     ```
 
@@ -54,6 +79,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         }
     }
     ```
+- **BREAKING**: `Fragment` derive macro now only accepts HTMX-standard strategy strings
+  - Snake_case variants (e.g., `"inner_html"`, `"outer_html"`) are no longer supported
+  - Use exact HTMX strings instead: `"innerHTML"`, `"outerHTML"`, `"beforebegin"`, `"afterbegin"`, `"beforeend"`, `"afterend"`, `"textContent"`, `"delete"`, `"none"`
+  - Custom strategies (any other string) are still supported and will be treated as `InsertStrategy::Custom`
+  - Migration: Replace snake_case variants with camelCase HTMX-standard strings
+    - `"inner_html"` → `"innerHTML"`
+    - `"outer_html"` → `"outerHTML"`
+    - `"text_content"` → `"textContent"`
+    - `"before_begin"` → `"beforebegin"`
+    - `"after_begin"` → `"afterbegin"`
+    - `"before_end"` → `"beforeend"`
+    - `"after_end"` → `"afterend"`
 
 ### Fixed
 - Fixed `with_oob()` implementation to properly inject `hx-swap-oob` attributes

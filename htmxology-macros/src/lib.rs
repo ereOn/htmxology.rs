@@ -53,7 +53,9 @@ pub fn derive_components_controller(input: proc_macro::TokenStream) -> proc_macr
 /// This macro implements the `Identity` trait, which provides a unique HTML ID for an element.
 /// The ID is validated at compile time to ensure it follows HTML5 rules.
 ///
-/// # Example
+/// # Examples
+///
+/// Using a static ID:
 ///
 /// ```ignore
 /// use htmxology::htmx::Identity;
@@ -62,6 +64,25 @@ pub fn derive_components_controller(input: proc_macro::TokenStream) -> proc_macr
 /// #[identity("my-element")]
 /// struct MyElement {
 ///     content: String,
+/// }
+/// ```
+///
+/// Using a function to compute the ID dynamically:
+///
+/// ```ignore
+/// use htmxology::htmx::{Identity, HtmlId};
+///
+/// #[derive(Identity)]
+/// #[identity(with_fn = "get_id")]
+/// struct DynamicElement {
+///     index: usize,
+/// }
+///
+/// impl DynamicElement {
+///     fn get_id(&self) -> HtmlId {
+///         HtmlId::from_string(format!("element-{}", self.index))
+///             .expect("valid ID")
+///     }
 /// }
 /// ```
 #[proc_macro_derive(Identity, attributes(identity))]
@@ -78,7 +99,9 @@ pub fn derive_identity(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
 /// This macro implements the `Named` trait, which provides a unique HTML name attribute
 /// for a form element. The name is validated at compile time to ensure it follows HTML5 rules.
 ///
-/// # Example
+/// # Examples
+///
+/// Using a static name:
 ///
 /// ```ignore
 /// use htmxology::htmx::Named;
@@ -87,6 +110,25 @@ pub fn derive_identity(input: proc_macro::TokenStream) -> proc_macro::TokenStrea
 /// #[named("user-email")]
 /// struct EmailField {
 ///     value: String,
+/// }
+/// ```
+///
+/// Using a function to compute the name dynamically:
+///
+/// ```ignore
+/// use htmxology::htmx::{Named, HtmlName};
+///
+/// #[derive(Named)]
+/// #[named(with_fn = "get_name")]
+/// struct DynamicField {
+///     field_type: String,
+/// }
+///
+/// impl DynamicField {
+///     fn get_name(&self) -> HtmlName {
+///         HtmlName::from_string(format!("field-{}", self.field_type))
+///             .expect("valid name")
+///     }
 /// }
 /// ```
 #[proc_macro_derive(Named, attributes(named))]
@@ -105,7 +147,9 @@ pub fn derive_named(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 ///
 /// Note: The type must also implement `Identity` (either manually or via derive).
 ///
-/// # Example
+/// # Examples
+///
+/// Using a static strategy:
 ///
 /// ```ignore
 /// use htmxology::htmx::{Identity, Fragment};
@@ -118,14 +162,39 @@ pub fn derive_named(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 /// }
 /// ```
 ///
-/// Supported strategies:
-/// - `"innerHTML"` or `"inner_html"` - Replace inner HTML
-/// - `"outerHTML"` or `"outer_html"` - Replace outer HTML
-/// - `"textContent"` or `"text_content"` - Replace text content
-/// - `"beforebegin"` or `"before_begin"` - Insert before element
-/// - `"afterbegin"` or `"after_begin"` - Insert after opening tag
-/// - `"beforeend"` or `"before_end"` - Insert before closing tag
-/// - `"afterend"` or `"after_end"` - Insert after element
+/// Using a function to compute the strategy dynamically:
+///
+/// ```ignore
+/// use htmxology::htmx::{Identity, Fragment, InsertStrategy};
+///
+/// #[derive(Identity, Fragment)]
+/// #[identity("dynamic-element")]
+/// #[fragment(with_fn = "get_strategy")]
+/// struct DynamicElement {
+///     should_replace: bool,
+/// }
+///
+/// impl DynamicElement {
+///     fn get_strategy(&self) -> InsertStrategy {
+///         if self.should_replace {
+///             InsertStrategy::OuterHtml
+///         } else {
+///             InsertStrategy::InnerHtml
+///         }
+///     }
+/// }
+/// ```
+///
+/// # Supported strategies
+///
+/// The macro accepts HTMX-standard strategy strings:
+/// - `"innerHTML"` - Replace inner HTML
+/// - `"outerHTML"` - Replace outer HTML
+/// - `"textContent"` - Replace text content
+/// - `"beforebegin"` - Insert before element
+/// - `"afterbegin"` - Insert after opening tag
+/// - `"beforeend"` - Insert before closing tag
+/// - `"afterend"` - Insert after element
 /// - `"delete"` - Delete the element
 /// - `"none"` - Do nothing
 /// - Any other string will be treated as a custom strategy

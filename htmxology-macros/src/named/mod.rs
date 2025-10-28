@@ -42,28 +42,70 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let root_generics_params = &input.generics.params;
     let root_where_clause = &input.generics.where_clause;
 
-    // Find the #[named("...")] attribute
+    // Find the #[named(...)] attribute
     let named_attr = input
         .attrs
         .iter()
         .find(|attr| attr.path().is_ident("named"))
-        .ok_or_else(|| syn::Error::new(input.span(), "missing #[named(\"name\")] attribute"))?;
+        .ok_or_else(|| {
+            syn::Error::new(
+                input.span(),
+                "missing #[named(\"name\")] or #[named(with_fn = \"function_name\")] attribute",
+            )
+        })?;
 
-    // Parse the attribute to extract the name string
-    let name: syn::LitStr = named_attr.parse_args()?;
-    let name_value = name.value();
+    // Try to parse as a simple string literal first
+    let name_impl = if let Ok(name_lit) = named_attr.parse_args::<syn::LitStr>() {
+        // Direct name specification: #[named("my-name")]
+        let name_value = name_lit.value();
+        validate_html_name(&name_value, name_lit.span())?;
 
-    // Validate the name at compile time
-    validate_html_name(&name_value, name.span())?;
+        quote! {
+            htmxology::htmx::HtmlName::from_static(#name_lit)
+                .expect("name was validated at compile time")
+        }
+    } else {
+        // Try to parse as with_fn attribute: #[named(with_fn = "function_name")]
+        let meta: syn::MetaNameValue = named_attr.parse_args()?;
+
+        if !meta.path.is_ident("with_fn") {
+            return Err(syn::Error::new_spanned(
+                &meta.path,
+                "expected 'with_fn' attribute",
+            ));
+        }
+
+        let fn_name = match &meta.value {
+            syn::Expr::Lit(expr_lit) => match &expr_lit.lit {
+                syn::Lit::Str(lit_str) => lit_str,
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        &meta.value,
+                        "with_fn must be a string literal",
+                    ));
+                }
+            },
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    &meta.value,
+                    "with_fn must be a string literal",
+                ));
+            }
+        };
+
+        let fn_ident = syn::Ident::new(&fn_name.value(), fn_name.span());
+
+        quote! {
+            Self::#fn_ident(self)
+        }
+    };
 
     Ok(quote! {
         impl<#root_generics_params> htmxology::htmx::Named for #root_ident<#root_generics_params>
             #root_where_clause
         {
             fn name(&self) -> htmxology::htmx::HtmlName {
-                // This is safe because we validated the name at compile time
-                htmxology::htmx::HtmlName::from_static(#name)
-                    .expect("name was validated at compile time")
+                #name_impl
             }
         }
     })

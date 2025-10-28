@@ -40,28 +40,70 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let root_generics_params = &input.generics.params;
     let root_where_clause = &input.generics.where_clause;
 
-    // Find the #[identity("...")] attribute
+    // Find the #[identity(...)] attribute
     let identity_attr = input
         .attrs
         .iter()
         .find(|attr| attr.path().is_ident("identity"))
-        .ok_or_else(|| syn::Error::new(input.span(), "missing #[identity(\"id\")] attribute"))?;
+        .ok_or_else(|| {
+            syn::Error::new(
+                input.span(),
+                "missing #[identity(\"id\")] or #[identity(with_fn = \"function_name\")] attribute",
+            )
+        })?;
 
-    // Parse the attribute to extract the ID string
-    let id: syn::LitStr = identity_attr.parse_args()?;
-    let id_value = id.value();
+    // Try to parse as a simple string literal first
+    let id_impl = if let Ok(id_lit) = identity_attr.parse_args::<syn::LitStr>() {
+        // Direct ID specification: #[identity("my-id")]
+        let id_value = id_lit.value();
+        validate_html_id(&id_value, id_lit.span())?;
 
-    // Validate the ID at compile time
-    validate_html_id(&id_value, id.span())?;
+        quote! {
+            htmxology::htmx::HtmlId::from_static(#id_lit)
+                .expect("ID was validated at compile time")
+        }
+    } else {
+        // Try to parse as with_fn attribute: #[identity(with_fn = "function_name")]
+        let meta: syn::MetaNameValue = identity_attr.parse_args()?;
+
+        if !meta.path.is_ident("with_fn") {
+            return Err(syn::Error::new_spanned(
+                &meta.path,
+                "expected 'with_fn' attribute",
+            ));
+        }
+
+        let fn_name = match &meta.value {
+            syn::Expr::Lit(expr_lit) => match &expr_lit.lit {
+                syn::Lit::Str(lit_str) => lit_str,
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        &meta.value,
+                        "with_fn must be a string literal",
+                    ));
+                }
+            },
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    &meta.value,
+                    "with_fn must be a string literal",
+                ));
+            }
+        };
+
+        let fn_ident = syn::Ident::new(&fn_name.value(), fn_name.span());
+
+        quote! {
+            Self::#fn_ident(self)
+        }
+    };
 
     Ok(quote! {
         impl<#root_generics_params> htmxology::htmx::Identity for #root_ident<#root_generics_params>
             #root_where_clause
         {
             fn id(&self) -> htmxology::htmx::HtmlId {
-                // This is safe because we validated the ID at compile time
-                htmxology::htmx::HtmlId::from_static(#id)
-                    .expect("ID was validated at compile time")
+                #id_impl
             }
         }
     })
