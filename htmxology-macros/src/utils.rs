@@ -32,6 +32,92 @@ pub fn expect_enum<'a>(
     }
 }
 
+/// Validate an HTML identifier (ID or name) at compile time.
+///
+/// Returns an error if the identifier is invalid according to HTML5 rules:
+/// - Must not be empty
+/// - Must start with a letter, digit, or underscore
+/// - May contain letters, digits, hyphens, underscores, colons, and periods
+///
+/// # Arguments
+///
+/// * `identifier` - The string to validate
+/// * `span` - The span for error reporting
+/// * `kind` - The kind of identifier ("ID" or "name") for error messages
+pub fn validate_html_identifier(
+    identifier: &str,
+    span: proc_macro2::Span,
+    kind: &str,
+) -> syn::Result<()> {
+    if identifier.is_empty() {
+        return Err(syn::Error::new(
+            span,
+            format!("HTML {kind} cannot be empty"),
+        ));
+    }
+
+    let mut chars = identifier.chars();
+    let first_char = chars.next().unwrap();
+
+    if !first_char.is_ascii_alphanumeric() && first_char != '_' {
+        return Err(syn::Error::new(
+            span,
+            format!(
+                "HTML {kind} must start with a letter, digit, or underscore, found '{first_char}'"
+            ),
+        ));
+    }
+
+    for c in chars {
+        if !(c.is_ascii_alphanumeric() || c == '-' || c == '_' || c == ':' || c == '.') {
+            return Err(syn::Error::new(
+                span,
+                format!(
+                    "HTML {kind} contains invalid character '{c}'. Only letters, digits, hyphens, underscores, colons, and periods are allowed"
+                ),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+/// Parse a `with_fn = "function_name"` attribute and extract the function identifier.
+///
+/// This handles the common pattern of parsing a MetaNameValue where:
+/// - The path must be "with_fn"
+/// - The value must be a string literal
+///
+/// Returns an Ident for the function name.
+pub fn parse_with_fn_attribute(meta: &syn::MetaNameValue) -> syn::Result<syn::Ident> {
+    if !meta.path.is_ident("with_fn") {
+        return Err(syn::Error::new_spanned(
+            &meta.path,
+            "expected 'with_fn' attribute",
+        ));
+    }
+
+    let fn_name = match &meta.value {
+        syn::Expr::Lit(expr_lit) => match &expr_lit.lit {
+            syn::Lit::Str(lit_str) => lit_str,
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    &meta.value,
+                    "with_fn must be a string literal",
+                ));
+            }
+        },
+        _ => {
+            return Err(syn::Error::new_spanned(
+                &meta.value,
+                "with_fn must be a string literal",
+            ));
+        }
+    };
+
+    Ok(syn::Ident::new(&fn_name.value(), fn_name.span()))
+}
+
 #[cfg(test)]
 pub mod testing {
     //! Test utilities for snapshot testing derive macros.

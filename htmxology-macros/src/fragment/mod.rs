@@ -64,26 +64,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         }
     } else if nested_meta.path.is_ident("with_fn") {
         // Function-based strategy: #[fragment(with_fn = "get_strategy")]
-        let fn_name = match &nested_meta.value {
-            syn::Expr::Lit(expr_lit) => match &expr_lit.lit {
-                syn::Lit::Str(lit_str) => lit_str,
-                _ => {
-                    return Err(syn::Error::new_spanned(
-                        &nested_meta.value,
-                        "with_fn must be a string literal",
-                    ));
-                }
-            },
-            _ => {
-                return Err(syn::Error::new_spanned(
-                    &nested_meta.value,
-                    "with_fn must be a string literal",
-                ));
-            }
-        };
-
-        let fn_ident = syn::Ident::new(&fn_name.value(), fn_name.span());
-
+        let fn_ident = crate::utils::parse_with_fn_attribute(&nested_meta)?;
         quote! { Self::#fn_ident(self) }
     } else {
         return Err(syn::Error::new_spanned(
