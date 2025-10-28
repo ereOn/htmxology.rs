@@ -1,0 +1,12 @@
+---
+source: htmxology-macros/src/fragment/mod.rs
+expression: test_fragment(input)
+---
+#[allow(unused)]
+mod __test {
+    impl htmxology::htmx::Fragment for Notification {
+        fn insert_strategy(&self) -> htmxology::htmx::InsertStrategy {
+            htmxology::htmx::InsertStrategy::InnerHtml
+        }
+    }
+}

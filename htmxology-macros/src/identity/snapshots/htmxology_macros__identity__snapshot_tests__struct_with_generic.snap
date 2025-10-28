@@ -1,0 +1,13 @@
+---
+source: htmxology-macros/src/identity/mod.rs
+expression: test_identity(input)
+---
+#[allow(unused)]
+mod __test {
+    impl<T> htmxology::htmx::Identity for Container<T> {
+        fn id(&self) -> htmxology::htmx::HtmlId {
+            htmxology::htmx::HtmlId::from_static("container")
+                .expect("ID was validated at compile time")
+        }
+    }
+}

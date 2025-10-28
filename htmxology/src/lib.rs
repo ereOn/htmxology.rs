@@ -36,4 +36,6 @@ pub use server::{
 pub use templating::RenderIntoResponse;
 
 #[cfg(feature = "derive")]
-pub use htmxology_macros::{ComponentsController, DisplayDelegate, Route};
+pub use htmxology_macros::{
+    ComponentsController, DisplayDelegate, Fragment, Identity, Named, Route,
+};

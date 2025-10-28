@@ -38,8 +38,8 @@ mod views {
 
     use askama::Template;
     use htmxology::{
-        DisplayDelegate, Route,
-        htmx::{HtmlId, Identity},
+        htmx::Identity as IdentityTrait,
+        DisplayDelegate, Fragment, Identity, Route,
     };
 
     use crate::controller::AppRoute;
@@ -78,27 +78,16 @@ mod views {
         Error(&'s str),
     }
 
-    #[derive(Debug, Template)]
+    #[derive(Debug, Template, Identity, Fragment)]
     #[template(path = "blocks/menu.html.jinja")]
+    #[identity("menu")]
+    #[fragment(strategy = "outerHTML")]
     pub(super) struct Menu {
         /// The menu.
         pub menu: Vec<MenuItem>,
 
         /// The active menu item.
         pub active: usize,
-    }
-
-    impl Identity for Menu {
-        fn id(&self) -> HtmlId {
-            "menu".try_into().expect("valid HTML ID")
-        }
-    }
-
-    impl htmxology::htmx::Fragment for Menu {
-        fn insert_strategy(&self) -> htmxology::htmx::InsertStrategy {
-            // Replace the outer HTML of the menu element
-            htmxology::htmx::InsertStrategy::OuterHtml
-        }
     }
 
     #[derive(Debug)]

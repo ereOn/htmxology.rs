@@ -13,12 +13,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Requires implementors to provide an `InsertStrategy` via `insert_strategy()` method
   - Allows different fragments to use different swap strategies (innerHTML, outerHTML, beforeend, etc.)
   - See `htmxology::htmx::Fragment` documentation for usage examples
+- **Derive macros for Identity, Named, and Fragment traits** (#6)
+  - `#[derive(Identity)]` with `#[identity("html-id")]` attribute
+  - `#[derive(Named)]` with `#[named("field-name")]` attribute
+  - `#[derive(Fragment)]` with `#[fragment(strategy = "...")]` attribute
+  - Compile-time validation of HTML IDs and names
+  - Supports all standard HTMX swap strategies plus custom strategies
+  - Examples:
+    ```rust
+    #[derive(Identity, Fragment)]
+    #[identity("notification")]
+    #[fragment(strategy = "innerHTML")]
+    struct Notification {
+        message: String,
+    }
+
+    #[derive(Named)]
+    #[named("user-email")]
+    struct EmailField {
+        value: String,
+    }
+    ```
 
 ### Changed
 - **BREAKING**: `Response::with_oob()` now requires `Fragment` trait instead of just `Identity`
   - Elements must implement `Fragment` and specify their swap strategy
-  - Migration: Add `Fragment` implementation to your types that use `with_oob()`
-  - Example:
+  - Migration: Use derive macro or implement `Fragment` trait manually
+  - Example with derive:
+    ```rust
+    #[derive(Identity, Fragment)]
+    #[identity("my-element")]
+    #[fragment(strategy = "outerHTML")]
+    struct MyElement;
+    ```
+  - Example manual implementation:
     ```rust
     impl Fragment for MyElement {
         fn insert_strategy(&self) -> InsertStrategy {

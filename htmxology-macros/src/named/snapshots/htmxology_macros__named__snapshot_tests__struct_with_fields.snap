@@ -1,0 +1,13 @@
+---
+source: htmxology-macros/src/named/mod.rs
+expression: test_named(input)
+---
+#[allow(unused)]
+mod __test {
+    impl htmxology::htmx::Named for EmailField {
+        fn name(&self) -> htmxology::htmx::HtmlName {
+            htmxology::htmx::HtmlName::from_static("user-email")
+                .expect("name was validated at compile time")
+        }
+    }
+}

@@ -1,0 +1,13 @@
+---
+source: htmxology-macros/src/named/mod.rs
+expression: test_named(input)
+---
+#[allow(unused)]
+mod __test {
+    impl<T> htmxology::htmx::Named for InputField<T> {
+        fn name(&self) -> htmxology::htmx::HtmlName {
+            htmxology::htmx::HtmlName::from_static("input-field")
+                .expect("name was validated at compile time")
+        }
+    }
+}
