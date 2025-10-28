@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.14.0] - 2025-10-27
+
 ### Added
 - **`Fragment` trait**: New trait for HTML fragments that can specify their own HTMX swap strategy
   - Extends `Identity` trait to maintain ID-based targeting
@@ -59,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         }
     }
     ```
+- **License checking with cargo-deny**
+  - Added `deny.toml` configuration to ensure only permissive licenses (MIT, Apache-2.0, BSD, ISC, MPL-2.0, Unicode-3.0)
+  - Security advisory checks via RustSec Advisory Database
+  - Added `just deny` and `just check` commands
 
 ### Changed
 - **BREAKING**: `Response::with_oob()` now requires `Fragment` trait instead of just `Identity`
@@ -98,6 +104,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Multiple root elements are automatically wrapped in a `<template>` tag
   - Added `scraper` dependency (ISC license) for HTML parsing and manipulation
   - Supports all HTMX swap-oob use cases as documented at https://htmx.org/attributes/hx-swap-oob/
+- Refactored derive macro code to eliminate duplication
+  - Created shared utility functions for HTML identifier validation and `with_fn` attribute parsing
+  - Reduced code duplication across Identity, Named, and Fragment macros
 
 ## [0.13.0] - 2025-10-27
 
