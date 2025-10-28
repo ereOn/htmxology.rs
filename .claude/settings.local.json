@@ -35,7 +35,8 @@
       "Bash(cargo metadata:*)",
       "Bash(cargo deny check:*)",
       "Bash(just deny)",
-      "Bash(just check:*)"
+      "Bash(just check:*)",
+      "Bash(just example blocks:*)"
     ],
     "deny": [],
     "ask": []
