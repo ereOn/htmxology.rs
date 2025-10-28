@@ -210,11 +210,140 @@ When running examples with `just example <name>`:
 
 ## Publishing
 
+### Release Process
+
+**IMPORTANT**: Always follow this process when preparing a new release. Do NOT skip steps or make assumptions about version numbers.
+
+#### 1. Determine the New Version
+
+Before making any changes, **ask the user** what the next version number should be. Consider:
+- Current version (check `Cargo.toml` workspace.package.version)
+- Type of changes since last release:
+  - **Patch** (0.0.X): Bug fixes, documentation updates
+  - **Minor** (0.X.0): New features, non-breaking changes
+  - **Major** (X.0.0): Breaking changes
+
+**Always confirm the version number with the user before proceeding.**
+
+#### 2. Update Version Numbers
+
+Update the version in **two places** in `/Cargo.toml`:
+
+```toml
+[workspace.package]
+version = "X.Y.Z"  # Update this
+
+[workspace.dependencies]
+htmxology-macros = { path = "./htmxology-macros", version = "X.Y.Z" }  # Update this too
+```
+
+#### 3. Update CHANGELOG.md
+
+Move all changes from `## [Unreleased]` to a new version section:
+
+```markdown
+## [Unreleased]
+
+(empty - ready for next release)
+
+## [X.Y.Z] - YYYY-MM-DD
+
+### Added
+- (move items from Unreleased)
+
+### Changed
+- (move items from Unreleased)
+
+### Fixed
+- (move items from Unreleased)
+```
+
+Use today's date in ISO format (YYYY-MM-DD).
+
+#### 4. Verify Everything Works
+
+Run all checks before committing:
+
+```bash
+just check
+```
+
+This runs:
+- Build
+- License checks (`cargo deny`)
+- Format checks
+- All tests
+
+#### 5. Commit and Tag
+
+Commit the version bump and changelog:
+
+```bash
+git add Cargo.toml CHANGELOG.md Cargo.lock
+git commit -m "Release vX.Y.Z"
+git tag -a vX.Y.Z -m "Release vX.Y.Z"
+```
+
+#### 6. Publish to crates.io
+
+**IMPORTANT**: The `just publish` command automatically runs `cargo deny check` before publishing.
+
 ```bash
 just publish
 ```
 
-This publishes both packages in order: `htmxology-macros` first, then `htmxology`.
+This publishes both packages in order:
+1. `htmxology-macros` (must be published first as it's a dependency)
+2. `htmxology`
+
+#### 7. Push to GitHub
+
+```bash
+git push origin main
+git push origin vX.Y.Z
+```
+
+### Example Release Workflow
+
+```bash
+# 1. Ask user for version (e.g., they say "0.14.0")
+
+# 2. Update Cargo.toml (both locations)
+# Edit: version = "0.14.0" and htmxology-macros version = "0.14.0"
+
+# 3. Update CHANGELOG.md
+# Move Unreleased items to ## [0.14.0] - 2025-10-28
+
+# 4. Verify
+just check
+
+# 5. Commit and tag
+git add Cargo.toml CHANGELOG.md Cargo.lock
+git commit -m "Release v0.14.0"
+git tag -a v0.14.0 -m "Release v0.14.0"
+
+# 6. Publish
+just publish
+
+# 7. Push
+git push origin main
+git push origin v0.14.0
+```
+
+### Troubleshooting
+
+**If publish fails:**
+- Ensure you're logged in to crates.io: `cargo login`
+- Check network connection
+- Verify version doesn't already exist on crates.io
+
+**If tests fail:**
+- Do NOT proceed with the release
+- Fix issues first, then restart the process
+
+**If you forgot to update both version numbers:**
+- The build will fail because `htmxology` depends on `htmxology-macros` with a specific version
+- Update both and try again
 
 ## License Checking
 
