@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: Renamed `ComponentsController` derive macro to `RoutingController` for better clarity
+- **BREAKING**: Renamed `#[component(...)]` attribute to `#[subcontroller(...)]` for consistency with the controller/subcontroller terminology
+- **BREAKING**: Renamed `ControllerExt` trait to `SubcontrollerExt` for better alignment with subcontroller terminology
+- **BREAKING**: Renamed `AsComponent` trait to `AsSubcontroller` for consistency
+- **BREAKING**: Renamed `get_component()` method to `get_subcontroller()`
+- **BREAKING**: Renamed `get_component_with()` method to `get_subcontroller_with()`
+- **BREAKING**: Renamed `as_component_controller()` method to `as_subcontroller()`
+
 ## [0.14.0] - 2025-10-27
 
 ### Added

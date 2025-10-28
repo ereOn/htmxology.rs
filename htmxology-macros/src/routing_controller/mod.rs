@@ -10,7 +10,7 @@ use syn::{
 };
 
 pub(super) const CONTROLLER: &str = "controller";
-pub(super) const COMPONENT: &str = "component";
+pub(super) const SUBCONTROLLER: &str = "subcontroller";
 pub(super) const ROUTE: &str = "route";
 pub(super) const PATH: &str = "path";
 pub(super) const DOC: &str = "doc";
@@ -21,18 +21,18 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     // Get the name of the root type.
     let root_ident = &input.ident;
 
-    let mut as_component_impls = Vec::new();
+    let mut as_subcontroller_impls = Vec::new();
     let mut route_variants = Vec::new();
     let mut handle_request_variants = Vec::new();
 
     let mut route_ident: Option<Ident> = None;
 
-    // Let's iterate over the top-level `component` attributes.
+    // Let's iterate over the top-level `subcontroller` attributes.
     for attr in &input.attrs {
-        if attr.path().is_ident(COMPONENT) {
-            let spec: ComponentSpec = attr.parse_args()?;
+        if attr.path().is_ident(SUBCONTROLLER) {
+            let spec: SubcontrollerSpec = attr.parse_args()?;
 
-            as_component_impls.push((spec.as_component_impl_fn)(root_ident));
+            as_subcontroller_impls.push((spec.as_subcontroller_impl_fn)(root_ident));
 
             let route_variant = &spec.route_variant;
             let controller_type = &spec.controller_type;
@@ -101,22 +101,22 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
 
             // Generate handle_request match arm with or without params
             handle_request_variants.push(if spec.params.is_empty() {
-                // No params - use get_component()
+                // No params - use get_subcontroller()
                 quote_spanned! { spec.route_variant.span() =>
                     Self::Route::#route_variant(route) => {
-                        self.get_component::<#controller_type>()
+                        self.get_subcontroller::<#controller_type>()
                             .handle_request(route, htmx, parts, server_info)
                             .await
                     }
                 }
             } else {
-                // Has params - use get_component_with(tuple)
+                // Has params - use get_subcontroller_with(tuple)
                 let param_names = spec.params.iter().map(|p| &p.name);
                 let param_tuple_items = spec.params.iter().map(|p| &p.name);
 
                 quote_spanned! { spec.route_variant.span() =>
                     Self::Route::#route_variant { #(#param_names,)* subroute } => {
-                        self.get_component_with::<#controller_type>((#(#param_tuple_items,)*))
+                        self.get_subcontroller_with::<#controller_type>((#(#param_tuple_items,)*))
                             .handle_request(subroute, htmx, parts, server_info)
                             .await
                     }
@@ -171,14 +171,14 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     };
 
     Ok(quote! {
-        #(#as_component_impls)*
+        #(#as_subcontroller_impls)*
         #route_decl
         #controller_impl
     })
 }
 
-struct ComponentSpec {
-    as_component_impl_fn: Box<dyn Fn(&Ident) -> proc_macro2::TokenStream>,
+struct SubcontrollerSpec {
+    as_subcontroller_impl_fn: Box<dyn Fn(&Ident) -> proc_macro2::TokenStream>,
     controller_type: Type,
     route_variant: Ident,
     path: Option<String>,
@@ -186,14 +186,14 @@ struct ComponentSpec {
     params: Vec<ParamSpec>,
 }
 
-/// A parameter specification for a component route.
+/// A parameter specification for a subcontroller route.
 #[derive(Clone)]
 struct ParamSpec {
     name: Ident,
     ty: Type,
 }
 
-enum ComponentArg {
+enum SubcontrollerArg {
     Route(Ident, Ident),
     Path(Ident, String),
     ConvertWith(proc_macro2::TokenStream),
@@ -201,7 +201,7 @@ enum ComponentArg {
     Params(Vec<ParamSpec>),
 }
 
-impl Parse for ComponentArg {
+impl Parse for SubcontrollerArg {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let key: Ident = input.parse()?;
 
@@ -264,9 +264,9 @@ impl Parse for ParamSpec {
     }
 }
 
-impl Parse for ComponentSpec {
+impl Parse for SubcontrollerSpec {
     fn parse(input: ParseStream) -> syn::Result<Self> {
-        // Parse the component type, with its possible lifetime parameter.
+        // Parse the subcontroller type, with its possible lifetime parameter.
         let controller_type: Type = input.parse()?;
 
         // Name the first lifetime parameter, if any.
@@ -287,15 +287,15 @@ impl Parse for ComponentSpec {
         if input.peek(Token![,]) {
             input.parse::<Token![,]>()?;
 
-            let args = Punctuated::<ComponentArg, Token![,]>::parse_terminated(input)?;
+            let args = Punctuated::<SubcontrollerArg, Token![,]>::parse_terminated(input)?;
 
             for arg in args {
                 match arg {
-                    ComponentArg::ConvertWith(fn_expr) => {
+                    SubcontrollerArg::ConvertWith(fn_expr) => {
                         convert_with_fn = Some(fn_expr.clone());
                         body_impl = quote! { #fn_expr(self) };
                     }
-                    ComponentArg::Route(key, ident) => {
+                    SubcontrollerArg::Route(key, ident) => {
                         if route.is_some() {
                             return Err(syn::Error::new_spanned(
                                 key,
@@ -305,7 +305,7 @@ impl Parse for ComponentSpec {
 
                         route = Some(ident)
                     }
-                    ComponentArg::Path(key, rpath) => {
+                    SubcontrollerArg::Path(key, rpath) => {
                         if path.is_some() {
                             return Err(syn::Error::new_spanned(
                                 key,
@@ -315,7 +315,7 @@ impl Parse for ComponentSpec {
 
                         path = Some(rpath);
                     }
-                    ComponentArg::Doc(key, desc) => {
+                    SubcontrollerArg::Doc(key, desc) => {
                         if doc.is_some() {
                             return Err(syn::Error::new_spanned(
                                 key,
@@ -325,7 +325,7 @@ impl Parse for ComponentSpec {
 
                         doc = Some(desc);
                     }
-                    ComponentArg::Params(param_specs) => {
+                    SubcontrollerArg::Params(param_specs) => {
                         if !params.is_empty() {
                             return Err(syn::Error::new_spanned(
                                 &param_specs[0].name,
@@ -375,12 +375,12 @@ impl Parse for ComponentSpec {
             }
         };
 
-        let as_component_impl_fn: Box<dyn Fn(&Ident) -> proc_macro2::TokenStream> = {
+        let as_subcontroller_impl_fn: Box<dyn Fn(&Ident) -> proc_macro2::TokenStream> = {
             if has_lifetime {
                 Box::new(move |root_ident: &Ident| {
                     quote! {
-                        impl<#lifetime> htmxology::AsComponent<#lifetime, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
-                            fn as_component_controller(&#lifetime self, args: #args_type) -> #controller_type_with_spec_lifetime {
+                        impl<#lifetime> htmxology::AsSubcontroller<#lifetime, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
+                            fn as_subcontroller(&#lifetime self, args: #args_type) -> #controller_type_with_spec_lifetime {
                                 #conversion_body
                             }
                         }
@@ -389,8 +389,8 @@ impl Parse for ComponentSpec {
             } else {
                 Box::new(move |root_ident: &Ident| {
                     quote! {
-                        impl htmxology::AsComponent<'_, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
-                            fn as_component_controller(&self, args: #args_type) -> #controller_type_with_spec_lifetime {
+                        impl htmxology::AsSubcontroller<'_, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
+                            fn as_subcontroller(&self, args: #args_type) -> #controller_type_with_spec_lifetime {
                                 #conversion_body
                             }
                         }
@@ -399,8 +399,8 @@ impl Parse for ComponentSpec {
             }
         };
 
-        Ok(ComponentSpec {
-            as_component_impl_fn,
+        Ok(SubcontrollerSpec {
+            as_subcontroller_impl_fn,
             controller_type,
             route_variant: route,
             path,
@@ -560,94 +560,94 @@ mod snapshot_tests {
     use crate::utils::testing::test_derive;
     use insta::assert_snapshot;
 
-    fn test_components_controller(input: &str) -> String {
+    fn test_routing_controller(input: &str) -> String {
         test_derive(input, derive)
     }
 
     #[test]
-    fn single_component_with_path() {
+    fn single_subcontroller_with_path() {
         let input = r#"
             #[controller(AppRoute)]
-            #[component(BlogController, route = Blog, path = "blog/")]
+            #[subcontroller(BlogController, route = Blog, path = "blog/")]
             struct AppController {
                 blog: BlogController,
             }
         "#;
-        assert_snapshot!(test_components_controller(input));
+        assert_snapshot!(test_routing_controller(input));
     }
 
     #[test]
-    fn single_component_catch_all() {
+    fn single_subcontroller_catch_all() {
         let input = r#"
             #[controller(AppRoute)]
-            #[component(NotFoundController, route = NotFound)]
+            #[subcontroller(NotFoundController, route = NotFound)]
             struct AppController {
                 not_found: NotFoundController,
             }
         "#;
-        assert_snapshot!(test_components_controller(input));
+        assert_snapshot!(test_routing_controller(input));
     }
 
     #[test]
-    fn multiple_components() {
+    fn multiple_subcontrollers() {
         let input = r#"
             #[controller(AppRoute)]
-            #[component(HomeController, route = Home, path = "")]
-            #[component(BlogController, route = Blog, path = "blog/")]
-            #[component(ShopController, route = Shop, path = "shop/")]
+            #[subcontroller(HomeController, route = Home, path = "")]
+            #[subcontroller(BlogController, route = Blog, path = "blog/")]
+            #[subcontroller(ShopController, route = Shop, path = "shop/")]
             struct AppController {
                 home: HomeController,
                 blog: BlogController,
                 shop: ShopController,
             }
         "#;
-        assert_snapshot!(test_components_controller(input));
+        assert_snapshot!(test_routing_controller(input));
     }
 
     #[test]
-    fn component_with_lifetime() {
+    fn subcontroller_with_lifetime() {
         let input = r#"
             #[controller(AppRoute)]
-            #[component(&'a DataController, route = Data, path = "data/")]
+            #[subcontroller(&'a DataController, route = Data, path = "data/")]
             struct AppController<'a> {
                 data: &'a DataController,
             }
         "#;
-        assert_snapshot!(test_components_controller(input));
+        assert_snapshot!(test_routing_controller(input));
     }
 
     #[test]
-    fn component_with_convert() {
+    fn subcontroller_with_convert() {
         let input = r#"
             #[controller(AppRoute)]
-            #[component(BlogController, route = Blog, path = "blog/", convert_with = "Self::get_blog")]
+            #[subcontroller(BlogController, route = Blog, path = "blog/", convert_with = "Self::get_blog")]
             struct AppController {
                 state: AppState,
             }
         "#;
-        assert_snapshot!(test_components_controller(input));
+        assert_snapshot!(test_routing_controller(input));
     }
 
     #[test]
-    fn component_with_doc() {
+    fn subcontroller_with_doc() {
         let input = r#"
             #[controller(AppRoute)]
-            #[component(BlogController, route = Blog, path = "blog/", doc = "Blog section")]
+            #[subcontroller(BlogController, route = Blog, path = "blog/", doc = "Blog section")]
             struct AppController {
                 blog: BlogController,
             }
         "#;
-        assert_snapshot!(test_components_controller(input));
+        assert_snapshot!(test_routing_controller(input));
     }
 
     #[test]
     fn complex_app() {
         let input = r#"
             #[controller(AppRoute)]
-            #[component(HomeController, route = Home, path = "", doc = "Home page")]
-            #[component(AuthController, route = Auth, path = "auth/", doc = "Authentication")]
-            #[component(ApiController, route = Api, path = "api/", doc = "API endpoints")]
-            #[component(NotFoundController, route = NotFound, doc = "404 handler")]
+            #[subcontroller(HomeController, route = Home, path = "", doc = "Home page")]
+            #[subcontroller(AuthController, route = Auth, path = "auth/", doc = "Authentication")]
+            #[subcontroller(ApiController, route = Api, path = "api/", doc = "API endpoints")]
+            #[subcontroller(NotFoundController, route = NotFound, doc = "404 handler")]
             struct AppController {
                 home: HomeController,
                 auth: AuthController,
@@ -655,68 +655,68 @@ mod snapshot_tests {
                 not_found: NotFoundController,
             }
         "#;
-        assert_snapshot!(test_components_controller(input));
+        assert_snapshot!(test_routing_controller(input));
     }
 
     #[test]
-    fn component_with_single_param() {
+    fn subcontroller_with_single_param() {
         let input = r#"
             #[controller(AppRoute)]
-            #[component(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32))]
+            #[subcontroller(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32))]
             struct AppController {
                 state: AppState,
             }
         "#;
-        assert_snapshot!(test_components_controller(input));
+        assert_snapshot!(test_routing_controller(input));
     }
 
     #[test]
-    fn component_with_multiple_params() {
+    fn subcontroller_with_multiple_params() {
         let input = r#"
             #[controller(AppRoute)]
-            #[component(PostController, route = Post, path = "blog/{blog_id}/post/{post_id}/", params(blog_id: u32, post_id: String))]
+            #[subcontroller(PostController, route = Post, path = "blog/{blog_id}/post/{post_id}/", params(blog_id: u32, post_id: String))]
             struct AppController {
                 state: AppState,
             }
         "#;
-        assert_snapshot!(test_components_controller(input));
+        assert_snapshot!(test_routing_controller(input));
     }
 
     #[test]
-    fn component_with_params_and_convert() {
+    fn subcontroller_with_params_and_convert() {
         let input = r#"
             #[controller(AppRoute)]
-            #[component(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32), convert_with = "Self::make_blog")]
+            #[subcontroller(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32), convert_with = "Self::make_blog")]
             struct AppController {
                 state: AppState,
             }
         "#;
-        assert_snapshot!(test_components_controller(input));
+        assert_snapshot!(test_routing_controller(input));
     }
 
     #[test]
     fn mixed_params_and_no_params() {
         let input = r#"
             #[controller(AppRoute)]
-            #[component(HomeController, route = Home, path = "")]
-            #[component(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32))]
-            #[component(UserController, route = User, path = "user/{user_id}/", params(user_id: String))]
+            #[subcontroller(HomeController, route = Home, path = "")]
+            #[subcontroller(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32))]
+            #[subcontroller(UserController, route = User, path = "user/{user_id}/", params(user_id: String))]
             struct AppController {
                 state: AppState,
             }
         "#;
-        assert_snapshot!(test_components_controller(input));
+        assert_snapshot!(test_routing_controller(input));
     }
 
     #[test]
     fn catch_all_with_params() {
         let input = r#"
             #[controller(AppRoute)]
-            #[component(DynamicController, route = Dynamic, params(resource_id: u64))]
+            #[subcontroller(DynamicController, route = Dynamic, params(resource_id: u64))]
             struct AppController {
                 state: AppState,
             }
         "#;
-        assert_snapshot!(test_components_controller(input));
+        assert_snapshot!(test_routing_controller(input));
     }
 }

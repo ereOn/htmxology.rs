@@ -1,0 +1,42 @@
+---
+source: htmxology-macros/src/routing_controller/mod.rs
+expression: test_routing_controller(input)
+---
+#[allow(unused)]
+mod __test {
+    impl htmxology::AsSubcontroller<'_, PostController, (u32, String)>
+    for AppController {
+        fn as_subcontroller(&self, args: (u32, String)) -> PostController {
+            <PostController>::from((self, args.0, args.1))
+        }
+    }
+    #[derive(Debug, Clone, htmxology::Route)]
+    pub enum AppRoute {
+        #[route("blog/{blog_id}/post/{post_id}/")]
+        Post {
+            blog_id: u32,
+            post_id: String,
+            #[subroute]
+            subroute: <PostController as htmxology::Controller>::Route,
+        },
+    }
+    impl htmxology::Controller for AppController {
+        type Route = AppRoute;
+        type Args = ();
+        async fn handle_request(
+            &self,
+            route: Self::Route,
+            htmx: htmxology::htmx::Request,
+            parts: http::request::Parts,
+            server_info: &htmxology::ServerInfo,
+        ) -> Result<axum::response::Response, axum::response::Response> {
+            match route {
+                Self::Route::Post { blog_id, post_id, subroute } => {
+                    self.get_subcontroller_with::<PostController>((blog_id, post_id))
+                        .handle_request(subroute, htmx, parts, server_info)
+                        .await
+                }
+            }
+        }
+    }
+}

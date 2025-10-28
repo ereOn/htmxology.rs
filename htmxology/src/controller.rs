@@ -27,64 +27,64 @@ pub trait Controller: Send + Sync + Clone {
     ) -> impl Future<Output = Result<axum::response::Response, axum::response::Response>> + Send;
 }
 
-/// An extension trait for controllers.
-pub trait ControllerExt: Controller {
-    /// Get a sub-component controller from the current controller.
+/// An extension trait for controllers that provides subcontroller access.
+pub trait SubcontrollerExt: Controller {
+    /// Get a subcontroller from the current controller.
     ///
-    /// This is a convenience method that leverages the `AsComponent` trait and allows specifying
-    /// the component type directly. This method is for components that don't require construction
+    /// This is a convenience method that leverages the `AsSubcontroller` trait and allows specifying
+    /// the subcontroller type directly. This method is for subcontrollers that don't require construction
     /// arguments (i.e., `Args = ()`).
     ///
-    /// For components that require arguments, use [`get_component_with`](Self::get_component_with).
-    fn get_component<'c, C>(&'c self) -> C
+    /// For subcontrollers that require arguments, use [`get_subcontroller_with`](Self::get_subcontroller_with).
+    fn get_subcontroller<'c, C>(&'c self) -> C
     where
-        Self: AsComponent<'c, C, ()>,
+        Self: AsSubcontroller<'c, C, ()>,
         C: Controller<Args = ()>,
     {
-        <Self as AsComponent<'c, C, ()>>::as_component_controller(self, ())
+        <Self as AsSubcontroller<'c, C, ()>>::as_subcontroller(self, ())
     }
 
-    /// Get a sub-component controller from the current controller with construction arguments.
+    /// Get a subcontroller from the current controller with construction arguments.
     ///
-    /// This is a convenience method for components that require arguments to be constructed.
+    /// This is a convenience method for subcontrollers that require arguments to be constructed.
     /// The arguments typically come from path parameters in the parent route.
     ///
     /// # Example
     /// ```rust,ignore
     /// // In handle_request for route Blog { blog_id, subroute }
-    /// self.get_component_with::<BlogController>((blog_id,))
+    /// self.get_subcontroller_with::<BlogController>((blog_id,))
     ///     .handle_request(subroute, htmx, parts, server_info)
     ///     .await
     /// ```
-    fn get_component_with<'c, C>(&'c self, args: C::Args) -> C
+    fn get_subcontroller_with<'c, C>(&'c self, args: C::Args) -> C
     where
-        Self: AsComponent<'c, C, C::Args>,
+        Self: AsSubcontroller<'c, C, C::Args>,
         C: Controller,
     {
-        <Self as AsComponent<'c, C, C::Args>>::as_component_controller(self, args)
+        <Self as AsSubcontroller<'c, C, C::Args>>::as_subcontroller(self, args)
     }
 }
 
-impl<T: Controller> ControllerExt for T {}
+impl<T: Controller> SubcontrollerExt for T {}
 
-/// A trait for controllers that have sub-components.
+/// A trait for controllers that have subcontrollers.
 ///
 /// This trait enables composing controllers by converting a parent controller into a
-/// sub-component controller. The `Args` type parameter specifies what arguments are needed
+/// subcontroller. The `Args` type parameter specifies what arguments are needed
 /// for the conversion.
 ///
 /// # Type Parameters
 /// - `'c`: Lifetime of the controller reference
-/// - `Component`: The sub-component controller type
-/// - `Args`: Arguments needed to construct the component (defaults to `()`)
-pub trait AsComponent<'c, Component, Args = ()>: Controller
+/// - `Subcontroller`: The subcontroller type
+/// - `Args`: Arguments needed to construct the subcontroller (defaults to `()`)
+pub trait AsSubcontroller<'c, Subcontroller, Args = ()>: Controller
 where
-    Component: Controller,
+    Subcontroller: Controller,
     Args: Send + Sync + 'static,
 {
-    /// Convert this controller into a sub-component controller.
+    /// Convert this controller into a subcontroller.
     ///
     /// # Arguments
-    /// - `args`: Construction arguments for the component, typically extracted from route parameters
-    fn as_component_controller(&'c self, args: Args) -> Component;
+    /// - `args`: Construction arguments for the subcontroller, typically extracted from route parameters
+    fn as_subcontroller(&'c self, args: Args) -> Subcontroller;
 }

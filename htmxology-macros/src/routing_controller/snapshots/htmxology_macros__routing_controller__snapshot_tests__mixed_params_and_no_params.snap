@@ -1,0 +1,68 @@
+---
+source: htmxology-macros/src/routing_controller/mod.rs
+expression: test_routing_controller(input)
+---
+#[allow(unused)]
+mod __test {
+    impl htmxology::AsSubcontroller<'_, HomeController, ()> for AppController {
+        fn as_subcontroller(&self, args: ()) -> HomeController {
+            self.into()
+        }
+    }
+    impl htmxology::AsSubcontroller<'_, BlogController, (u32,)> for AppController {
+        fn as_subcontroller(&self, args: (u32,)) -> BlogController {
+            <BlogController>::from((self, args.0))
+        }
+    }
+    impl htmxology::AsSubcontroller<'_, UserController, (String,)> for AppController {
+        fn as_subcontroller(&self, args: (String,)) -> UserController {
+            <UserController>::from((self, args.0))
+        }
+    }
+    #[derive(Debug, Clone, htmxology::Route)]
+    pub enum AppRoute {
+        #[route("")]
+        Home(#[subroute] <HomeController as htmxology::Controller>::Route),
+        #[route("blog/{blog_id}/")]
+        Blog {
+            blog_id: u32,
+            #[subroute]
+            subroute: <BlogController as htmxology::Controller>::Route,
+        },
+        #[route("user/{user_id}/")]
+        User {
+            user_id: String,
+            #[subroute]
+            subroute: <UserController as htmxology::Controller>::Route,
+        },
+    }
+    impl htmxology::Controller for AppController {
+        type Route = AppRoute;
+        type Args = ();
+        async fn handle_request(
+            &self,
+            route: Self::Route,
+            htmx: htmxology::htmx::Request,
+            parts: http::request::Parts,
+            server_info: &htmxology::ServerInfo,
+        ) -> Result<axum::response::Response, axum::response::Response> {
+            match route {
+                Self::Route::Home(route) => {
+                    self.get_subcontroller::<HomeController>()
+                        .handle_request(route, htmx, parts, server_info)
+                        .await
+                }
+                Self::Route::Blog { blog_id, subroute } => {
+                    self.get_subcontroller_with::<BlogController>((blog_id,))
+                        .handle_request(subroute, htmx, parts, server_info)
+                        .await
+                }
+                Self::Route::User { user_id, subroute } => {
+                    self.get_subcontroller_with::<UserController>((user_id,))
+                        .handle_request(subroute, htmx, parts, server_info)
+                        .await
+                }
+            }
+        }
+    }
+}

@@ -23,7 +23,7 @@ pub use caching::{
     Cache, CacheControl, CachingResponseExt, Controller as CachingController,
     ControllerExt as CachingControllerExt,
 };
-pub use controller::{AsComponent, Controller, ControllerExt};
+pub use controller::{AsSubcontroller, Controller, SubcontrollerExt};
 pub use route::{Route, RouteExt, decode_path_argument, replace_request_path};
 #[cfg(feature = "auto-reload")]
 pub use server::auto_reload::get_or_bind_tcp_listener;
@@ -36,6 +36,4 @@ pub use server::{
 pub use templating::RenderIntoResponse;
 
 #[cfg(feature = "derive")]
-pub use htmxology_macros::{
-    ComponentsController, DisplayDelegate, Fragment, Identity, Named, Route,
-};
+pub use htmxology_macros::{DisplayDelegate, Fragment, Identity, Named, Route, RoutingController};

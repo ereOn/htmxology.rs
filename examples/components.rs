@@ -30,16 +30,16 @@ async fn main() -> anyhow::Result<()> {
 mod controller {
 
     use axum::response::IntoResponse;
-    use htmxology::{ComponentsController, Route, ServerInfo};
-    use htmxology::{Controller, ControllerExt, htmx::Request as HtmxRequest};
+    use htmxology::{Controller, SubcontrollerExt, htmx::Request as HtmxRequest};
+    use htmxology::{Route, RoutingController, ServerInfo};
 
     /// The main controller implementation.
-    #[derive(Debug, Clone, ComponentsController)]
+    #[derive(Debug, Clone, RoutingController)]
     #[controller(AppRoute)]
-    #[component(HelloWorldController, route=HelloWorld, path = "hello-world/")]
-    #[component(ImageGalleryController<'_>, route=ImageGallery, path = "image-gallery/", convert_with = "ImageGalleryController::from_main_controller")]
-    #[component(UserPostController, route=UserPost, path = "user/{user_id}/post/{post_id}/", params(user_id: u32, post_id: String), convert_with = "Self::make_user_post_controller")]
-    #[component(DelegatedController, route=Delegated)]
+    #[subcontroller(HelloWorldController, route=HelloWorld, path = "hello-world/")]
+    #[subcontroller(ImageGalleryController<'_>, route=ImageGallery, path = "image-gallery/", convert_with = "ImageGalleryController::from_main_controller")]
+    #[subcontroller(UserPostController, route=UserPost, path = "user/{user_id}/post/{post_id}/", params(user_id: u32, post_id: String), convert_with = "Self::make_user_post_controller")]
+    #[subcontroller(DelegatedController, route=Delegated)]
     pub struct MainController {
         image_gallery_base_url: String,
     }

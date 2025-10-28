@@ -99,7 +99,7 @@ This should be done:
 This is a Cargo workspace with two main packages:
 
 1. **`htmxology`** - The main framework library
-2. **`htmxology-macros`** - Procedural macros (`Route`, `DisplayDelegate`, `ComponentsController`)
+2. **`htmxology-macros`** - Procedural macros (`Route`, `DisplayDelegate`, `RoutingController`)
 
 ### Core Concepts
 
@@ -128,18 +128,18 @@ Controllers handle requests for specific routes. They:
   - Use tuple types like `(u32,)` or `(u32, String)` for parameterized controllers
 - Implement `handle_request()` to process incoming requests
 - Receive HTMX request context, HTTP parts, and server info
-- Can be composed using the `AsComponent` trait for sub-components
-- Use `ControllerExt::get_component()` to access sub-controllers without parameters
-- Use `ControllerExt::get_component_with(args)` for parameterized sub-controllers
+- Can be composed using the `AsSubcontroller` trait for subcontrollers
+- Use `SubcontrollerExt::get_subcontroller()` to access subcontrollers without parameters
+- Use `SubcontrollerExt::get_subcontroller_with(args)` for parameterized subcontrollers
 
-The `#[derive(ComponentsController)]` macro helps implement component relationships.
+The `#[derive(RoutingController)]` macro helps implement sub-controller routing.
 
-**Parameterized Routes**: The `ComponentsController` macro supports path parameters:
+**Parameterized Routes**: The `RoutingController` macro supports path parameters:
 ```rust
-#[derive(ComponentsController)]
+#[derive(RoutingController)]
 #[controller(AppRoute)]
-#[component(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32))]
-#[component(PostController, route = Post, path = "blog/{blog_id}/post/{post_id}/", params(blog_id: u32, post_id: String))]
+#[subcontroller(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32))]
+#[subcontroller(PostController, route = Post, path = "blog/{blog_id}/post/{post_id}/", params(blog_id: u32, post_id: String))]
 struct AppController {
     state: AppState,
 }
@@ -147,7 +147,7 @@ struct AppController {
 
 This generates route variants with typed parameters and automatically extracts them for sub-controller construction:
 - Path parameters are declared with `params(name: Type, ...)`
-- Parameters are extracted from the URL and passed to the sub-controller via `get_component_with(tuple)`
+- Parameters are extracted from the URL and passed to the subcontroller via `get_subcontroller_with(tuple)`
 - Use `convert_with` to specify a custom function that accepts the parameters
 
 #### Caching
@@ -180,7 +180,7 @@ Environment variables:
 - `auto-reload` - Development auto-reload using systemfd/listenfd
 - `interfaces` - Network interface detection for base URL guessing
 - `ws` - WebSocket support
-- `derive` - Enable derive macros (`Route`, `DisplayDelegate`, `ComponentsController`)
+- `derive` - Enable derive macros (`Route`, `DisplayDelegate`, `RoutingController`)
 - `templating` - Askama template integration via `RenderIntoResponse`
 - `full` - Enables all features
 - `examples` - Additional dependencies for running examples

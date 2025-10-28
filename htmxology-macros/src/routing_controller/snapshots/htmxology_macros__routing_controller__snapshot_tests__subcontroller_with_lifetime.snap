@@ -1,0 +1,45 @@
+---
+source: htmxology-macros/src/routing_controller/mod.rs
+expression: test_routing_controller(input)
+---
+#[allow(unused)]
+mod __test {
+    impl<
+        '_component_spec_lifetime,
+    > htmxology::AsSubcontroller<
+        '_component_spec_lifetime,
+        &'_component_spec_lifetime DataController,
+        (),
+    > for AppController {
+        fn as_subcontroller(
+            &'_component_spec_lifetime self,
+            args: (),
+        ) -> &'_component_spec_lifetime DataController {
+            self.into()
+        }
+    }
+    #[derive(Debug, Clone, htmxology::Route)]
+    pub enum AppRoute {
+        #[route("data/")]
+        Data(#[subroute] <&'static DataController as htmxology::Controller>::Route),
+    }
+    impl htmxology::Controller for AppController {
+        type Route = AppRoute;
+        type Args = ();
+        async fn handle_request(
+            &self,
+            route: Self::Route,
+            htmx: htmxology::htmx::Request,
+            parts: http::request::Parts,
+            server_info: &htmxology::ServerInfo,
+        ) -> Result<axum::response::Response, axum::response::Response> {
+            match route {
+                Self::Route::Data(route) => {
+                    self.get_subcontroller::<&DataController>()
+                        .handle_request(route, htmx, parts, server_info)
+                        .await
+                }
+            }
+        }
+    }
+}

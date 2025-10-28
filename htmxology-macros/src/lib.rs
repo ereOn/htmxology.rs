@@ -2,12 +2,12 @@
 
 use syn::parse_macro_input;
 
-mod components_controller;
 mod display_delegate;
 mod fragment;
 mod identity;
 mod named;
 mod route;
+mod routing_controller;
 mod utils;
 
 /// Derive a route type.
@@ -35,15 +35,15 @@ pub fn derive_display_delegate(input: proc_macro::TokenStream) -> proc_macro::To
         .into()
 }
 
-/// Implement the `ComponentsController` trait for a controller.
+/// Implement the `RoutingController` trait for a controller.
 ///
-/// This derive macro allows to automatically implement components conversions for a controller
+/// This derive macro allows to automatically implement sub-controller routing for a controller
 /// type.
-#[proc_macro_derive(ComponentsController, attributes(controller, component))]
-pub fn derive_components_controller(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+#[proc_macro_derive(RoutingController, attributes(controller, subcontroller))]
+pub fn derive_routing_controller(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut input = parse_macro_input!(input as syn::DeriveInput);
 
-    components_controller::derive(&mut input)
+    routing_controller::derive(&mut input)
         .unwrap_or_else(syn::Error::into_compile_error)
         .into()
 }
