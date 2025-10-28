@@ -77,7 +77,7 @@ mod views {
 
     #[derive(Debug, Template, Identity, Fragment)]
     #[template(path = "blocks/menu.html.jinja")]
-    #[identity("menu")]
+    #[identity(id = "menu")]
     #[fragment(strategy = "outerHTML")]
     pub(super) struct Menu {
         /// The menu.

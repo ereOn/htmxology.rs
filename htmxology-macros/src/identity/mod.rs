@@ -16,13 +16,33 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         .ok_or_else(|| {
             syn::Error::new(
                 input.span(),
-                "missing #[identity(\"id\")] or #[identity(with_fn = \"function_name\")] attribute",
+                "missing #[identity(id = \"...\")] or #[identity(with_fn = \"Full::path\")] attribute",
             )
         })?;
 
-    // Try to parse as a simple string literal first
-    let id_impl = if let Ok(id_lit) = identity_attr.parse_args::<syn::LitStr>() {
-        // Direct ID specification: #[identity("my-id")]
+    // Parse as key=value attribute: #[identity(id = "my-id")] or #[identity(with_fn = "Foo::method")]
+    let meta: syn::MetaNameValue = identity_attr.parse_args()?;
+
+    let id_impl = if meta.path.is_ident("id") {
+        // Direct ID specification: #[identity(id = "my-id")]
+        let id_lit = match &meta.value {
+            syn::Expr::Lit(expr_lit) => match &expr_lit.lit {
+                syn::Lit::Str(lit_str) => lit_str,
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        &meta.value,
+                        "id must be a string literal",
+                    ));
+                }
+            },
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    &meta.value,
+                    "id must be a string literal",
+                ));
+            }
+        };
+
         let id_value = id_lit.value();
         crate::utils::validate_html_identifier(&id_value, id_lit.span(), "ID")?;
 
@@ -30,14 +50,18 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
             htmxology::htmx::HtmlId::from_static(#id_lit)
                 .expect("ID was validated at compile time")
         }
-    } else {
-        // Try to parse as with_fn attribute: #[identity(with_fn = "function_name")]
-        let meta: syn::MetaNameValue = identity_attr.parse_args()?;
-        let fn_ident = crate::utils::parse_with_fn_attribute(&meta)?;
+    } else if meta.path.is_ident("with_fn") {
+        // Function-based ID: #[identity(with_fn = "Foo::get_id")]
+        let fn_path = crate::utils::parse_with_fn_attribute_as_path(&meta)?;
 
         quote! {
-            Self::#fn_ident(self)
+            #fn_path(self)
         }
+    } else {
+        return Err(syn::Error::new_spanned(
+            &meta.path,
+            "expected 'id' or 'with_fn' attribute",
+        ));
     };
 
     Ok(quote! {
@@ -90,7 +114,7 @@ mod snapshot_tests {
     #[test]
     fn simple_struct() {
         let input = r#"
-            #[identity("my-element")]
+            #[identity(id = "my-element")]
             struct MyElement;
         "#;
         assert_snapshot!(test_identity(input));
@@ -99,7 +123,7 @@ mod snapshot_tests {
     #[test]
     fn struct_with_fields() {
         let input = r#"
-            #[identity("notification")]
+            #[identity(id = "notification")]
             struct Notification {
                 message: String,
             }
@@ -110,7 +134,7 @@ mod snapshot_tests {
     #[test]
     fn struct_with_generic() {
         let input = r#"
-            #[identity("container")]
+            #[identity(id = "container")]
             struct Container<T> {
                 value: T,
             }
@@ -121,7 +145,7 @@ mod snapshot_tests {
     #[test]
     fn struct_with_lifetime() {
         let input = r#"
-            #[identity("view")]
+            #[identity(id = "view")]
             struct View<'a> {
                 data: &'a str,
             }

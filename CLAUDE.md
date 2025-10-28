@@ -63,6 +63,13 @@ Run tests:
 cargo test
 ```
 
+**IMPORTANT**: When making changes to derive macros or framework features, ALWAYS run the full test suite including examples to ensure nothing breaks:
+```bash
+# Run all tests including examples
+cargo test --all-features
+cargo check --all-targets --all-features
+```
+
 Run a specific test:
 ```bash
 cargo test <test-name>

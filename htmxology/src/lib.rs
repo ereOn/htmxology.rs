@@ -37,3 +37,6 @@ pub use templating::RenderIntoResponse;
 
 #[cfg(feature = "derive")]
 pub use htmxology_macros::{DisplayDelegate, Fragment, Identity, Named, Route, RoutingController};
+
+// Re-export traits at root level for convenience (Issue #7)
+pub use htmx::{Fragment as FragmentTrait, Identity as IdentityTrait, Named as NamedTrait};

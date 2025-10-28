@@ -16,13 +16,33 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         .ok_or_else(|| {
             syn::Error::new(
                 input.span(),
-                "missing #[named(\"name\")] or #[named(with_fn = \"function_name\")] attribute",
+                "missing #[named(name = \"...\")] or #[named(with_fn = \"Full::path\")] attribute",
             )
         })?;
 
-    // Try to parse as a simple string literal first
-    let name_impl = if let Ok(name_lit) = named_attr.parse_args::<syn::LitStr>() {
-        // Direct name specification: #[named("my-name")]
+    // Parse as key=value attribute: #[named(name = "my-name")] or #[named(with_fn = "Foo::method")]
+    let meta: syn::MetaNameValue = named_attr.parse_args()?;
+
+    let name_impl = if meta.path.is_ident("name") {
+        // Direct name specification: #[named(name = "my-name")]
+        let name_lit = match &meta.value {
+            syn::Expr::Lit(expr_lit) => match &expr_lit.lit {
+                syn::Lit::Str(lit_str) => lit_str,
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        &meta.value,
+                        "name must be a string literal",
+                    ));
+                }
+            },
+            _ => {
+                return Err(syn::Error::new_spanned(
+                    &meta.value,
+                    "name must be a string literal",
+                ));
+            }
+        };
+
         let name_value = name_lit.value();
         crate::utils::validate_html_identifier(&name_value, name_lit.span(), "name")?;
 
@@ -30,14 +50,18 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
             htmxology::htmx::HtmlName::from_static(#name_lit)
                 .expect("name was validated at compile time")
         }
-    } else {
-        // Try to parse as with_fn attribute: #[named(with_fn = "function_name")]
-        let meta: syn::MetaNameValue = named_attr.parse_args()?;
-        let fn_ident = crate::utils::parse_with_fn_attribute(&meta)?;
+    } else if meta.path.is_ident("with_fn") {
+        // Function-based name: #[named(with_fn = "Foo::get_name")]
+        let fn_path = crate::utils::parse_with_fn_attribute_as_path(&meta)?;
 
         quote! {
-            Self::#fn_ident(self)
+            #fn_path(self)
         }
+    } else {
+        return Err(syn::Error::new_spanned(
+            &meta.path,
+            "expected 'name' or 'with_fn' attribute",
+        ));
     };
 
     Ok(quote! {
@@ -90,7 +114,7 @@ mod snapshot_tests {
     #[test]
     fn simple_struct() {
         let input = r#"
-            #[named("my-field")]
+            #[named(name = "my-field")]
             struct MyField;
         "#;
         assert_snapshot!(test_named(input));
@@ -99,7 +123,7 @@ mod snapshot_tests {
     #[test]
     fn struct_with_fields() {
         let input = r#"
-            #[named("user-email")]
+            #[named(name = "user-email")]
             struct EmailField {
                 value: String,
             }
@@ -110,7 +134,7 @@ mod snapshot_tests {
     #[test]
     fn struct_with_generic() {
         let input = r#"
-            #[named("input-field")]
+            #[named(name = "input-field")]
             struct InputField<T> {
                 value: T,
             }

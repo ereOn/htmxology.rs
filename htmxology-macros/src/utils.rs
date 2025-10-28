@@ -82,14 +82,14 @@ pub fn validate_html_identifier(
     Ok(())
 }
 
-/// Parse a `with_fn = "function_name"` attribute and extract the function identifier.
+/// Parse a `with_fn = "Full::path::to::function"` attribute and extract the function path.
 ///
 /// This handles the common pattern of parsing a MetaNameValue where:
 /// - The path must be "with_fn"
-/// - The value must be a string literal
+/// - The value must be a string literal containing a valid Rust path
 ///
-/// Returns an Ident for the function name.
-pub fn parse_with_fn_attribute(meta: &syn::MetaNameValue) -> syn::Result<syn::Ident> {
+/// Returns a Path that can be used in generated code (e.g., "Foo::method" or "Self::method").
+pub fn parse_with_fn_attribute_as_path(meta: &syn::MetaNameValue) -> syn::Result<syn::Path> {
     if !meta.path.is_ident("with_fn") {
         return Err(syn::Error::new_spanned(
             &meta.path,
@@ -97,7 +97,7 @@ pub fn parse_with_fn_attribute(meta: &syn::MetaNameValue) -> syn::Result<syn::Id
         ));
     }
 
-    let fn_name = match &meta.value {
+    let fn_path_str = match &meta.value {
         syn::Expr::Lit(expr_lit) => match &expr_lit.lit {
             syn::Lit::Str(lit_str) => lit_str,
             _ => {
@@ -115,7 +115,13 @@ pub fn parse_with_fn_attribute(meta: &syn::MetaNameValue) -> syn::Result<syn::Id
         }
     };
 
-    Ok(syn::Ident::new(&fn_name.value(), fn_name.span()))
+    // Parse the string as a Path (e.g., "Foo::method" or "Self::method")
+    fn_path_str.parse::<syn::Path>().map_err(|_| {
+        syn::Error::new_spanned(
+            fn_path_str,
+            "with_fn value must be a valid Rust path (e.g., 'Foo::method' or 'Self::method')",
+        )
+    })
 }
 
 #[cfg(test)]

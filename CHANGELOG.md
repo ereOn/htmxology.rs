@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Re-exported `Identity`, `Named`, and `Fragment` traits at root level as `IdentityTrait`, `NamedTrait`, and `FragmentTrait` for convenience (Issue #7)
+
+### Changed
+- **BREAKING**: `#[identity(...)]` now requires `id = "value"` syntax instead of positional `#[identity("value")]` (Issue #9)
+- **BREAKING**: `#[named(...)]` now requires `name = "value"` syntax instead of positional `#[named("value")]` (Issue #9)
+- **BREAKING**: All `with_fn` attributes now require full function paths (e.g., `Foo::method` or `Self::method`) instead of just method names (Issue #9)
+- `#[fragment(...)]` attribute is now optional and defaults to `outerHTML` strategy (Issue #8)
+
 ## [0.15.0] - 2025-10-28
 
 ### Changed
