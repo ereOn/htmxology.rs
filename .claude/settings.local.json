@@ -32,7 +32,10 @@
       "Bash(git show:*)",
       "WebFetch(domain:htmx.org)",
       "WebFetch(domain:crates.io)",
-      "Bash(cargo metadata:*)"
+      "Bash(cargo metadata:*)",
+      "Bash(cargo deny check:*)",
+      "Bash(just deny)",
+      "Bash(just check:*)"
     ],
     "deny": [],
     "ask": []

@@ -12,13 +12,19 @@ HTMXOLOGY is a Server Side Rendering (SSR) framework written in Rust using HTMX 
 
 Install required tools:
 ```bash
-cargo install just bacon systemfd
+cargo install just bacon systemfd cargo-deny
 ```
 
 Or run the automated setup:
 ```bash
 just dev-setup
 ```
+
+This installs:
+- `just` - Command runner
+- `bacon` - Background code checker with live reloading
+- `systemfd` - Socket activation for hot-reload during development
+- `cargo-deny` - License and security checker
 
 ### Common Commands
 
@@ -27,6 +33,16 @@ Build the project:
 just build
 # or
 cargo build --all-targets --all-features
+```
+
+Run all checks (build, format, tests, licenses):
+```bash
+just check
+```
+
+Check licenses and security:
+```bash
+just deny
 ```
 
 Run a specific example:
@@ -199,3 +215,44 @@ just publish
 ```
 
 This publishes both packages in order: `htmxology-macros` first, then `htmxology`.
+
+## License Checking
+
+The project uses `cargo-deny` to ensure all dependencies use permissive licenses that are safe for commercial use.
+
+### Running License Checks
+
+```bash
+# Using just
+just deny
+
+# Or directly with cargo
+cargo deny check
+```
+
+This validates:
+- **Licenses**: Only permissive licenses are allowed (MIT, Apache-2.0, BSD, ISC, MPL-2.0)
+- **Security Advisories**: Checks for known vulnerabilities in dependencies
+- **Bans**: Warns about duplicate dependency versions
+- **Sources**: Ensures dependencies come from trusted sources (crates.io)
+
+### Allowed Licenses
+
+The following licenses are permitted (see `deny.toml`):
+- **MIT** - Most permissive
+- **Apache-2.0** - Permissive with patent grant
+- **BSD-3-Clause** - Permissive
+- **ISC** - Similar to MIT
+- **Unicode-3.0** - For Unicode data tables
+- **MPL-2.0** - Weak copyleft (safe for commercial use)
+  - Only requires source disclosure for modified MPL-licensed files
+  - Does not force your entire application to be open source
+  - Used by the `scraper` crate for HTML parsing
+
+**Note**: GPL, LGPL, and AGPL licenses are explicitly denied as they require derivative works to be open source.
+
+**Duplicate Dependencies**: The configuration allows multiple versions of `windows-sys` as these are pulled in by different dependencies in the tokio ecosystem and are automatically resolved.
+
+### Configuration
+
+License and security policies are configured in `deny.toml` at the repository root.

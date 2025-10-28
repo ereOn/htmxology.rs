@@ -1,7 +1,16 @@
-all: build
+all: check
 
 build:
   cargo build --all-targets --all-features
+
+# Check licenses, security advisories, and dependency sources
+deny:
+  cargo deny check
+
+# Run all checks (build, format, tests, licenses)
+check: build deny
+  cargo fmt --all -- --check
+  cargo test --all-features
 
 export HTMXOLOGY_BASE_URL := "http://localhost:3000"
 export SYSTEMFD_LISTEN_ADDR := "tcp::3000"
@@ -21,8 +30,8 @@ doc:
 
 dev-setup:
   # Install the required tools.
-  cargo install --locked just bacon systemfd
+  cargo install --locked just bacon systemfd cargo-deny
 
-publish:
+publish: deny
   cargo publish -p htmxology-macros
   cargo publish -p htmxology

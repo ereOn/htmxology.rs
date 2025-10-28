@@ -1,0 +1,80 @@
+# cargo-deny configuration
+# https://embarkstudios.github.io/cargo-deny/
+
+# Note about the license check: We are not a lawyer and this is not legal advice.
+# This configuration is designed to allow only permissive licenses that are
+# generally considered safe for use in closed-source commercial software.
+
+[advisories]
+# Check for security vulnerabilities reported to the RustSec Advisory Database
+version = 2
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "warn"
+ignore = [
+    # fxhash is unmaintained but it's a transitive dependency from scraper
+    # The functionality is simple (hashing) and stable, so the risk is low
+    "RUSTSEC-2025-0057",
+]
+
+[licenses]
+# Only allow permissive licenses that can be used in closed-source commercial software
+version = 2
+confidence-threshold = 0.8
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-3-Clause",
+    "ISC",
+    # MPL-2.0 is a weak copyleft license that is safe for commercial use
+    # It only requires source disclosure for modified MPL-licensed files, not the entire application
+    # Used by: scraper crate (for HTML parsing)
+    "MPL-2.0",
+    # Unicode licenses for Unicode data tables
+    "Unicode-3.0",
+]
+exceptions = []
+
+# Some crates may have dual licensing (e.g., MIT OR Apache-2.0)
+# This is fine and we accept either license
+[[licenses.clarify]]
+name = "ring"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [
+    { path = "LICENSE", hash = 0xbd0eed23 }
+]
+
+[licenses.private]
+# Allow private/unpublished crates
+ignore = false
+registries = []
+
+[bans]
+# Deny multiple versions of the same crate (unless explicitly allowed)
+multiple-versions = "warn"
+wildcards = "allow"
+highlight = "all"
+workspace-default-features = "allow"
+external-default-features = "allow"
+allow = []
+deny = []
+
+# Skip duplicate version checking for these crates
+# windows-sys: Different versions pulled in by tokio ecosystem dependencies
+skip = [
+    { name = "windows-sys" },
+]
+skip-tree = []
+
+[sources]
+# Ensure all crates come from trusted sources
+unknown-registry = "warn"
+unknown-git = "warn"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
+
+[sources.allow-org]
+github = []
+gitlab = []
+bitbucket = []
