@@ -105,7 +105,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 // No params - use get_subcontroller()
                 quote_spanned! { spec.route_variant.span() =>
                     Self::Route::#route_variant(route) => {
-                        let response = self.get_subcontroller::<#controller_type>()
+                        let response = htmxology::SubcontrollerExt::get_subcontroller::<#controller_type>(self)
                             .handle_request(route, htmx, parts, server_info)
                             .await;
                         <Self as htmxology::AsSubcontroller<'_, #controller_type, ()>>::convert_response(response)
@@ -119,7 +119,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
 
                 quote_spanned! { spec.route_variant.span() =>
                     Self::Route::#route_variant { #(#param_names,)* subroute } => {
-                        let response = self.get_subcontroller_with::<#controller_type>((#(#param_tuple_items,)*))
+                        let response = htmxology::SubcontrollerExt::get_subcontroller_with::<#controller_type>(self, (#(#param_tuple_items,)*))
                             .handle_request(subroute, htmx, parts, server_info)
                             .await;
                         <Self as htmxology::AsSubcontroller<'_, #controller_type, (#(#param_types,)*)>>::convert_response(response)

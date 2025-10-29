@@ -32,8 +32,9 @@ mod __test {
         ) -> Self::Response {
             match route {
                 Self::Route::Blog(route) => {
-                    let response = self
-                        .get_subcontroller::<BlogController>()
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        BlogController,
+                    >(self)
                         .handle_request(route, htmx, parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<

@@ -56,8 +56,9 @@ mod __test {
         ) -> Self::Response {
             match route {
                 Self::Route::Home(route) => {
-                    let response = self
-                        .get_subcontroller::<HomeController>()
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        HomeController,
+                    >(self)
                         .handle_request(route, htmx, parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<
@@ -67,8 +68,9 @@ mod __test {
                     >>::convert_response(response)
                 }
                 Self::Route::Blog(route) => {
-                    let response = self
-                        .get_subcontroller::<BlogController>()
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        BlogController,
+                    >(self)
                         .handle_request(route, htmx, parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<
@@ -78,8 +80,9 @@ mod __test {
                     >>::convert_response(response)
                 }
                 Self::Route::Shop(route) => {
-                    let response = self
-                        .get_subcontroller::<ShopController>()
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        ShopController,
+                    >(self)
                         .handle_request(route, htmx, parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<

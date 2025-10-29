@@ -72,8 +72,9 @@ mod __test {
         ) -> Self::Response {
             match route {
                 Self::Route::Home(route) => {
-                    let response = self
-                        .get_subcontroller::<HomeController>()
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        HomeController,
+                    >(self)
                         .handle_request(route, htmx, parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<
@@ -83,8 +84,9 @@ mod __test {
                     >>::convert_response(response)
                 }
                 Self::Route::Auth(route) => {
-                    let response = self
-                        .get_subcontroller::<AuthController>()
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        AuthController,
+                    >(self)
                         .handle_request(route, htmx, parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<
@@ -94,8 +96,9 @@ mod __test {
                     >>::convert_response(response)
                 }
                 Self::Route::Api(route) => {
-                    let response = self
-                        .get_subcontroller::<ApiController>()
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        ApiController,
+                    >(self)
                         .handle_request(route, htmx, parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<
@@ -105,8 +108,9 @@ mod __test {
                     >>::convert_response(response)
                 }
                 Self::Route::NotFound(route) => {
-                    let response = self
-                        .get_subcontroller::<NotFoundController>()
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        NotFoundController,
+                    >(self)
                         .handle_request(route, htmx, parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<

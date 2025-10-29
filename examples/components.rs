@@ -30,7 +30,7 @@ async fn main() -> anyhow::Result<()> {
 mod controller {
 
     use axum::response::IntoResponse;
-    use htmxology::{Controller, SubcontrollerExt, htmx::Request as HtmxRequest};
+    use htmxology::{Controller, htmx::Request as HtmxRequest};
     use htmxology::{Route, RoutingController, ServerInfo};
 
     /// The main controller implementation.

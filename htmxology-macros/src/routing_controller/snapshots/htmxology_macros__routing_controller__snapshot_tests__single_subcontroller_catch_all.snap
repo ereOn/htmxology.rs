@@ -32,8 +32,9 @@ mod __test {
         ) -> Self::Response {
             match route {
                 Self::Route::NotFound(route) => {
-                    let response = self
-                        .get_subcontroller::<NotFoundController>()
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        NotFoundController,
+                    >(self)
                         .handle_request(route, htmx, parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<
