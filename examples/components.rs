@@ -76,6 +76,8 @@ mod controller {
     impl Controller for DelegatedController {
         type Route = DelegatedRoute;
         type Args = ();
+        type Output = axum::response::Response;
+        type ErrorOutput = axum::response::Response;
 
         async fn handle_request(
             &self,
@@ -83,7 +85,7 @@ mod controller {
             htmx: HtmxRequest,
             parts: http::request::Parts,
             server_info: &ServerInfo,
-        ) -> Result<axum::response::Response, axum::response::Response> {
+        ) -> Result<Self::Output, Self::ErrorOutput> {
             match route {
                 DelegatedRoute::Home => self.handle_home_request(htmx, parts, server_info).await,
                 DelegatedRoute::Echo { message } => {
@@ -165,6 +167,8 @@ mod controller {
     impl Controller for HelloWorldController {
         type Route = HelloWorldRoute;
         type Args = ();
+        type Output = axum::response::Response;
+        type ErrorOutput = axum::response::Response;
 
         async fn handle_request(
             &self,
@@ -172,7 +176,7 @@ mod controller {
             _htmx: HtmxRequest,
             _parts: http::request::Parts,
             _server_info: &ServerInfo,
-        ) -> Result<axum::response::Response, axum::response::Response> {
+        ) -> Result<Self::Output, Self::ErrorOutput> {
             match route {
                 HelloWorldRoute::Index => Ok((
                     [(http::header::CONTENT_TYPE, "text/html")],
@@ -209,6 +213,8 @@ mod controller {
     impl<'c> Controller for ImageGalleryController<'c> {
         type Route = ImageGalleryRoute;
         type Args = ();
+        type Output = axum::response::Response;
+        type ErrorOutput = axum::response::Response;
 
         async fn handle_request(
             &self,
@@ -216,7 +222,7 @@ mod controller {
             _htmx: HtmxRequest,
             _parts: http::request::Parts,
             _server_info: &ServerInfo,
-        ) -> Result<axum::response::Response, axum::response::Response> {
+        ) -> Result<Self::Output, Self::ErrorOutput> {
             let base_url = &self.main_controller.image_gallery_base_url;
 
             match route {
@@ -263,6 +269,8 @@ mod controller {
     impl Controller for UserPostController {
         type Route = UserPostRoute;
         type Args = (u32, String);
+        type Output = axum::response::Response;
+        type ErrorOutput = axum::response::Response;
 
         async fn handle_request(
             &self,
@@ -270,7 +278,7 @@ mod controller {
             _htmx: HtmxRequest,
             _parts: http::request::Parts,
             _server_info: &ServerInfo,
-        ) -> Result<axum::response::Response, axum::response::Response> {
+        ) -> Result<Self::Output, Self::ErrorOutput> {
             let user_id = self.user_id;
             let post_id = &self.post_id;
 

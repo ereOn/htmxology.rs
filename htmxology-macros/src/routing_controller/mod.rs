@@ -104,9 +104,14 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 // No params - use get_subcontroller()
                 quote_spanned! { spec.route_variant.span() =>
                     Self::Route::#route_variant(route) => {
-                        self.get_subcontroller::<#controller_type>()
+                        use axum::response::IntoResponse;
+                        let result = self.get_subcontroller::<#controller_type>()
                             .handle_request(route, htmx, parts, server_info)
-                            .await
+                            .await;
+                        match result {
+                            Ok(output) => Ok(output.into_response()),
+                            Err(error) => Err(error.into_response()),
+                        }
                     }
                 }
             } else {
@@ -116,9 +121,14 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
 
                 quote_spanned! { spec.route_variant.span() =>
                     Self::Route::#route_variant { #(#param_names,)* subroute } => {
-                        self.get_subcontroller_with::<#controller_type>((#(#param_tuple_items,)*))
+                        use axum::response::IntoResponse;
+                        let result = self.get_subcontroller_with::<#controller_type>((#(#param_tuple_items,)*))
                             .handle_request(subroute, htmx, parts, server_info)
-                            .await
+                            .await;
+                        match result {
+                            Ok(output) => Ok(output.into_response()),
+                            Err(error) => Err(error.into_response()),
+                        }
                     }
                 }
             });
@@ -155,6 +165,8 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         impl htmxology::Controller for #root_ident {
             type Route = #route_ident;
             type Args = ();
+            type Output = axum::response::Response;
+            type ErrorOutput = axum::response::Response;
 
             async fn handle_request(
                 &self,
@@ -162,7 +174,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 htmx: htmxology::htmx::Request,
                 parts: http::request::Parts,
                 server_info: &htmxology::ServerInfo,
-            ) -> Result<axum::response::Response, axum::response::Response> {
+            ) -> Result<Self::Output, Self::ErrorOutput> {
                 match route {
                     #(#handle_request_variants)*
                 }

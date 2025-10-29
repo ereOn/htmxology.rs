@@ -358,6 +358,8 @@ mod controller {
     impl Controller for MainController {
         type Route = AppRoute;
         type Args = ();
+        type Output = axum::response::Response;
+        type ErrorOutput = axum::response::Response;
 
         async fn handle_request(
             &self,
@@ -365,7 +367,7 @@ mod controller {
             htmx: HtmxRequest,
             _parts: http::request::Parts,
             server_info: &ServerInfo,
-        ) -> Result<axum::response::Response, axum::response::Response> {
+        ) -> Result<Self::Output, Self::ErrorOutput> {
             let base_url = server_info.base_url.clone();
 
             let response = match route {

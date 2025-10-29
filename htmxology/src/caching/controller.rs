@@ -1,5 +1,6 @@
 use std::{future::Future, sync::Arc};
 
+use axum::response::IntoResponse;
 use tracing::warn;
 
 /// A controller that adds caching strategy support to another controller.
@@ -25,9 +26,13 @@ impl<C> crate::Controller for Controller<C>
 where
     C: crate::Controller,
     C::Route: crate::Route + Send + Sync + axum::extract::FromRequest<Self>,
+    C::Output: axum::response::IntoResponse,
+    C::ErrorOutput: axum::response::IntoResponse,
 {
     type Route = C::Route;
     type Args = C::Args;
+    type Output = axum::response::Response;
+    type ErrorOutput = axum::response::Response;
 
     fn handle_request(
         &self,
@@ -35,16 +40,21 @@ where
         htmx: crate::htmx::Request,
         parts: http::request::Parts,
         server_info: &crate::ServerInfo,
-    ) -> impl Future<Output = Result<axum::response::Response, axum::response::Response>> + Send
-    {
+    ) -> impl Future<Output = Result<Self::Output, Self::ErrorOutput>> + Send {
         let cache_control = self.cache.get_cache_control(&route, &htmx, &parts);
         let url = route.to_string();
 
         async move {
-            let response = self
+            let result = self
                 .controller
                 .handle_request(route, htmx, parts, server_info)
-                .await?;
+                .await;
+
+            // Convert typed responses to axum::Response
+            let response = match result {
+                Ok(output) => output.into_response(),
+                Err(error) => return Err(error.into_response()),
+            };
 
             self.cache
                 .check_cache_control(cache_control, response)

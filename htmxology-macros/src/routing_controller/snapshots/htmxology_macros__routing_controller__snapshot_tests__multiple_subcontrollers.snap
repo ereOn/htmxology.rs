@@ -31,28 +31,48 @@ mod __test {
     impl htmxology::Controller for AppController {
         type Route = AppRoute;
         type Args = ();
+        type Output = axum::response::Response;
+        type ErrorOutput = axum::response::Response;
         async fn handle_request(
             &self,
             route: Self::Route,
             htmx: htmxology::htmx::Request,
             parts: http::request::Parts,
             server_info: &htmxology::ServerInfo,
-        ) -> Result<axum::response::Response, axum::response::Response> {
+        ) -> Result<Self::Output, Self::ErrorOutput> {
             match route {
                 Self::Route::Home(route) => {
-                    self.get_subcontroller::<HomeController>()
+                    use axum::response::IntoResponse;
+                    let result = self
+                        .get_subcontroller::<HomeController>()
                         .handle_request(route, htmx, parts, server_info)
-                        .await
+                        .await;
+                    match result {
+                        Ok(output) => Ok(output.into_response()),
+                        Err(error) => Err(error.into_response()),
+                    }
                 }
                 Self::Route::Blog(route) => {
-                    self.get_subcontroller::<BlogController>()
+                    use axum::response::IntoResponse;
+                    let result = self
+                        .get_subcontroller::<BlogController>()
                         .handle_request(route, htmx, parts, server_info)
-                        .await
+                        .await;
+                    match result {
+                        Ok(output) => Ok(output.into_response()),
+                        Err(error) => Err(error.into_response()),
+                    }
                 }
                 Self::Route::Shop(route) => {
-                    self.get_subcontroller::<ShopController>()
+                    use axum::response::IntoResponse;
+                    let result = self
+                        .get_subcontroller::<ShopController>()
                         .handle_request(route, htmx, parts, server_info)
-                        .await
+                        .await;
+                    match result {
+                        Ok(output) => Ok(output.into_response()),
+                        Err(error) => Err(error.into_response()),
+                    }
                 }
             }
         }

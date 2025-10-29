@@ -133,6 +133,10 @@ Controllers handle requests for specific routes. They:
 - The `Args` associated type specifies what parameters are needed to construct the controller
   - Set to `()` for controllers that don't need construction parameters
   - Use tuple types like `(u32,)` or `(u32, String)` for parameterized controllers
+- Have `Output` and `ErrorOutput` associated types for typed responses
+  - Enables semantic composition where parent controllers can wrap/transform child responses
+  - Root controllers should use `axum::response::Response` for both types
+  - Intermediate controllers can use custom types for better type safety
 - Implement `handle_request()` to process incoming requests
 - Receive HTMX request context, HTTP parts, and server info
 - Can be composed using the `AsSubcontroller` trait for subcontrollers
@@ -140,6 +144,33 @@ Controllers handle requests for specific routes. They:
 - Use `SubcontrollerExt::get_subcontroller_with(args)` for parameterized subcontrollers
 
 The `#[derive(RoutingController)]` macro helps implement sub-controller routing.
+
+**Typed Responses**: Controllers support typed `Output` and `ErrorOutput` for semantic composition:
+```rust
+impl Controller for MyController {
+    type Route = MyRoute;
+    type Args = ();
+    type Output = axum::response::Response;  // For root controllers
+    type ErrorOutput = axum::response::Response;
+
+    async fn handle_request(
+        &self,
+        route: MyRoute,
+        htmx: htmx::Request,
+        parts: http::request::Parts,
+        server_info: &ServerInfo,
+    ) -> Result<Self::Output, Self::ErrorOutput> {
+        // Return typed responses
+        Ok(my_response.into_response())
+    }
+}
+```
+
+When calling subcontrollers, the `RoutingController` macro automatically converts their typed responses to `axum::response::Response`. For manual implementations, use the `IntoAxumResult` trait:
+```rust
+let result = subcontroller.handle_request(...).await;
+let response = result.into_axum_result();  // Converts to Result<Response, Response>
+```
 
 **Parameterized Routes**: The `RoutingController` macro supports path parameters:
 ```rust
