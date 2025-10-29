@@ -17,6 +17,7 @@ pub(super) const DOC: &str = "doc";
 pub(super) const CONVERT_WITH: &str = "convert_with";
 pub(super) const CONVERT_RESPONSE: &str = "convert_response";
 pub(super) const PARAMS: &str = "params";
+pub(super) const RESPONSE: &str = "response";
 
 pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     // Get the name of the root type.
@@ -26,7 +27,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let mut route_variants = Vec::new();
     let mut handle_request_variants = Vec::new();
 
-    let mut route_ident: Option<Ident> = None;
+    let mut controller_spec: Option<ControllerSpec> = None;
 
     // Let's iterate over the top-level `subcontroller` attributes.
     for attr in &input.attrs {
@@ -127,19 +128,19 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 }
             });
         } else if attr.path().is_ident(CONTROLLER) {
-            if route_ident.is_some() {
+            if controller_spec.is_some() {
                 return Err(syn::Error::new_spanned(
                     attr,
                     "only one `controller` attribute can be specified",
                 ));
             }
 
-            route_ident = Some(attr.parse_args()?);
+            controller_spec = Some(attr.parse_args()?);
         }
     }
 
-    let route_ident = match route_ident {
-        Some(ident) => ident,
+    let controller_spec = match controller_spec {
+        Some(spec) => spec,
         None => {
             return Err(syn::Error::new_spanned(
                 root_ident,
@@ -147,6 +148,11 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
             ));
         }
     };
+
+    let route_ident = controller_spec.route_ident;
+    let response_type = controller_spec.response_type.unwrap_or_else(
+        || parse_quote!(Result<axum::response::Response, axum::response::Response>),
+    );
 
     let route_decl = quote_spanned! { route_ident.span() =>
         #[derive(Debug, Clone, htmxology::Route)]
@@ -159,7 +165,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         impl htmxology::Controller for #root_ident {
             type Route = #route_ident;
             type Args = ();
-            type Response = Result<axum::response::Response, axum::response::Response>;
+            type Response = #response_type;
 
             async fn handle_request(
                 &self,
@@ -279,6 +285,44 @@ impl Parse for ParamSpec {
         let ty: Type = input.parse()?;
 
         Ok(ParamSpec { name, ty })
+    }
+}
+
+/// Controller specification parsed from #[controller(...)] attribute.
+struct ControllerSpec {
+    route_ident: Ident,
+    response_type: Option<Type>,
+}
+
+impl Parse for ControllerSpec {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        // First, parse the route identifier (required)
+        let route_ident: Ident = input.parse()?;
+
+        let mut response_type = None;
+
+        // Check if there's a comma followed by named arguments
+        if input.peek(Token![,]) {
+            input.parse::<Token![,]>()?;
+
+            // Parse "response = Type"
+            let key: Ident = input.parse()?;
+
+            if key != RESPONSE {
+                return Err(syn::Error::new_spanned(
+                    &key,
+                    format!("expected `{}`, found `{}`", RESPONSE, key),
+                ));
+            }
+
+            input.parse::<Token![=]>()?;
+            response_type = Some(input.parse()?);
+        }
+
+        Ok(ControllerSpec {
+            route_ident,
+            response_type,
+        })
     }
 }
 
@@ -763,6 +807,30 @@ mod snapshot_tests {
             #[subcontroller(DynamicController, route = Dynamic, params(resource_id: u64))]
             struct AppController {
                 state: AppState,
+            }
+        "#;
+        assert_snapshot!(test_routing_controller(input));
+    }
+
+    #[test]
+    fn custom_response_type() {
+        let input = r#"
+            #[controller(AppRoute, response = Result<MyResponse, MyError>)]
+            #[subcontroller(BlogController, route = Blog, path = "blog/")]
+            struct AppController {
+                blog: BlogController,
+            }
+        "#;
+        assert_snapshot!(test_routing_controller(input));
+    }
+
+    #[test]
+    fn default_response_type() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[subcontroller(HomeController, route = Home, path = "")]
+            struct AppController {
+                home: HomeController,
             }
         "#;
         assert_snapshot!(test_routing_controller(input));

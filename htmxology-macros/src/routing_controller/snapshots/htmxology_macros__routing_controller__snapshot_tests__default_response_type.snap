@@ -1,0 +1,49 @@
+---
+source: htmxology-macros/src/routing_controller/mod.rs
+expression: test_routing_controller(input)
+---
+#[allow(unused)]
+mod __test {
+    impl htmxology::AsSubcontroller<'_, HomeController, ()> for AppController {
+        fn as_subcontroller(&self, args: ()) -> HomeController {
+            self.into()
+        }
+        fn convert_response(
+            response: <HomeController as htmxology::Controller>::Response,
+        ) -> <Self as htmxology::Controller>::Response {
+            response.into()
+        }
+    }
+    #[derive(Debug, Clone, htmxology::Route)]
+    pub enum AppRoute {
+        #[route("")]
+        Home(#[subroute] <HomeController as htmxology::Controller>::Route),
+    }
+    impl htmxology::Controller for AppController {
+        type Route = AppRoute;
+        type Args = ();
+        type Response = Result<axum::response::Response, axum::response::Response>;
+        async fn handle_request(
+            &self,
+            route: Self::Route,
+            htmx: htmxology::htmx::Request,
+            parts: http::request::Parts,
+            server_info: &htmxology::ServerInfo,
+        ) -> Self::Response {
+            match route {
+                Self::Route::Home(route) => {
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        HomeController,
+                    >(self)
+                        .handle_request(route, htmx, parts, server_info)
+                        .await;
+                    <Self as htmxology::AsSubcontroller<
+                        '_,
+                        HomeController,
+                        (),
+                    >>::convert_response(response)
+                }
+            }
+        }
+    }
+}
