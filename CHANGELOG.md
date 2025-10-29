@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.17.0] - 2025-10-29
+
+### Added
+- **Custom Response type support** in `RoutingController` macro: The `#[controller(...)]` attribute now accepts an optional `response` parameter to specify custom Response types (Issue #13)
+  - Default: `#[controller(AppRoute)]` uses `Result<axum::response::Response, axum::response::Response>`
+  - Custom: `#[controller(AppRoute, response = Result<MyResponse, MyError>)]`
+  - Enables better type safety and semantic composition with domain-specific error and response types
+
+### Fixed
+- **RoutingController macro no longer requires SubcontrollerExt import**: The macro now uses fully-qualified trait syntax (`htmxology::SubcontrollerExt::get_subcontroller()`) eliminating the need for explicit trait imports (Issue #12)
+
 ## [0.16.0] - 2025-10-29
 
 ### Added
