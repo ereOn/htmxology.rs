@@ -37,8 +37,56 @@ pub fn derive_display_delegate(input: proc_macro::TokenStream) -> proc_macro::To
 
 /// Implement the `RoutingController` trait for a controller.
 ///
-/// This derive macro allows to automatically implement sub-controller routing for a controller
-/// type.
+/// This derive macro automatically implements sub-controller routing for a controller type
+/// by generating the necessary `Controller` and `AsSubcontroller` trait implementations.
+///
+/// # Attributes
+///
+/// - `#[controller(RouteType)]` - Specifies the route enum type for this controller
+/// - `#[subcontroller(...)]` - Defines a subcontroller with the following options:
+///   - `route = VariantName` - The route variant name (required)
+///   - `path = "path/"` - URL path for this subcontroller (optional)
+///   - `params(name: Type, ...)` - Path parameters to extract (optional)
+///   - `convert_with = "function"` - Custom function to create the subcontroller (optional)
+///   - `convert_response = "function"` - Custom function to convert the subcontroller's response (optional)
+///   - `doc = "description"` - Documentation for the route variant (optional)
+///
+/// # Response Type Conversion
+///
+/// The macro generates a `convert_response` method in the `AsSubcontroller` implementation
+/// to convert the subcontroller's `Response` type to the parent controller's `Response` type.
+///
+/// By default, the generated conversion uses `.into()`, assuming the parent's response type
+/// implements `From<SubcontrollerResponse>`. For custom conversions, use the `convert_response`
+/// attribute.
+///
+/// ```ignore
+/// #[subcontroller(
+///     MyController,
+///     route = MyRoute,
+///     path = "my-path/",
+///     convert_response = "Ok"
+/// )]
+/// ```
+///
+/// # Example
+///
+/// ```ignore
+/// use htmxology::{Controller, RoutingController, Route};
+///
+/// #[derive(RoutingController)]
+/// #[controller(AppRoute)]
+/// #[subcontroller(BlogController, route = Blog, path = "blog/")]
+/// #[subcontroller(
+///     AdminController,
+///     route = Admin,
+///     path = "admin/",
+///     convert_response = "Ok"
+/// )]
+/// struct MainController {
+///     // ... fields
+/// }
+/// ```
 #[proc_macro_derive(RoutingController, attributes(controller, subcontroller))]
 pub fn derive_routing_controller(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut input = parse_macro_input!(input as syn::DeriveInput);

@@ -141,9 +141,8 @@ impl Server {
     /// Serve the specified controller.
     pub async fn serve<C>(self, controller: C) -> Result<(), ServeError>
     where
-        C: super::Controller + 'static,
-        C::Output: axum::response::IntoResponse,
-        C::ErrorOutput: axum::response::IntoResponse,
+        C: super::Controller<Response = Result<axum::response::Response, axum::response::Response>>
+            + 'static,
     {
         self.serve_with_router(ControllerRouter::new(controller))
             .await

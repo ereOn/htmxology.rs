@@ -133,10 +133,11 @@ Controllers handle requests for specific routes. They:
 - The `Args` associated type specifies what parameters are needed to construct the controller
   - Set to `()` for controllers that don't need construction parameters
   - Use tuple types like `(u32,)` or `(u32, String)` for parameterized controllers
-- Have `Output` and `ErrorOutput` associated types for typed responses
+- Have a `Response` associated type for typed responses
+  - This is the full `Result<T, E>` type returned by `handle_request`
+  - Root controllers should use `Result<axum::response::Response, axum::response::Response>`
+  - Intermediate controllers can use custom types like `Result<MyResponse, MyError>`
   - Enables semantic composition where parent controllers can wrap/transform child responses
-  - Root controllers should use `axum::response::Response` for both types
-  - Intermediate controllers can use custom types for better type safety
 - Implement `handle_request()` to process incoming requests
 - Receive HTMX request context, HTTP parts, and server info
 - Can be composed using the `AsSubcontroller` trait for subcontrollers
@@ -145,13 +146,13 @@ Controllers handle requests for specific routes. They:
 
 The `#[derive(RoutingController)]` macro helps implement sub-controller routing.
 
-**Typed Responses**: Controllers support typed `Output` and `ErrorOutput` for semantic composition:
+**Typed Responses**: Controllers support a single `Response` type for semantic composition:
 ```rust
-impl Controller for MyController {
+// Root controller using axum::Response
+impl Controller for RootController {
     type Route = MyRoute;
     type Args = ();
-    type Output = axum::response::Response;  // For root controllers
-    type ErrorOutput = axum::response::Response;
+    type Response = Result<axum::response::Response, axum::response::Response>;
 
     async fn handle_request(
         &self,
@@ -159,18 +160,40 @@ impl Controller for MyController {
         htmx: htmx::Request,
         parts: http::request::Parts,
         server_info: &ServerInfo,
-    ) -> Result<Self::Output, Self::ErrorOutput> {
-        // Return typed responses
+    ) -> Self::Response {
         Ok(my_response.into_response())
+    }
+}
+
+// Intermediate controller with custom types
+impl Controller for BlogController {
+    type Route = BlogRoute;
+    type Args = ();
+    type Response = Result<BlogResponse, BlogError>;
+
+    async fn handle_request(...) -> Self::Response {
+        Ok(BlogResponse { /* ... */ })
     }
 }
 ```
 
-When calling subcontrollers, the `RoutingController` macro automatically converts their typed responses to `axum::response::Response`. For manual implementations, use the `IntoAxumResult` trait:
+**Response Conversion**: When composing controllers, the `AsSubcontroller` trait handles response conversion:
 ```rust
-let result = subcontroller.handle_request(...).await;
-let response = result.into_axum_result();  // Converts to Result<Response, Response>
+impl AsSubcontroller<'_, BlogController, ()> for AppController {
+    fn as_subcontroller(&self, _args: ()) -> BlogController {
+        self.blog_controller.clone()
+    }
+
+    fn convert_response(response: BlogController::Response) -> Self::Response {
+        // Convert Result<BlogResponse, BlogError> to Result<Response, Response>
+        response
+            .map(|r| r.into_response())
+            .map_err(|e| e.into_response())
+    }
+}
 ```
+
+The `RoutingController` macro automatically generates `AsSubcontroller` implementations with identity conversion (when both parent and child use `Result<axum::Response, axum::Response>`).
 
 **Parameterized Routes**: The `RoutingController` macro supports path parameters:
 ```rust

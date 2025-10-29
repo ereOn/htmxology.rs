@@ -15,6 +15,7 @@ pub(super) const ROUTE: &str = "route";
 pub(super) const PATH: &str = "path";
 pub(super) const DOC: &str = "doc";
 pub(super) const CONVERT_WITH: &str = "convert_with";
+pub(super) const CONVERT_RESPONSE: &str = "convert_response";
 pub(super) const PARAMS: &str = "params";
 
 pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
@@ -104,31 +105,24 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 // No params - use get_subcontroller()
                 quote_spanned! { spec.route_variant.span() =>
                     Self::Route::#route_variant(route) => {
-                        use axum::response::IntoResponse;
-                        let result = self.get_subcontroller::<#controller_type>()
+                        let response = self.get_subcontroller::<#controller_type>()
                             .handle_request(route, htmx, parts, server_info)
                             .await;
-                        match result {
-                            Ok(output) => Ok(output.into_response()),
-                            Err(error) => Err(error.into_response()),
-                        }
+                        <Self as htmxology::AsSubcontroller<'_, #controller_type, ()>>::convert_response(response)
                     }
                 }
             } else {
                 // Has params - use get_subcontroller_with(tuple)
                 let param_names = spec.params.iter().map(|p| &p.name);
                 let param_tuple_items = spec.params.iter().map(|p| &p.name);
+                let param_types = spec.params.iter().map(|p| &p.ty);
 
                 quote_spanned! { spec.route_variant.span() =>
                     Self::Route::#route_variant { #(#param_names,)* subroute } => {
-                        use axum::response::IntoResponse;
-                        let result = self.get_subcontroller_with::<#controller_type>((#(#param_tuple_items,)*))
+                        let response = self.get_subcontroller_with::<#controller_type>((#(#param_tuple_items,)*))
                             .handle_request(subroute, htmx, parts, server_info)
                             .await;
-                        match result {
-                            Ok(output) => Ok(output.into_response()),
-                            Err(error) => Err(error.into_response()),
-                        }
+                        <Self as htmxology::AsSubcontroller<'_, #controller_type, (#(#param_types,)*)>>::convert_response(response)
                     }
                 }
             });
@@ -165,8 +159,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         impl htmxology::Controller for #root_ident {
             type Route = #route_ident;
             type Args = ();
-            type Output = axum::response::Response;
-            type ErrorOutput = axum::response::Response;
+            type Response = Result<axum::response::Response, axum::response::Response>;
 
             async fn handle_request(
                 &self,
@@ -174,7 +167,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 htmx: htmxology::htmx::Request,
                 parts: http::request::Parts,
                 server_info: &htmxology::ServerInfo,
-            ) -> Result<Self::Output, Self::ErrorOutput> {
+            ) -> Self::Response {
                 match route {
                     #(#handle_request_variants)*
                 }
@@ -209,6 +202,7 @@ enum SubcontrollerArg {
     Route(Ident, Ident),
     Path(Ident, String),
     ConvertWith(proc_macro2::TokenStream),
+    ConvertResponse(proc_macro2::TokenStream),
     Doc(Ident, String),
     Params(Vec<ParamSpec>),
 }
@@ -242,6 +236,18 @@ impl Parse for SubcontrollerArg {
 
                 Ok(Self::ConvertWith(fn_expr))
             }
+            CONVERT_RESPONSE => {
+                input.parse::<Token![=]>()?;
+                let fn_name: LitStr = input.parse()?;
+                let fn_expr = fn_name.value().parse().map_err(|err| {
+                    syn::Error::new_spanned(
+                        fn_name,
+                        format!("failed to parse function name: {err}"),
+                    )
+                })?;
+
+                Ok(Self::ConvertResponse(fn_expr))
+            }
             DOC => {
                 input.parse::<Token![=]>()?;
                 let desc: LitStr = input.parse()?;
@@ -260,7 +266,7 @@ impl Parse for SubcontrollerArg {
             }
             _ => Err(syn::Error::new_spanned(
                 key,
-                "expected `route`, `path`, `convert_with`, `doc`, or `params`",
+                "expected `route`, `path`, `convert_with`, `convert_response`, `doc`, or `params`",
             )),
         }
     }
@@ -295,6 +301,7 @@ impl Parse for SubcontrollerSpec {
         let mut params = Vec::new();
         let mut body_impl = quote! { self.into() };
         let mut convert_with_fn = None;
+        let mut convert_response_fn = None;
 
         if input.peek(Token![,]) {
             input.parse::<Token![,]>()?;
@@ -306,6 +313,9 @@ impl Parse for SubcontrollerSpec {
                     SubcontrollerArg::ConvertWith(fn_expr) => {
                         convert_with_fn = Some(fn_expr.clone());
                         body_impl = quote! { #fn_expr(self) };
+                    }
+                    SubcontrollerArg::ConvertResponse(fn_expr) => {
+                        convert_response_fn = Some(fn_expr);
                     }
                     SubcontrollerArg::Route(key, ident) => {
                         if route.is_some() {
@@ -387,13 +397,33 @@ impl Parse for SubcontrollerSpec {
             }
         };
 
+        // Generate convert_response body based on whether a custom function was specified
+        let convert_response_body = if let Some(ref fn_expr) = convert_response_fn {
+            // Custom function specified
+            quote! {
+                #fn_expr(response)
+            }
+        } else {
+            // Default: assume ParentResponse: From<SubControllerResponse> and use Into
+            quote! {
+                response.into()
+            }
+        };
+
         let as_subcontroller_impl_fn: Box<dyn Fn(&Ident) -> proc_macro2::TokenStream> = {
+            let convert_response_body_clone = convert_response_body.clone();
             if has_lifetime {
                 Box::new(move |root_ident: &Ident| {
                     quote! {
                         impl<#lifetime> htmxology::AsSubcontroller<#lifetime, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
                             fn as_subcontroller(&#lifetime self, args: #args_type) -> #controller_type_with_spec_lifetime {
                                 #conversion_body
+                            }
+
+                            fn convert_response(
+                                response: <#controller_type_with_spec_lifetime as htmxology::Controller>::Response
+                            ) -> <Self as htmxology::Controller>::Response {
+                                #convert_response_body_clone
                             }
                         }
                     }
@@ -404,6 +434,12 @@ impl Parse for SubcontrollerSpec {
                         impl htmxology::AsSubcontroller<'_, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
                             fn as_subcontroller(&self, args: #args_type) -> #controller_type_with_spec_lifetime {
                                 #conversion_body
+                            }
+
+                            fn convert_response(
+                                response: <#controller_type_with_spec_lifetime as htmxology::Controller>::Response
+                            ) -> <Self as htmxology::Controller>::Response {
+                                #convert_response_body
                             }
                         }
                     }

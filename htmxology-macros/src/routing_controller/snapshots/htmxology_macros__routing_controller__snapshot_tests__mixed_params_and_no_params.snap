@@ -8,15 +8,30 @@ mod __test {
         fn as_subcontroller(&self, args: ()) -> HomeController {
             self.into()
         }
+        fn convert_response(
+            response: <HomeController as htmxology::Controller>::Response,
+        ) -> <Self as htmxology::Controller>::Response {
+            response.into()
+        }
     }
     impl htmxology::AsSubcontroller<'_, BlogController, (u32,)> for AppController {
         fn as_subcontroller(&self, args: (u32,)) -> BlogController {
             <BlogController>::from((self, args.0))
         }
+        fn convert_response(
+            response: <BlogController as htmxology::Controller>::Response,
+        ) -> <Self as htmxology::Controller>::Response {
+            response.into()
+        }
     }
     impl htmxology::AsSubcontroller<'_, UserController, (String,)> for AppController {
         fn as_subcontroller(&self, args: (String,)) -> UserController {
             <UserController>::from((self, args.0))
+        }
+        fn convert_response(
+            response: <UserController as htmxology::Controller>::Response,
+        ) -> <Self as htmxology::Controller>::Response {
+            response.into()
         }
     }
     #[derive(Debug, Clone, htmxology::Route)]
@@ -39,48 +54,47 @@ mod __test {
     impl htmxology::Controller for AppController {
         type Route = AppRoute;
         type Args = ();
-        type Output = axum::response::Response;
-        type ErrorOutput = axum::response::Response;
+        type Response = Result<axum::response::Response, axum::response::Response>;
         async fn handle_request(
             &self,
             route: Self::Route,
             htmx: htmxology::htmx::Request,
             parts: http::request::Parts,
             server_info: &htmxology::ServerInfo,
-        ) -> Result<Self::Output, Self::ErrorOutput> {
+        ) -> Self::Response {
             match route {
                 Self::Route::Home(route) => {
-                    use axum::response::IntoResponse;
-                    let result = self
+                    let response = self
                         .get_subcontroller::<HomeController>()
                         .handle_request(route, htmx, parts, server_info)
                         .await;
-                    match result {
-                        Ok(output) => Ok(output.into_response()),
-                        Err(error) => Err(error.into_response()),
-                    }
+                    <Self as htmxology::AsSubcontroller<
+                        '_,
+                        HomeController,
+                        (),
+                    >>::convert_response(response)
                 }
                 Self::Route::Blog { blog_id, subroute } => {
-                    use axum::response::IntoResponse;
-                    let result = self
+                    let response = self
                         .get_subcontroller_with::<BlogController>((blog_id,))
                         .handle_request(subroute, htmx, parts, server_info)
                         .await;
-                    match result {
-                        Ok(output) => Ok(output.into_response()),
-                        Err(error) => Err(error.into_response()),
-                    }
+                    <Self as htmxology::AsSubcontroller<
+                        '_,
+                        BlogController,
+                        (u32,),
+                    >>::convert_response(response)
                 }
                 Self::Route::User { user_id, subroute } => {
-                    use axum::response::IntoResponse;
-                    let result = self
+                    let response = self
                         .get_subcontroller_with::<UserController>((user_id,))
                         .handle_request(subroute, htmx, parts, server_info)
                         .await;
-                    match result {
-                        Ok(output) => Ok(output.into_response()),
-                        Err(error) => Err(error.into_response()),
-                    }
+                    <Self as htmxology::AsSubcontroller<
+                        '_,
+                        UserController,
+                        (String,),
+                    >>::convert_response(response)
                 }
             }
         }

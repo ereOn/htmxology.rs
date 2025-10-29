@@ -8,6 +8,11 @@ mod __test {
         fn as_subcontroller(&self, args: ()) -> NotFoundController {
             self.into()
         }
+        fn convert_response(
+            response: <NotFoundController as htmxology::Controller>::Response,
+        ) -> <Self as htmxology::Controller>::Response {
+            response.into()
+        }
     }
     #[derive(Debug, Clone, htmxology::Route)]
     pub enum AppRoute {
@@ -17,26 +22,25 @@ mod __test {
     impl htmxology::Controller for AppController {
         type Route = AppRoute;
         type Args = ();
-        type Output = axum::response::Response;
-        type ErrorOutput = axum::response::Response;
+        type Response = Result<axum::response::Response, axum::response::Response>;
         async fn handle_request(
             &self,
             route: Self::Route,
             htmx: htmxology::htmx::Request,
             parts: http::request::Parts,
             server_info: &htmxology::ServerInfo,
-        ) -> Result<Self::Output, Self::ErrorOutput> {
+        ) -> Self::Response {
             match route {
                 Self::Route::NotFound(route) => {
-                    use axum::response::IntoResponse;
-                    let result = self
+                    let response = self
                         .get_subcontroller::<NotFoundController>()
                         .handle_request(route, htmx, parts, server_info)
                         .await;
-                    match result {
-                        Ok(output) => Ok(output.into_response()),
-                        Err(error) => Err(error.into_response()),
-                    }
+                    <Self as htmxology::AsSubcontroller<
+                        '_,
+                        NotFoundController,
+                        (),
+                    >>::convert_response(response)
                 }
             }
         }

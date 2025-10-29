@@ -5,18 +5,18 @@ use std::future::Future;
 /// The controller trait is responsible for rendering views in an application, based on a given
 /// route and any associated model.
 ///
-/// Controllers now support typed responses through the `Output` and `ErrorOutput` associated types,
-/// enabling semantic composition where parent controllers can wrap or transform child controller
-/// responses in a type-safe manner.
+/// Controllers support typed responses through the `Response` associated type, enabling semantic
+/// composition where parent controllers can wrap or transform child controller responses in a
+/// type-safe manner.
 ///
 /// # Example
 ///
 /// ```rust,ignore
-/// impl Controller for MyController {
+/// // Root controller using axum::Response
+/// impl Controller for RootController {
 ///     type Route = MyRoute;
 ///     type Args = ();
-///     type Output = MyResponse;  // Custom response type
-///     type ErrorOutput = MyError;  // Custom error type
+///     type Response = Result<axum::response::Response, axum::response::Response>;
 ///
 ///     async fn handle_request(
 ///         &self,
@@ -24,15 +24,27 @@ use std::future::Future;
 ///         htmx: htmx::Request,
 ///         parts: http::request::Parts,
 ///         server_info: &ServerInfo,
-///     ) -> Result<Self::Output, Self::ErrorOutput> {
-///         // Return typed responses
-///         Ok(MyResponse { /* ... */ })
+///     ) -> Self::Response {
+///         Ok(my_response.into_response())
+///     }
+/// }
+///
+/// // Intermediate controller with custom types
+/// impl Controller for BlogController {
+///     type Route = BlogRoute;
+///     type Args = ();
+///     type Response = Result<BlogResponse, BlogError>;
+///
+///     async fn handle_request(...) -> Self::Response {
+///         Ok(BlogResponse { /* ... */ })
 ///     }
 /// }
 /// ```
 ///
-/// For root controllers that directly serve HTTP responses, use `axum::response::Response` for both
-/// `Output` and `ErrorOutput` types.
+/// For root controllers that directly serve HTTP responses, use
+/// `Result<axum::response::Response, axum::response::Response>` as the `Response` type.
+/// Intermediate controllers can use custom types that will be converted by parent controllers
+/// via the `AsSubcontroller::convert_response()` method.
 pub trait Controller: Send + Sync + Clone {
     /// The route type associated with the controller.
     type Route: super::Route + Send + axum::extract::FromRequest<Self>;
@@ -46,30 +58,28 @@ pub trait Controller: Send + Sync + Clone {
     /// For parameterized controllers, use a tuple type like `(u32,)` or `(u32, String)`.
     type Args: Send + Sync + 'static;
 
-    /// The successful output type for this controller.
+    /// The response type for this controller.
     ///
-    /// This enables semantic composition where parent controllers can work with typed responses
-    /// from their children. Root controllers should use `axum::response::Response`.
-    type Output: Send + 'static;
-
-    /// The error output type for this controller.
+    /// This is the full `Result<T, E>` type returned by `handle_request()`. Root controllers
+    /// should use `Result<axum::response::Response, axum::response::Response>`, while
+    /// intermediate controllers can use custom types like `Result<MyResponse, MyError>`.
     ///
-    /// This enables type-safe error handling where parent controllers can transform or handle
-    /// errors from their children. Root controllers should use `axum::response::Response`.
-    type ErrorOutput: Send + 'static;
+    /// Parent controllers convert child responses using `AsSubcontroller::convert_response()`.
+    type Response: Send + 'static;
 
     /// Handle the request for a given route.
     ///
-    /// Returns a `Result` with typed `Output` and `ErrorOutput` rather than opaque
-    /// `axum::response::Response` values. This allows parent controllers to meaningfully
-    /// compose and transform child controller responses.
+    /// Returns a typed `Response` which can be a `Result` with custom types for intermediate
+    /// controllers, or `Result<axum::response::Response, axum::response::Response>` for root
+    /// controllers. Parent controllers are responsible for converting child responses via
+    /// the `AsSubcontroller` trait.
     fn handle_request(
         &self,
         route: Self::Route,
         htmx: super::htmx::Request,
         parts: http::request::Parts,
         server_info: &super::ServerInfo,
-    ) -> impl Future<Output = Result<Self::Output, Self::ErrorOutput>> + Send;
+    ) -> impl Future<Output = Self::Response> + Send;
 }
 
 /// An extension trait for controllers that provides subcontroller access.
@@ -118,6 +128,10 @@ impl<T: Controller> SubcontrollerExt for T {}
 /// subcontroller. The `Args` type parameter specifies what arguments are needed
 /// for the conversion.
 ///
+/// The `convert_response` method handles converting the subcontroller's `Response` type
+/// to the parent controller's `Response` type, enabling flexible composition without
+/// forcing all controllers to use the same response types.
+///
 /// # Type Parameters
 /// - `'c`: Lifetime of the controller reference
 /// - `Subcontroller`: The subcontroller type
@@ -132,34 +146,27 @@ where
     /// # Arguments
     /// - `args`: Construction arguments for the subcontroller, typically extracted from route parameters
     fn as_subcontroller(&'c self, args: Args) -> Subcontroller;
-}
 
-/// Extension trait for converting typed controller results to axum responses.
-///
-/// This trait provides a convenient way to convert `Result<Output, ErrorOutput>` into
-/// `Result<axum::response::Response, axum::response::Response>`, which is required at
-/// the root controller boundary or when interacting with axum handlers.
-///
-/// # Example
-///
-/// ```rust,ignore
-/// let result: Result<MyOutput, MyError> = subcontroller.handle_request(...).await;
-/// let response: Result<Response, Response> = result.into_axum_result();
-/// ```
-pub trait IntoAxumResult {
-    /// Convert this result into a result of axum responses.
-    fn into_axum_result(self) -> Result<axum::response::Response, axum::response::Response>;
-}
-
-impl<O, E> IntoAxumResult for Result<O, E>
-where
-    O: axum::response::IntoResponse,
-    E: axum::response::IntoResponse,
-{
-    fn into_axum_result(self) -> Result<axum::response::Response, axum::response::Response> {
-        match self {
-            Ok(output) => Ok(output.into_response()),
-            Err(error) => Err(error.into_response()),
-        }
-    }
+    /// Convert the subcontroller's response to the parent controller's response type.
+    ///
+    /// This method is called after the subcontroller handles a request, allowing the parent
+    /// to transform or wrap the child's response. For cases where both parent and child use
+    /// the same `Response` type, this can be an identity function.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// // When both use axum::Response (identity conversion)
+    /// fn convert_response(response: Subcontroller::Response) -> Self::Response {
+    ///     response
+    /// }
+    ///
+    /// // When converting custom types to axum::Response
+    /// fn convert_response(response: Result<BlogResponse, BlogError>) -> Self::Response {
+    ///     response
+    ///         .map(|r| r.into_response())
+    ///         .map_err(|e| e.into_response())
+    /// }
+    /// ```
+    fn convert_response(response: Subcontroller::Response) -> Self::Response;
 }

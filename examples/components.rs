@@ -36,7 +36,7 @@ mod controller {
     /// The main controller implementation.
     #[derive(Debug, Clone, RoutingController)]
     #[controller(AppRoute)]
-    #[subcontroller(HelloWorldController, route=HelloWorld, path = "hello-world/")]
+    #[subcontroller(HelloWorldController, route=HelloWorld, path = "hello-world/", convert_response = "Ok")]
     #[subcontroller(ImageGalleryController<'_>, route=ImageGallery, path = "image-gallery/", convert_with = "ImageGalleryController::from_main_controller")]
     #[subcontroller(UserPostController, route=UserPost, path = "user/{user_id}/post/{post_id}/", params(user_id: u32, post_id: String), convert_with = "Self::make_user_post_controller")]
     #[subcontroller(DelegatedController, route=Delegated)]
@@ -76,8 +76,7 @@ mod controller {
     impl Controller for DelegatedController {
         type Route = DelegatedRoute;
         type Args = ();
-        type Output = axum::response::Response;
-        type ErrorOutput = axum::response::Response;
+        type Response = Result<axum::response::Response, axum::response::Response>;
 
         async fn handle_request(
             &self,
@@ -85,7 +84,7 @@ mod controller {
             htmx: HtmxRequest,
             parts: http::request::Parts,
             server_info: &ServerInfo,
-        ) -> Result<Self::Output, Self::ErrorOutput> {
+        ) -> Self::Response {
             match route {
                 DelegatedRoute::Home => self.handle_home_request(htmx, parts, server_info).await,
                 DelegatedRoute::Echo { message } => {
@@ -167,8 +166,7 @@ mod controller {
     impl Controller for HelloWorldController {
         type Route = HelloWorldRoute;
         type Args = ();
-        type Output = axum::response::Response;
-        type ErrorOutput = axum::response::Response;
+        type Response = axum::response::Response;
 
         async fn handle_request(
             &self,
@@ -176,13 +174,13 @@ mod controller {
             _htmx: HtmxRequest,
             _parts: http::request::Parts,
             _server_info: &ServerInfo,
-        ) -> Result<Self::Output, Self::ErrorOutput> {
+        ) -> Self::Response {
             match route {
-                HelloWorldRoute::Index => Ok((
+                HelloWorldRoute::Index => (
                     [(http::header::CONTENT_TYPE, "text/html")],
                     "<p>Hello, World!</p>",
                 )
-                    .into_response()),
+                    .into_response(),
             }
         }
     }
@@ -213,8 +211,7 @@ mod controller {
     impl<'c> Controller for ImageGalleryController<'c> {
         type Route = ImageGalleryRoute;
         type Args = ();
-        type Output = axum::response::Response;
-        type ErrorOutput = axum::response::Response;
+        type Response = Result<axum::response::Response, axum::response::Response>;
 
         async fn handle_request(
             &self,
@@ -222,7 +219,7 @@ mod controller {
             _htmx: HtmxRequest,
             _parts: http::request::Parts,
             _server_info: &ServerInfo,
-        ) -> Result<Self::Output, Self::ErrorOutput> {
+        ) -> Self::Response {
             let base_url = &self.main_controller.image_gallery_base_url;
 
             match route {
@@ -269,8 +266,7 @@ mod controller {
     impl Controller for UserPostController {
         type Route = UserPostRoute;
         type Args = (u32, String);
-        type Output = axum::response::Response;
-        type ErrorOutput = axum::response::Response;
+        type Response = Result<axum::response::Response, axum::response::Response>;
 
         async fn handle_request(
             &self,
@@ -278,7 +274,7 @@ mod controller {
             _htmx: HtmxRequest,
             _parts: http::request::Parts,
             _server_info: &ServerInfo,
-        ) -> Result<Self::Output, Self::ErrorOutput> {
+        ) -> Self::Response {
             let user_id = self.user_id;
             let post_id = &self.post_id;
 
