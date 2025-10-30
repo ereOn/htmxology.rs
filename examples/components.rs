@@ -36,7 +36,7 @@ mod controller {
     /// The main controller implementation.
     #[derive(Debug, Clone, RoutingController)]
     #[controller(AppRoute)]
-    #[subcontroller(HelloWorldController, route=HelloWorld, path = "hello-world/", convert_response = "Ok")]
+    #[subcontroller(HelloWorldController, route=HelloWorld, path = "hello-world/", convert_response = "Self::convert_plain_response")]
     #[subcontroller(ImageGalleryController<'_>, route=ImageGallery, path = "image-gallery/", convert_with = "ImageGalleryController::from_main_controller")]
     #[subcontroller(UserPostController, route=UserPost, path = "user/{user_id}/post/{post_id}/", params(user_id: u32, post_id: String), convert_with = "Self::make_user_post_controller")]
     #[subcontroller(DelegatedController, route=Delegated)]
@@ -55,6 +55,13 @@ mod controller {
     impl MainController {
         fn make_user_post_controller(&self, user_id: u32, post_id: String) -> UserPostController {
             UserPostController { user_id, post_id }
+        }
+
+        fn convert_plain_response(
+            _htmx: &htmxology::htmx::Request,
+            response: axum::response::Response,
+        ) -> Result<axum::response::Response, axum::response::Response> {
+            Ok(response)
         }
     }
 

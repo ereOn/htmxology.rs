@@ -18,6 +18,7 @@ mod __test {
             self.into()
         }
         fn convert_response(
+            htmx: &htmxology::htmx::Request,
             response: <&'_component_spec_lifetime DataController as htmxology::Controller>::Response,
         ) -> <Self as htmxology::Controller>::Response {
             response.into()
@@ -44,13 +45,13 @@ mod __test {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         &DataController,
                     >(self)
-                        .handle_request(route, htmx, parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<
                         '_,
                         &DataController,
                         (),
-                    >>::convert_response(response)
+                    >>::convert_response(&htmx, response)
                 }
             }
         }

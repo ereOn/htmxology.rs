@@ -9,6 +9,7 @@ mod __test {
             self.into()
         }
         fn convert_response(
+            htmx: &htmxology::htmx::Request,
             response: <HomeController as htmxology::Controller>::Response,
         ) -> <Self as htmxology::Controller>::Response {
             response.into()
@@ -19,6 +20,7 @@ mod __test {
             self.into()
         }
         fn convert_response(
+            htmx: &htmxology::htmx::Request,
             response: <AuthController as htmxology::Controller>::Response,
         ) -> <Self as htmxology::Controller>::Response {
             response.into()
@@ -29,6 +31,7 @@ mod __test {
             self.into()
         }
         fn convert_response(
+            htmx: &htmxology::htmx::Request,
             response: <ApiController as htmxology::Controller>::Response,
         ) -> <Self as htmxology::Controller>::Response {
             response.into()
@@ -39,6 +42,7 @@ mod __test {
             self.into()
         }
         fn convert_response(
+            htmx: &htmxology::htmx::Request,
             response: <NotFoundController as htmxology::Controller>::Response,
         ) -> <Self as htmxology::Controller>::Response {
             response.into()
@@ -75,49 +79,49 @@ mod __test {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         HomeController,
                     >(self)
-                        .handle_request(route, htmx, parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<
                         '_,
                         HomeController,
                         (),
-                    >>::convert_response(response)
+                    >>::convert_response(&htmx, response)
                 }
                 Self::Route::Auth(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         AuthController,
                     >(self)
-                        .handle_request(route, htmx, parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<
                         '_,
                         AuthController,
                         (),
-                    >>::convert_response(response)
+                    >>::convert_response(&htmx, response)
                 }
                 Self::Route::Api(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         ApiController,
                     >(self)
-                        .handle_request(route, htmx, parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<
                         '_,
                         ApiController,
                         (),
-                    >>::convert_response(response)
+                    >>::convert_response(&htmx, response)
                 }
                 Self::Route::NotFound(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         NotFoundController,
                     >(self)
-                        .handle_request(route, htmx, parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<
                         '_,
                         NotFoundController,
                         (),
-                    >>::convert_response(response)
+                    >>::convert_response(&htmx, response)
                 }
             }
         }

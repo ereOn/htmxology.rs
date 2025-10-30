@@ -107,9 +107,9 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 quote_spanned! { spec.route_variant.span() =>
                     Self::Route::#route_variant(route) => {
                         let response = htmxology::SubcontrollerExt::get_subcontroller::<#controller_type>(self)
-                            .handle_request(route, htmx, parts, server_info)
+                            .handle_request(route, htmx.clone(), parts, server_info)
                             .await;
-                        <Self as htmxology::AsSubcontroller<'_, #controller_type, ()>>::convert_response(response)
+                        <Self as htmxology::AsSubcontroller<'_, #controller_type, ()>>::convert_response(&htmx, response)
                     }
                 }
             } else {
@@ -121,9 +121,9 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 quote_spanned! { spec.route_variant.span() =>
                     Self::Route::#route_variant { #(#param_names,)* subroute } => {
                         let response = htmxology::SubcontrollerExt::get_subcontroller_with::<#controller_type>(self, (#(#param_tuple_items,)*))
-                            .handle_request(subroute, htmx, parts, server_info)
+                            .handle_request(subroute, htmx.clone(), parts, server_info)
                             .await;
-                        <Self as htmxology::AsSubcontroller<'_, #controller_type, (#(#param_types,)*)>>::convert_response(response)
+                        <Self as htmxology::AsSubcontroller<'_, #controller_type, (#(#param_types,)*)>>::convert_response(&htmx, response)
                     }
                 }
             });
@@ -445,7 +445,7 @@ impl Parse for SubcontrollerSpec {
         let convert_response_body = if let Some(ref fn_expr) = convert_response_fn {
             // Custom function specified
             quote! {
-                #fn_expr(response)
+                #fn_expr(htmx, response)
             }
         } else {
             // Default: assume ParentResponse: From<SubControllerResponse> and use Into
@@ -465,6 +465,7 @@ impl Parse for SubcontrollerSpec {
                             }
 
                             fn convert_response(
+                                htmx: &htmxology::htmx::Request,
                                 response: <#controller_type_with_spec_lifetime as htmxology::Controller>::Response
                             ) -> <Self as htmxology::Controller>::Response {
                                 #convert_response_body_clone
@@ -481,6 +482,7 @@ impl Parse for SubcontrollerSpec {
                             }
 
                             fn convert_response(
+                                htmx: &htmxology::htmx::Request,
                                 response: <#controller_type_with_spec_lifetime as htmxology::Controller>::Response
                             ) -> <Self as htmxology::Controller>::Response {
                                 #convert_response_body

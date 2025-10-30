@@ -153,20 +153,26 @@ where
     /// to transform or wrap the child's response. For cases where both parent and child use
     /// the same `Response` type, this can be an identity function.
     ///
+    /// The `htmx` parameter provides access to the HTMX request context, which can be used
+    /// to determine whether to return a full page or a fragment based on the request type.
+    ///
     /// # Example
     ///
     /// ```rust,ignore
     /// // When both use axum::Response (identity conversion)
-    /// fn convert_response(response: Subcontroller::Response) -> Self::Response {
+    /// fn convert_response(htmx: &super::htmx::Request, response: Subcontroller::Response) -> Self::Response {
     ///     response
     /// }
     ///
     /// // When converting custom types to axum::Response
-    /// fn convert_response(response: Result<BlogResponse, BlogError>) -> Self::Response {
+    /// fn convert_response(htmx: &super::htmx::Request, response: Result<BlogResponse, BlogError>) -> Self::Response {
     ///     response
     ///         .map(|r| r.into_response())
     ///         .map_err(|e| e.into_response())
     /// }
     /// ```
-    fn convert_response(response: Subcontroller::Response) -> Self::Response;
+    fn convert_response(
+        htmx: &super::htmx::Request,
+        response: Subcontroller::Response,
+    ) -> Self::Response;
 }

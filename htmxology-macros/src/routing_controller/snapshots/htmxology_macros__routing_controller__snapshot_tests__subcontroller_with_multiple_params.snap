@@ -10,6 +10,7 @@ mod __test {
             <PostController>::from((self, args.0, args.1))
         }
         fn convert_response(
+            htmx: &htmxology::htmx::Request,
             response: <PostController as htmxology::Controller>::Response,
         ) -> <Self as htmxology::Controller>::Response {
             response.into()
@@ -41,13 +42,13 @@ mod __test {
                     let response = htmxology::SubcontrollerExt::get_subcontroller_with::<
                         PostController,
                     >(self, (blog_id, post_id))
-                        .handle_request(subroute, htmx, parts, server_info)
+                        .handle_request(subroute, htmx.clone(), parts, server_info)
                         .await;
                     <Self as htmxology::AsSubcontroller<
                         '_,
                         PostController,
                         (u32, String),
-                    >>::convert_response(response)
+                    >>::convert_response(&htmx, response)
                 }
             }
         }

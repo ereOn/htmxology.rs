@@ -28,7 +28,7 @@ mod header {
 }
 
 /// An HTMX request header extractor.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Request {
     /// A classic request, with no HTMX headers.
     Classic,
