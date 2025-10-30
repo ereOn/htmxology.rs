@@ -4,7 +4,7 @@ expression: test_routing_controller(input)
 ---
 #[allow(unused)]
 mod __test {
-    impl htmxology::AsSubcontroller<'_, PostController, (u32, String)>
+    impl htmxology::HasSubcontroller<'_, PostController, (u32, String)>
     for AppController {
         fn as_subcontroller(&self, args: (u32, String)) -> PostController {
             <PostController>::from((self, args.0, args.1))
@@ -44,7 +44,7 @@ mod __test {
                     >(self, (blog_id, post_id))
                         .handle_request(subroute, htmx.clone(), parts, server_info)
                         .await;
-                    <Self as htmxology::AsSubcontroller<
+                    <Self as htmxology::HasSubcontroller<
                         '_,
                         PostController,
                         (u32, String),

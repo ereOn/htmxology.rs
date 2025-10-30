@@ -140,7 +140,7 @@ Controllers handle requests for specific routes. They:
   - Enables semantic composition where parent controllers can wrap/transform child responses
 - Implement `handle_request()` to process incoming requests
 - Receive HTMX request context, HTTP parts, and server info
-- Can be composed using the `AsSubcontroller` trait for subcontrollers
+- Can be composed using the `HasSubcontroller` trait for subcontrollers
 - Use `SubcontrollerExt::get_subcontroller()` to access subcontrollers without parameters
 - Use `SubcontrollerExt::get_subcontroller_with(args)` for parameterized subcontrollers
 
@@ -177,14 +177,14 @@ impl Controller for BlogController {
 }
 ```
 
-**Response Conversion**: When composing controllers, the `AsSubcontroller` trait handles response conversion:
+**Response Conversion**: When composing controllers, the `HasSubcontroller` trait handles response conversion:
 ```rust
-impl AsSubcontroller<'_, BlogController, ()> for AppController {
+impl HasSubcontroller<'_, BlogController, ()> for AppController {
     fn as_subcontroller(&self, _args: ()) -> BlogController {
         self.blog_controller.clone()
     }
 
-    fn convert_response(response: BlogController::Response) -> Self::Response {
+    fn convert_response(htmx: &htmx::Request, response: BlogController::Response) -> Self::Response {
         // Convert Result<BlogResponse, BlogError> to Result<Response, Response>
         response
             .map(|r| r.into_response())
@@ -193,7 +193,7 @@ impl AsSubcontroller<'_, BlogController, ()> for AppController {
 }
 ```
 
-The `RoutingController` macro automatically generates `AsSubcontroller` implementations with identity conversion (when both parent and child use `Result<axum::Response, axum::Response>`).
+The `RoutingController` macro automatically generates `HasSubcontroller` implementations with identity conversion (when both parent and child use `Result<axum::Response, axum::Response>`).
 
 **Parameterized Routes**: The `RoutingController` macro supports path parameters:
 ```rust

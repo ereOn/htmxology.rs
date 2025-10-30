@@ -6,7 +6,7 @@ expression: test_routing_controller(input)
 mod __test {
     impl<
         '_component_spec_lifetime,
-    > htmxology::AsSubcontroller<
+    > htmxology::HasSubcontroller<
         '_component_spec_lifetime,
         &'_component_spec_lifetime DataController,
         (),
@@ -47,7 +47,7 @@ mod __test {
                     >(self)
                         .handle_request(route, htmx.clone(), parts, server_info)
                         .await;
-                    <Self as htmxology::AsSubcontroller<
+                    <Self as htmxology::HasSubcontroller<
                         '_,
                         &DataController,
                         (),

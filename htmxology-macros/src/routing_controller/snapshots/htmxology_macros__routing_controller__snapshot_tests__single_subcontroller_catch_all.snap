@@ -4,7 +4,7 @@ expression: test_routing_controller(input)
 ---
 #[allow(unused)]
 mod __test {
-    impl htmxology::AsSubcontroller<'_, NotFoundController, ()> for AppController {
+    impl htmxology::HasSubcontroller<'_, NotFoundController, ()> for AppController {
         fn as_subcontroller(&self, args: ()) -> NotFoundController {
             self.into()
         }
@@ -38,7 +38,7 @@ mod __test {
                     >(self)
                         .handle_request(route, htmx.clone(), parts, server_info)
                         .await;
-                    <Self as htmxology::AsSubcontroller<
+                    <Self as htmxology::HasSubcontroller<
                         '_,
                         NotFoundController,
                         (),

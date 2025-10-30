@@ -4,7 +4,7 @@ expression: test_routing_controller(input)
 ---
 #[allow(unused)]
 mod __test {
-    impl htmxology::AsSubcontroller<'_, HomeController, ()> for AppController {
+    impl htmxology::HasSubcontroller<'_, HomeController, ()> for AppController {
         fn as_subcontroller(&self, args: ()) -> HomeController {
             self.into()
         }
@@ -15,7 +15,7 @@ mod __test {
             response.into()
         }
     }
-    impl htmxology::AsSubcontroller<'_, BlogController, (u32,)> for AppController {
+    impl htmxology::HasSubcontroller<'_, BlogController, (u32,)> for AppController {
         fn as_subcontroller(&self, args: (u32,)) -> BlogController {
             <BlogController>::from((self, args.0))
         }
@@ -26,7 +26,7 @@ mod __test {
             response.into()
         }
     }
-    impl htmxology::AsSubcontroller<'_, UserController, (String,)> for AppController {
+    impl htmxology::HasSubcontroller<'_, UserController, (String,)> for AppController {
         fn as_subcontroller(&self, args: (String,)) -> UserController {
             <UserController>::from((self, args.0))
         }
@@ -72,7 +72,7 @@ mod __test {
                     >(self)
                         .handle_request(route, htmx.clone(), parts, server_info)
                         .await;
-                    <Self as htmxology::AsSubcontroller<
+                    <Self as htmxology::HasSubcontroller<
                         '_,
                         HomeController,
                         (),
@@ -84,7 +84,7 @@ mod __test {
                     >(self, (blog_id,))
                         .handle_request(subroute, htmx.clone(), parts, server_info)
                         .await;
-                    <Self as htmxology::AsSubcontroller<
+                    <Self as htmxology::HasSubcontroller<
                         '_,
                         BlogController,
                         (u32,),
@@ -96,7 +96,7 @@ mod __test {
                     >(self, (user_id,))
                         .handle_request(subroute, htmx.clone(), parts, server_info)
                         .await;
-                    <Self as htmxology::AsSubcontroller<
+                    <Self as htmxology::HasSubcontroller<
                         '_,
                         UserController,
                         (String,),

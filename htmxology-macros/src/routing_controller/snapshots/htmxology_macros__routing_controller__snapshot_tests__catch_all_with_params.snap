@@ -4,7 +4,7 @@ expression: test_routing_controller(input)
 ---
 #[allow(unused)]
 mod __test {
-    impl htmxology::AsSubcontroller<'_, DynamicController, (u64,)> for AppController {
+    impl htmxology::HasSubcontroller<'_, DynamicController, (u64,)> for AppController {
         fn as_subcontroller(&self, args: (u64,)) -> DynamicController {
             <DynamicController>::from((self, args.0))
         }
@@ -41,7 +41,7 @@ mod __test {
                     >(self, (resource_id,))
                         .handle_request(subroute, htmx.clone(), parts, server_info)
                         .await;
-                    <Self as htmxology::AsSubcontroller<
+                    <Self as htmxology::HasSubcontroller<
                         '_,
                         DynamicController,
                         (u64,),

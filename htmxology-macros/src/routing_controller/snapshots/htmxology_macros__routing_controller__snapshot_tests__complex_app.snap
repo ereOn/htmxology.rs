@@ -4,7 +4,7 @@ expression: test_routing_controller(input)
 ---
 #[allow(unused)]
 mod __test {
-    impl htmxology::AsSubcontroller<'_, HomeController, ()> for AppController {
+    impl htmxology::HasSubcontroller<'_, HomeController, ()> for AppController {
         fn as_subcontroller(&self, args: ()) -> HomeController {
             self.into()
         }
@@ -15,7 +15,7 @@ mod __test {
             response.into()
         }
     }
-    impl htmxology::AsSubcontroller<'_, AuthController, ()> for AppController {
+    impl htmxology::HasSubcontroller<'_, AuthController, ()> for AppController {
         fn as_subcontroller(&self, args: ()) -> AuthController {
             self.into()
         }
@@ -26,7 +26,7 @@ mod __test {
             response.into()
         }
     }
-    impl htmxology::AsSubcontroller<'_, ApiController, ()> for AppController {
+    impl htmxology::HasSubcontroller<'_, ApiController, ()> for AppController {
         fn as_subcontroller(&self, args: ()) -> ApiController {
             self.into()
         }
@@ -37,7 +37,7 @@ mod __test {
             response.into()
         }
     }
-    impl htmxology::AsSubcontroller<'_, NotFoundController, ()> for AppController {
+    impl htmxology::HasSubcontroller<'_, NotFoundController, ()> for AppController {
         fn as_subcontroller(&self, args: ()) -> NotFoundController {
             self.into()
         }
@@ -81,7 +81,7 @@ mod __test {
                     >(self)
                         .handle_request(route, htmx.clone(), parts, server_info)
                         .await;
-                    <Self as htmxology::AsSubcontroller<
+                    <Self as htmxology::HasSubcontroller<
                         '_,
                         HomeController,
                         (),
@@ -93,7 +93,7 @@ mod __test {
                     >(self)
                         .handle_request(route, htmx.clone(), parts, server_info)
                         .await;
-                    <Self as htmxology::AsSubcontroller<
+                    <Self as htmxology::HasSubcontroller<
                         '_,
                         AuthController,
                         (),
@@ -105,7 +105,7 @@ mod __test {
                     >(self)
                         .handle_request(route, htmx.clone(), parts, server_info)
                         .await;
-                    <Self as htmxology::AsSubcontroller<
+                    <Self as htmxology::HasSubcontroller<
                         '_,
                         ApiController,
                         (),
@@ -117,7 +117,7 @@ mod __test {
                     >(self)
                         .handle_request(route, htmx.clone(), parts, server_info)
                         .await;
-                    <Self as htmxology::AsSubcontroller<
+                    <Self as htmxology::HasSubcontroller<
                         '_,
                         NotFoundController,
                         (),

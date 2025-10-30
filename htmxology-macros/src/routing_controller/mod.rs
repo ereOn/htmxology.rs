@@ -109,7 +109,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                         let response = htmxology::SubcontrollerExt::get_subcontroller::<#controller_type>(self)
                             .handle_request(route, htmx.clone(), parts, server_info)
                             .await;
-                        <Self as htmxology::AsSubcontroller<'_, #controller_type, ()>>::convert_response(&htmx, response)
+                        <Self as htmxology::HasSubcontroller<'_, #controller_type, ()>>::convert_response(&htmx, response)
                     }
                 }
             } else {
@@ -123,7 +123,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                         let response = htmxology::SubcontrollerExt::get_subcontroller_with::<#controller_type>(self, (#(#param_tuple_items,)*))
                             .handle_request(subroute, htmx.clone(), parts, server_info)
                             .await;
-                        <Self as htmxology::AsSubcontroller<'_, #controller_type, (#(#param_types,)*)>>::convert_response(&htmx, response)
+                        <Self as htmxology::HasSubcontroller<'_, #controller_type, (#(#param_types,)*)>>::convert_response(&htmx, response)
                     }
                 }
             });
@@ -459,7 +459,7 @@ impl Parse for SubcontrollerSpec {
             if has_lifetime {
                 Box::new(move |root_ident: &Ident| {
                     quote! {
-                        impl<#lifetime> htmxology::AsSubcontroller<#lifetime, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
+                        impl<#lifetime> htmxology::HasSubcontroller<#lifetime, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
                             fn as_subcontroller(&#lifetime self, args: #args_type) -> #controller_type_with_spec_lifetime {
                                 #conversion_body
                             }
@@ -476,7 +476,7 @@ impl Parse for SubcontrollerSpec {
             } else {
                 Box::new(move |root_ident: &Ident| {
                     quote! {
-                        impl htmxology::AsSubcontroller<'_, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
+                        impl htmxology::HasSubcontroller<'_, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
                             fn as_subcontroller(&self, args: #args_type) -> #controller_type_with_spec_lifetime {
                                 #conversion_body
                             }

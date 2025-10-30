@@ -38,7 +38,7 @@ pub fn derive_display_delegate(input: proc_macro::TokenStream) -> proc_macro::To
 /// Implement the `RoutingController` trait for a controller.
 ///
 /// This derive macro automatically implements sub-controller routing for a controller type
-/// by generating the necessary `Controller` and `AsSubcontroller` trait implementations.
+/// by generating the necessary `Controller` and `HasSubcontroller` trait implementations.
 ///
 /// # Attributes
 ///
@@ -53,7 +53,7 @@ pub fn derive_display_delegate(input: proc_macro::TokenStream) -> proc_macro::To
 ///
 /// # Response Type Conversion
 ///
-/// The macro generates a `convert_response` method in the `AsSubcontroller` implementation
+/// The macro generates a `convert_response` method in the `HasSubcontroller` implementation
 /// to convert the subcontroller's `Response` type to the parent controller's `Response` type.
 ///
 /// By default, the generated conversion uses `.into()`, assuming the parent's response type

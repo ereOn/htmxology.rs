@@ -44,7 +44,7 @@ use std::future::Future;
 /// For root controllers that directly serve HTTP responses, use
 /// `Result<axum::response::Response, axum::response::Response>` as the `Response` type.
 /// Intermediate controllers can use custom types that will be converted by parent controllers
-/// via the `AsSubcontroller::convert_response()` method.
+/// via the `HasSubcontroller::convert_response()` method.
 pub trait Controller: Send + Sync + Clone {
     /// The route type associated with the controller.
     type Route: super::Route + Send + axum::extract::FromRequest<Self>;
@@ -64,7 +64,7 @@ pub trait Controller: Send + Sync + Clone {
     /// should use `Result<axum::response::Response, axum::response::Response>`, while
     /// intermediate controllers can use custom types like `Result<MyResponse, MyError>`.
     ///
-    /// Parent controllers convert child responses using `AsSubcontroller::convert_response()`.
+    /// Parent controllers convert child responses using `HasSubcontroller::convert_response()`.
     type Response: Send + 'static;
 
     /// Handle the request for a given route.
@@ -72,7 +72,7 @@ pub trait Controller: Send + Sync + Clone {
     /// Returns a typed `Response` which can be a `Result` with custom types for intermediate
     /// controllers, or `Result<axum::response::Response, axum::response::Response>` for root
     /// controllers. Parent controllers are responsible for converting child responses via
-    /// the `AsSubcontroller` trait.
+    /// the `HasSubcontroller` trait.
     fn handle_request(
         &self,
         route: Self::Route,
@@ -86,17 +86,17 @@ pub trait Controller: Send + Sync + Clone {
 pub trait SubcontrollerExt: Controller {
     /// Get a subcontroller from the current controller.
     ///
-    /// This is a convenience method that leverages the `AsSubcontroller` trait and allows specifying
+    /// This is a convenience method that leverages the `HasSubcontroller` trait and allows specifying
     /// the subcontroller type directly. This method is for subcontrollers that don't require construction
     /// arguments (i.e., `Args = ()`).
     ///
     /// For subcontrollers that require arguments, use [`get_subcontroller_with`](Self::get_subcontroller_with).
     fn get_subcontroller<'c, C>(&'c self) -> C
     where
-        Self: AsSubcontroller<'c, C, ()>,
+        Self: HasSubcontroller<'c, C, ()>,
         C: Controller<Args = ()>,
     {
-        <Self as AsSubcontroller<'c, C, ()>>::as_subcontroller(self, ())
+        <Self as HasSubcontroller<'c, C, ()>>::as_subcontroller(self, ())
     }
 
     /// Get a subcontroller from the current controller with construction arguments.
@@ -113,10 +113,10 @@ pub trait SubcontrollerExt: Controller {
     /// ```
     fn get_subcontroller_with<'c, C>(&'c self, args: C::Args) -> C
     where
-        Self: AsSubcontroller<'c, C, C::Args>,
+        Self: HasSubcontroller<'c, C, C::Args>,
         C: Controller,
     {
-        <Self as AsSubcontroller<'c, C, C::Args>>::as_subcontroller(self, args)
+        <Self as HasSubcontroller<'c, C, C::Args>>::as_subcontroller(self, args)
     }
 }
 
@@ -124,9 +124,9 @@ impl<T: Controller> SubcontrollerExt for T {}
 
 /// A trait for controllers that have subcontrollers.
 ///
-/// This trait enables composing controllers by converting a parent controller into a
-/// subcontroller. The `Args` type parameter specifies what arguments are needed
-/// for the conversion.
+/// This trait enables composing controllers by allowing a parent controller to provide
+/// subcontroller instances. The `Args` type parameter specifies what arguments are needed
+/// for constructing the subcontroller.
 ///
 /// The `convert_response` method handles converting the subcontroller's `Response` type
 /// to the parent controller's `Response` type, enabling flexible composition without
@@ -136,12 +136,12 @@ impl<T: Controller> SubcontrollerExt for T {}
 /// - `'c`: Lifetime of the controller reference
 /// - `Subcontroller`: The subcontroller type
 /// - `Args`: Arguments needed to construct the subcontroller (defaults to `()`)
-pub trait AsSubcontroller<'c, Subcontroller, Args = ()>: Controller
+pub trait HasSubcontroller<'c, Subcontroller, Args = ()>: Controller
 where
     Subcontroller: Controller,
     Args: Send + Sync + 'static,
 {
-    /// Convert this controller into a subcontroller.
+    /// Get a subcontroller instance from this controller.
     ///
     /// # Arguments
     /// - `args`: Construction arguments for the subcontroller, typically extracted from route parameters
