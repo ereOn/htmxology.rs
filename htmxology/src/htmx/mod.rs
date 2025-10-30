@@ -110,7 +110,7 @@ pub struct Response<T> {
     /// out-of-band by HTMX.
     ///
     /// The `hx-swap-oob` attribute is injected directly into the root element of each OOB fragment.
-    oob_elements: Vec<(InsertStrategy, Cow<'static, str>, Box<dyn Display>)>,
+    oob_elements: Vec<(InsertStrategy, Cow<'static, str>, Box<dyn Display + Send>)>,
 }
 
 /// An HTMX insert strategy.
@@ -311,7 +311,7 @@ impl<T> Response<T> {
     /// // The strategy comes from notification.insert_strategy()
     /// response.with_oob(notification)
     /// ```
-    pub fn with_oob(self, oob_element: impl Fragment + 'static) -> Self {
+    pub fn with_oob(self, oob_element: impl Fragment + Send + 'static) -> Self {
         let target = format!("#{}", oob_element.id());
         let strategy = oob_element.insert_strategy();
         self.with_raw_oob(strategy, target, oob_element)
@@ -329,7 +329,7 @@ impl<T> Response<T> {
         mut self,
         insert_strategy: InsertStrategy,
         target: impl Into<Cow<'static, str>>,
-        oob_element: impl Display + 'static,
+        oob_element: impl Display + Send + 'static,
     ) -> Self {
         self.oob_elements
             .push((insert_strategy, target.into(), Box::new(oob_element)));
@@ -1094,5 +1094,107 @@ mod tests {
         // Verify targets
         assert_eq!(response.oob_elements[0].1.as_ref(), "#alert");
         assert_eq!(response.oob_elements[1].1.as_ref(), "#notification");
+    }
+
+    #[test]
+    fn test_response_is_send() {
+        // Compile-time assertion that Response<T> is Send when T is Send
+        fn assert_send<T: Send>() {}
+        assert_send::<Response<String>>();
+    }
+
+    // Test that htmx::Response can be used as a Controller response type
+    #[cfg(test)]
+    mod controller_response_tests {
+        use super::*;
+        use crate::{Controller, Route, ServerInfo};
+
+        // Define a simple route for testing
+        #[derive(Debug, Clone, PartialEq, Eq)]
+        enum TestRoute {
+            Home,
+        }
+
+        impl Route for TestRoute {
+            fn method(&self) -> http::Method {
+                http::Method::GET
+            }
+        }
+
+        impl std::fmt::Display for TestRoute {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "/")
+            }
+        }
+
+        // Implement FromRequest for TestRoute
+        impl axum::extract::FromRequest<TestController> for TestRoute {
+            type Rejection = (http::StatusCode, String);
+
+            async fn from_request(
+                _req: http::Request<axum::body::Body>,
+                _state: &TestController,
+            ) -> Result<Self, Self::Rejection> {
+                Ok(Self::Home)
+            }
+        }
+
+        // Define a test controller using htmx::Response as the response type
+        #[derive(Clone)]
+        struct TestController;
+
+        impl Controller for TestController {
+            type Route = TestRoute;
+            type Args = ();
+            type Response = Result<Response<String>, axum::response::Response>;
+
+            async fn handle_request(
+                &self,
+                _route: Self::Route,
+                _htmx: Request,
+                _parts: http::request::Parts,
+                _server_info: &ServerInfo,
+            ) -> Self::Response {
+                Ok(Response::new("Hello, World!".to_string()))
+            }
+        }
+
+        #[tokio::test]
+        async fn test_controller_with_htmx_response() {
+            let controller = TestController;
+            let route = TestRoute::Home;
+            let htmx = Request::Classic;
+
+            // Create parts from a real request
+            let req = http::Request::builder()
+                .method("GET")
+                .uri("/")
+                .body(())
+                .unwrap();
+            let (parts, _body) = req.into_parts();
+
+            let server_info = ServerInfo {
+                base_url: "http://localhost:3000".parse().unwrap(),
+            };
+
+            let response = controller
+                .handle_request(route, htmx, parts, &server_info)
+                .await;
+
+            assert!(response.is_ok());
+            let htmx_response = response.unwrap();
+
+            // Verify the response can be converted to axum::response::Response
+            use axum::response::IntoResponse;
+            let axum_response = htmx_response.into_response();
+            assert_eq!(axum_response.status(), http::StatusCode::OK);
+        }
+
+        #[test]
+        fn test_controller_response_type_is_send() {
+            // Compile-time assertion that the Controller::Response type is Send
+            fn assert_send<T: Send>() {}
+            assert_send::<<TestController as Controller>::Response>();
+        }
     }
 }
