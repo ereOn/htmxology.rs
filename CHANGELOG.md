@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.18.0] - 2025-10-30
+
+### Added
+- **Made `htmx::Request` clonable**: Added `Clone` derive to `htmx::Request` enum to enable easier request handling (Issue #15)
+- **Convenience methods in `SubcontrollerExt`**: Added `handle_subcontroller_request()` and `handle_subcontroller_request_with()` methods that combine getting a subcontroller, calling `handle_request`, and converting the response in a single method call (Issue #18)
+  - Significantly reduces boilerplate when delegating requests to subcontrollers
+  - Example: `self.handle_subcontroller_request::<BlogController>(route, htmx, parts, server_info).await`
+
+### Changed
+- **BREAKING**: `HasSubcontroller::convert_response()` now accepts `htmx: &htmx::Request` as its first parameter (Issue #16)
+  - Enables parent controllers to access HTMX request context when converting child responses
+  - Allows decisions between full pages vs fragments based on request type
+  - Migration: Add `htmx: &htmx::Request` as first parameter to all `convert_response` implementations
+- **BREAKING**: Renamed `AsSubcontroller` trait to `HasSubcontroller` (Issue #17)
+  - The new name better reflects that the trait is implemented on parent controllers to indicate they "have" or "provide" a subcontroller
+  - Migration: Replace all `AsSubcontroller` references with `HasSubcontroller`
+
 ## [0.17.0] - 2025-10-29
 
 ### Added
