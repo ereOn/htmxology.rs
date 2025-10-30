@@ -118,6 +118,74 @@ pub trait SubcontrollerExt: Controller {
     {
         <Self as HasSubcontroller<'c, C, C::Args>>::as_subcontroller(self, args)
     }
+
+    /// Handle a request using a subcontroller and convert its response.
+    ///
+    /// This is a convenience method that combines getting a subcontroller, calling
+    /// `handle_request` on it, and converting the response to the parent controller's
+    /// response type. This method is for subcontrollers that don't require construction
+    /// arguments (i.e., `Args = ()`).
+    ///
+    /// For subcontrollers that require arguments, use [`handle_subcontroller_request_with`](Self::handle_subcontroller_request_with).
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // In handle_request for route Blog(subroute)
+    /// self.handle_subcontroller_request::<BlogController>(subroute, htmx, parts, server_info)
+    ///     .await
+    /// ```
+    fn handle_subcontroller_request<'c, C>(
+        &'c self,
+        route: C::Route,
+        htmx: super::htmx::Request,
+        parts: http::request::Parts,
+        server_info: &super::ServerInfo,
+    ) -> impl std::future::Future<Output = Self::Response> + Send
+    where
+        Self: HasSubcontroller<'c, C, ()>,
+        C: Controller<Args = ()>,
+    {
+        async move {
+            let subcontroller = self.get_subcontroller::<C>();
+            let response = subcontroller
+                .handle_request(route, htmx.clone(), parts, server_info)
+                .await;
+            <Self as HasSubcontroller<'c, C, ()>>::convert_response(&htmx, response)
+        }
+    }
+
+    /// Handle a request using a subcontroller with construction arguments and convert its response.
+    ///
+    /// This is a convenience method that combines getting a subcontroller with arguments,
+    /// calling `handle_request` on it, and converting the response to the parent controller's
+    /// response type.
+    ///
+    /// # Example
+    /// ```rust,ignore
+    /// // In handle_request for route Blog { blog_id, subroute }
+    /// self.handle_subcontroller_request_with::<BlogController>((blog_id,), subroute, htmx, parts, server_info)
+    ///     .await
+    /// ```
+    fn handle_subcontroller_request_with<'c, C>(
+        &'c self,
+        args: C::Args,
+        route: C::Route,
+        htmx: super::htmx::Request,
+        parts: http::request::Parts,
+        server_info: &super::ServerInfo,
+    ) -> impl std::future::Future<Output = Self::Response> + Send
+    where
+        Self: HasSubcontroller<'c, C, C::Args>,
+        C: Controller,
+    {
+        async move {
+            let subcontroller = self.get_subcontroller_with::<C>(args);
+            let response = subcontroller
+                .handle_request(route, htmx.clone(), parts, server_info)
+                .await;
+            <Self as HasSubcontroller<'c, C, C::Args>>::convert_response(&htmx, response)
+        }
+    }
 }
 
 impl<T: Controller> SubcontrollerExt for T {}
