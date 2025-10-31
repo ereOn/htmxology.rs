@@ -4,9 +4,11 @@ expression: test_routing_controller(input)
 ---
 #[allow(unused)]
 mod __test {
-    impl htmxology::HasSubcontroller<'_, BlogController, (u32,)> for AppController {
-        fn as_subcontroller(&self, args: (u32,)) -> BlogController {
-            Self::make_blog(self, args.0)
+    impl htmxology::HasSubcontroller<'_, BlogController> for AppController {
+        fn as_subcontroller(&self) -> BlogController {
+            panic!(
+                "as_subcontroller should not be called for subcontrollers with params and convert_with"
+            )
         }
         fn convert_response(
             htmx: &htmxology::htmx::Request,
@@ -34,18 +36,17 @@ mod __test {
             htmx: htmxology::htmx::Request,
             parts: http::request::Parts,
             server_info: &htmxology::ServerInfo,
+            args: &mut Self::Args,
         ) -> Self::Response {
             match route {
                 Self::Route::Blog { blog_id, subroute } => {
-                    let response = htmxology::SubcontrollerExt::get_subcontroller_with::<
-                        BlogController,
-                    >(self, (blog_id,))
-                        .handle_request(subroute, htmx.clone(), parts, server_info)
+                    let subcontroller = Self::make_blog(self, blog_id);
+                    let response = subcontroller
+                        .handle_request(subroute, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         BlogController,
-                        (u32,),
                     >>::convert_response(&htmx, response)
                 }
             }

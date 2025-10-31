@@ -12,7 +12,7 @@ use std::future::Future;
 /// # Example
 ///
 /// ```rust,ignore
-/// // Root controller using axum::Response
+/// // Root controller using axum::Response without Args
 /// impl Controller for RootController {
 ///     type Route = MyRoute;
 ///     type Args = ();
@@ -24,18 +24,33 @@ use std::future::Future;
 ///         htmx: htmx::Request,
 ///         parts: http::request::Parts,
 ///         server_info: &ServerInfo,
+///         args: &mut Self::Args,
 ///     ) -> Self::Response {
 ///         Ok(my_response.into_response())
 ///     }
 /// }
 ///
-/// // Intermediate controller with custom types
+/// // Controller with session Args that can be mutated
+/// struct AppContext {
+///     session: UserSession,
+///     db: Database,
+/// }
+///
 /// impl Controller for BlogController {
 ///     type Route = BlogRoute;
-///     type Args = ();
+///     type Args = AppContext;
 ///     type Response = Result<BlogResponse, BlogError>;
 ///
-///     async fn handle_request(...) -> Self::Response {
+///     async fn handle_request(
+///         &self,
+///         route: Self::Route,
+///         htmx: htmx::Request,
+///         parts: http::request::Parts,
+///         server_info: &ServerInfo,
+///         args: &mut Self::Args,
+///     ) -> Self::Response {
+///         // Can access and mutate args.session, args.db, etc.
+///         args.session.last_accessed = now();
 ///         Ok(BlogResponse { /* ... */ })
 ///     }
 /// }
@@ -49,13 +64,34 @@ pub trait Controller: Send + Sync + Clone {
     /// The route type associated with the controller.
     type Route: super::Route + Send + axum::extract::FromRequest<Self>;
 
-    /// Arguments required to construct this controller from a parent controller.
+    /// Arguments passed to the `handle_request` method.
     ///
-    /// This is used when a controller is a sub-component of another controller and requires
-    /// parameters from the parent route (e.g., path parameters like `blog_id`).
+    /// This type represents transient data that flows through the controller hierarchy,
+    /// such as user sessions, database connections, or other request-scoped state that
+    /// may need to be accessed or modified during request processing.
     ///
-    /// For controllers that don't require construction arguments, set this to `()`.
-    /// For parameterized controllers, use a tuple type like `(u32,)` or `(u32, String)`.
+    /// For controllers that don't require such data, set this to `()`.
+    /// For controllers needing shared context, use a struct type like `AppContext`.
+    ///
+    /// **Note on mutability**: Since Args must be `'static`, you cannot use plain references
+    /// like `&mut Database`. For shared mutable state, use `Arc<Mutex<T>>` or similar.
+    ///
+    /// **Note on path parameters**: Path parameters (like `blog_id`) should remain in Route
+    /// variants, not in Args.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// // No args needed
+    /// type Args = ();
+    ///
+    /// // Owned args with shared mutable state
+    /// struct AppContext {
+    ///     db: Arc<Mutex<Database>>,
+    ///     user_id: u32,
+    /// }
+    /// type Args = AppContext;
+    /// ```
     type Args: Send + Sync + 'static;
 
     /// The response type for this controller.
@@ -73,12 +109,19 @@ pub trait Controller: Send + Sync + Clone {
     /// controllers, or `Result<axum::response::Response, axum::response::Response>` for root
     /// controllers. Parent controllers are responsible for converting child responses via
     /// the `HasSubcontroller` trait.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - Arguments passed by value through the controller hierarchy.
+    ///   This enables passing transient data (like user sessions) through controllers.
+    ///   Set `Args = ()` if not needed.
     fn handle_request(
         &self,
         route: Self::Route,
         htmx: super::htmx::Request,
         parts: http::request::Parts,
         server_info: &super::ServerInfo,
+        args: Self::Args,
     ) -> impl Future<Output = Self::Response> + Send;
 }
 
@@ -87,51 +130,25 @@ pub trait SubcontrollerExt: Controller {
     /// Get a subcontroller from the current controller.
     ///
     /// This is a convenience method that leverages the `HasSubcontroller` trait and allows specifying
-    /// the subcontroller type directly. This method is for subcontrollers that don't require construction
-    /// arguments (i.e., `Args = ()`).
-    ///
-    /// For subcontrollers that require arguments, use [`get_subcontroller_with`](Self::get_subcontroller_with).
+    /// the subcontroller type directly.
     fn get_subcontroller<'c, C>(&'c self) -> C
     where
-        Self: HasSubcontroller<'c, C, ()>,
-        C: Controller<Args = ()>,
-    {
-        <Self as HasSubcontroller<'c, C, ()>>::as_subcontroller(self, ())
-    }
-
-    /// Get a subcontroller from the current controller with construction arguments.
-    ///
-    /// This is a convenience method for subcontrollers that require arguments to be constructed.
-    /// The arguments typically come from path parameters in the parent route.
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// // In handle_request for route Blog { blog_id, subroute }
-    /// self.get_subcontroller_with::<BlogController>((blog_id,))
-    ///     .handle_request(subroute, htmx, parts, server_info)
-    ///     .await
-    /// ```
-    fn get_subcontroller_with<'c, C>(&'c self, args: C::Args) -> C
-    where
-        Self: HasSubcontroller<'c, C, C::Args>,
+        Self: HasSubcontroller<'c, C>,
         C: Controller,
     {
-        <Self as HasSubcontroller<'c, C, C::Args>>::as_subcontroller(self, args)
+        <Self as HasSubcontroller<'c, C>>::as_subcontroller(self)
     }
 
     /// Handle a request using a subcontroller and convert its response.
     ///
     /// This is a convenience method that combines getting a subcontroller, calling
     /// `handle_request` on it, and converting the response to the parent controller's
-    /// response type. This method is for subcontrollers that don't require construction
-    /// arguments (i.e., `Args = ()`).
-    ///
-    /// For subcontrollers that require arguments, use [`handle_subcontroller_request_with`](Self::handle_subcontroller_request_with).
+    /// response type.
     ///
     /// # Example
     /// ```rust,ignore
     /// // In handle_request for route Blog(subroute)
-    /// self.handle_subcontroller_request::<BlogController>(subroute, htmx, parts, server_info)
+    /// self.handle_subcontroller_request::<BlogController>(subroute, htmx, parts, server_info, args)
     ///     .await
     /// ```
     fn handle_subcontroller_request<'c, C>(
@@ -140,50 +157,18 @@ pub trait SubcontrollerExt: Controller {
         htmx: super::htmx::Request,
         parts: http::request::Parts,
         server_info: &super::ServerInfo,
+        args: C::Args,
     ) -> impl std::future::Future<Output = Self::Response> + Send
     where
-        Self: HasSubcontroller<'c, C, ()>,
-        C: Controller<Args = ()>,
+        Self: HasSubcontroller<'c, C>,
+        C: Controller,
     {
         async move {
             let subcontroller = self.get_subcontroller::<C>();
             let response = subcontroller
-                .handle_request(route, htmx.clone(), parts, server_info)
+                .handle_request(route, htmx.clone(), parts, server_info, args)
                 .await;
-            <Self as HasSubcontroller<'c, C, ()>>::convert_response(&htmx, response)
-        }
-    }
-
-    /// Handle a request using a subcontroller with construction arguments and convert its response.
-    ///
-    /// This is a convenience method that combines getting a subcontroller with arguments,
-    /// calling `handle_request` on it, and converting the response to the parent controller's
-    /// response type.
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// // In handle_request for route Blog { blog_id, subroute }
-    /// self.handle_subcontroller_request_with::<BlogController>((blog_id,), subroute, htmx, parts, server_info)
-    ///     .await
-    /// ```
-    fn handle_subcontroller_request_with<'c, C>(
-        &'c self,
-        args: C::Args,
-        route: C::Route,
-        htmx: super::htmx::Request,
-        parts: http::request::Parts,
-        server_info: &super::ServerInfo,
-    ) -> impl std::future::Future<Output = Self::Response> + Send
-    where
-        Self: HasSubcontroller<'c, C, C::Args>,
-        C: Controller,
-    {
-        async move {
-            let subcontroller = self.get_subcontroller_with::<C>(args);
-            let response = subcontroller
-                .handle_request(route, htmx.clone(), parts, server_info)
-                .await;
-            <Self as HasSubcontroller<'c, C, C::Args>>::convert_response(&htmx, response)
+            <Self as HasSubcontroller<'c, C>>::convert_response(&htmx, response)
         }
     }
 }
@@ -193,8 +178,7 @@ impl<T: Controller> SubcontrollerExt for T {}
 /// A trait for controllers that have subcontrollers.
 ///
 /// This trait enables composing controllers by allowing a parent controller to provide
-/// subcontroller instances. The `Args` type parameter specifies what arguments are needed
-/// for constructing the subcontroller.
+/// subcontroller instances.
 ///
 /// The `convert_response` method handles converting the subcontroller's `Response` type
 /// to the parent controller's `Response` type, enabling flexible composition without
@@ -203,17 +187,16 @@ impl<T: Controller> SubcontrollerExt for T {}
 /// # Type Parameters
 /// - `'c`: Lifetime of the controller reference
 /// - `Subcontroller`: The subcontroller type
-/// - `Args`: Arguments needed to construct the subcontroller (defaults to `()`)
-pub trait HasSubcontroller<'c, Subcontroller, Args = ()>: Controller
+pub trait HasSubcontroller<'c, Subcontroller>: Controller
 where
     Subcontroller: Controller,
-    Args: Send + Sync + 'static,
 {
     /// Get a subcontroller instance from this controller.
     ///
-    /// # Arguments
-    /// - `args`: Construction arguments for the subcontroller, typically extracted from route parameters
-    fn as_subcontroller(&'c self, args: Args) -> Subcontroller;
+    /// Subcontrollers are constructed without arguments. Path parameters should be
+    /// embedded in route variants, and transient data (like sessions) is passed via
+    /// the `Args` parameter to `handle_request`.
+    fn as_subcontroller(&'c self) -> Subcontroller;
 
     /// Convert the subcontroller's response to the parent controller's response type.
     ///

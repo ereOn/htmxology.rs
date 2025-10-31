@@ -366,6 +366,7 @@ mod controller {
             htmx: HtmxRequest,
             _parts: http::request::Parts,
             server_info: &ServerInfo,
+            _args: Self::Args,
         ) -> Self::Response {
             let base_url = server_info.base_url.clone();
 

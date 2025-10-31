@@ -1154,6 +1154,7 @@ mod tests {
                 _htmx: Request,
                 _parts: http::request::Parts,
                 _server_info: &ServerInfo,
+                _args: Self::Args,
             ) -> Self::Response {
                 Ok(Response::new("Hello, World!".to_string()))
             }
@@ -1177,8 +1178,9 @@ mod tests {
                 base_url: "http://localhost:3000".parse().unwrap(),
             };
 
+            let args = ();
             let response = controller
-                .handle_request(route, htmx, parts, &server_info)
+                .handle_request(route, htmx, parts, &server_info, args)
                 .await;
 
             assert!(response.is_ok());

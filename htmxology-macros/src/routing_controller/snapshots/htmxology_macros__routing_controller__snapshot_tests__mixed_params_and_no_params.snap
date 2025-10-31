@@ -4,8 +4,8 @@ expression: test_routing_controller(input)
 ---
 #[allow(unused)]
 mod __test {
-    impl htmxology::HasSubcontroller<'_, HomeController, ()> for AppController {
-        fn as_subcontroller(&self, args: ()) -> HomeController {
+    impl htmxology::HasSubcontroller<'_, HomeController> for AppController {
+        fn as_subcontroller(&self) -> HomeController {
             self.into()
         }
         fn convert_response(
@@ -15,9 +15,9 @@ mod __test {
             response.into()
         }
     }
-    impl htmxology::HasSubcontroller<'_, BlogController, (u32,)> for AppController {
-        fn as_subcontroller(&self, args: (u32,)) -> BlogController {
-            <BlogController>::from((self, args.0))
+    impl htmxology::HasSubcontroller<'_, BlogController> for AppController {
+        fn as_subcontroller(&self) -> BlogController {
+            self.into()
         }
         fn convert_response(
             htmx: &htmxology::htmx::Request,
@@ -26,9 +26,9 @@ mod __test {
             response.into()
         }
     }
-    impl htmxology::HasSubcontroller<'_, UserController, (String,)> for AppController {
-        fn as_subcontroller(&self, args: (String,)) -> UserController {
-            <UserController>::from((self, args.0))
+    impl htmxology::HasSubcontroller<'_, UserController> for AppController {
+        fn as_subcontroller(&self) -> UserController {
+            self.into()
         }
         fn convert_response(
             htmx: &htmxology::htmx::Request,
@@ -64,42 +64,40 @@ mod __test {
             htmx: htmxology::htmx::Request,
             parts: http::request::Parts,
             server_info: &htmxology::ServerInfo,
+            args: &mut Self::Args,
         ) -> Self::Response {
             match route {
                 Self::Route::Home(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         HomeController,
                     >(self)
-                        .handle_request(route, htmx.clone(), parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         HomeController,
-                        (),
                     >>::convert_response(&htmx, response)
                 }
-                Self::Route::Blog { blog_id, subroute } => {
-                    let response = htmxology::SubcontrollerExt::get_subcontroller_with::<
+                Self::Route::Blog { blog_id: _, subroute } => {
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         BlogController,
-                    >(self, (blog_id,))
-                        .handle_request(subroute, htmx.clone(), parts, server_info)
+                    >(self)
+                        .handle_request(subroute, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         BlogController,
-                        (u32,),
                     >>::convert_response(&htmx, response)
                 }
-                Self::Route::User { user_id, subroute } => {
-                    let response = htmxology::SubcontrollerExt::get_subcontroller_with::<
+                Self::Route::User { user_id: _, subroute } => {
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         UserController,
-                    >(self, (user_id,))
-                        .handle_request(subroute, htmx.clone(), parts, server_info)
+                    >(self)
+                        .handle_request(subroute, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         UserController,
-                        (String,),
                     >>::convert_response(&htmx, response)
                 }
             }

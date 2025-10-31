@@ -4,9 +4,9 @@ expression: test_routing_controller(input)
 ---
 #[allow(unused)]
 mod __test {
-    impl htmxology::HasSubcontroller<'_, DynamicController, (u64,)> for AppController {
-        fn as_subcontroller(&self, args: (u64,)) -> DynamicController {
-            <DynamicController>::from((self, args.0))
+    impl htmxology::HasSubcontroller<'_, DynamicController> for AppController {
+        fn as_subcontroller(&self) -> DynamicController {
+            self.into()
         }
         fn convert_response(
             htmx: &htmxology::htmx::Request,
@@ -33,18 +33,18 @@ mod __test {
             htmx: htmxology::htmx::Request,
             parts: http::request::Parts,
             server_info: &htmxology::ServerInfo,
+            args: &mut Self::Args,
         ) -> Self::Response {
             match route {
-                Self::Route::Dynamic { resource_id, subroute } => {
-                    let response = htmxology::SubcontrollerExt::get_subcontroller_with::<
+                Self::Route::Dynamic { resource_id: _, subroute } => {
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         DynamicController,
-                    >(self, (resource_id,))
-                        .handle_request(subroute, htmx.clone(), parts, server_info)
+                    >(self)
+                        .handle_request(subroute, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         DynamicController,
-                        (u64,),
                     >>::convert_response(&htmx, response)
                 }
             }

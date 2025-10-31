@@ -9,11 +9,9 @@ mod __test {
     > htmxology::HasSubcontroller<
         '_component_spec_lifetime,
         &'_component_spec_lifetime DataController,
-        (),
     > for AppController {
         fn as_subcontroller(
             &'_component_spec_lifetime self,
-            args: (),
         ) -> &'_component_spec_lifetime DataController {
             self.into()
         }
@@ -39,21 +37,26 @@ mod __test {
             htmx: htmxology::htmx::Request,
             parts: http::request::Parts,
             server_info: &htmxology::ServerInfo,
+            args: Self::Args,
         ) -> Self::Response {
             match route {
                 Self::Route::Data(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         &DataController,
                     >(self)
-                        .handle_request(route, htmx.clone(), parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         &DataController,
-                        (),
                     >>::convert_response(&htmx, response)
                 }
             }
+        }
+    }
+    impl From<AppController> for htmxology::ControllerRouter {
+        fn from(controller: AppController) -> Self {
+            htmxology::ControllerRouter::new(controller, |_| async { <()>::default() })
         }
     }
 }

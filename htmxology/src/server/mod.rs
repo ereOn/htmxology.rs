@@ -139,13 +139,24 @@ impl Server {
     }
 
     /// Serve the specified controller.
-    pub async fn serve<C>(self, controller: C) -> Result<(), ServeError>
-    where
-        C: super::Controller<Response = Result<axum::response::Response, axum::response::Response>>
-            + 'static,
-    {
-        self.serve_with_router(ControllerRouter::new(controller))
-            .await
+    ///
+    /// When using the `RoutingController` derive macro, the controller will be automatically
+    /// converted to a `ControllerRouter` using the `args_factory` parameter if provided,
+    /// or `Default::default()` for Args if not.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// #[derive(RoutingController)]
+    /// #[controller(AppRoute, args = UserSession, args_factory = "|controller| async { controller.session.clone() }")]
+    /// struct AppController {
+    ///     session: Arc<RwLock<UserSession>>,
+    /// }
+    ///
+    /// server.serve(controller).await?;
+    /// ```
+    pub async fn serve(self, router: impl Into<ControllerRouter>) -> Result<(), ServeError> {
+        self.serve_with_router(router.into()).await
     }
 
     /// Serve the specified controller router.

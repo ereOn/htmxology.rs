@@ -4,8 +4,8 @@ expression: test_routing_controller(input)
 ---
 #[allow(unused)]
 mod __test {
-    impl htmxology::HasSubcontroller<'_, HomeController, ()> for AppController {
-        fn as_subcontroller(&self, args: ()) -> HomeController {
+    impl htmxology::HasSubcontroller<'_, HomeController> for AppController {
+        fn as_subcontroller(&self) -> HomeController {
             self.into()
         }
         fn convert_response(
@@ -15,8 +15,8 @@ mod __test {
             response.into()
         }
     }
-    impl htmxology::HasSubcontroller<'_, AuthController, ()> for AppController {
-        fn as_subcontroller(&self, args: ()) -> AuthController {
+    impl htmxology::HasSubcontroller<'_, AuthController> for AppController {
+        fn as_subcontroller(&self) -> AuthController {
             self.into()
         }
         fn convert_response(
@@ -26,8 +26,8 @@ mod __test {
             response.into()
         }
     }
-    impl htmxology::HasSubcontroller<'_, ApiController, ()> for AppController {
-        fn as_subcontroller(&self, args: ()) -> ApiController {
+    impl htmxology::HasSubcontroller<'_, ApiController> for AppController {
+        fn as_subcontroller(&self) -> ApiController {
             self.into()
         }
         fn convert_response(
@@ -37,8 +37,8 @@ mod __test {
             response.into()
         }
     }
-    impl htmxology::HasSubcontroller<'_, NotFoundController, ()> for AppController {
-        fn as_subcontroller(&self, args: ()) -> NotFoundController {
+    impl htmxology::HasSubcontroller<'_, NotFoundController> for AppController {
+        fn as_subcontroller(&self) -> NotFoundController {
             self.into()
         }
         fn convert_response(
@@ -73,57 +73,59 @@ mod __test {
             htmx: htmxology::htmx::Request,
             parts: http::request::Parts,
             server_info: &htmxology::ServerInfo,
+            args: Self::Args,
         ) -> Self::Response {
             match route {
                 Self::Route::Home(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         HomeController,
                     >(self)
-                        .handle_request(route, htmx.clone(), parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         HomeController,
-                        (),
                     >>::convert_response(&htmx, response)
                 }
                 Self::Route::Auth(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         AuthController,
                     >(self)
-                        .handle_request(route, htmx.clone(), parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         AuthController,
-                        (),
                     >>::convert_response(&htmx, response)
                 }
                 Self::Route::Api(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         ApiController,
                     >(self)
-                        .handle_request(route, htmx.clone(), parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         ApiController,
-                        (),
                     >>::convert_response(&htmx, response)
                 }
                 Self::Route::NotFound(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         NotFoundController,
                     >(self)
-                        .handle_request(route, htmx.clone(), parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         NotFoundController,
-                        (),
                     >>::convert_response(&htmx, response)
                 }
             }
+        }
+    }
+    impl From<AppController> for htmxology::ControllerRouter {
+        fn from(controller: AppController) -> Self {
+            htmxology::ControllerRouter::new(controller, |_| async { <()>::default() })
         }
     }
 }

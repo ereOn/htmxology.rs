@@ -36,6 +36,7 @@ where
         htmx: crate::htmx::Request,
         parts: http::request::Parts,
         server_info: &crate::ServerInfo,
+        args: Self::Args,
     ) -> impl Future<Output = Self::Response> + Send {
         let cache_control = self.cache.get_cache_control(&route, &htmx, &parts);
         let url = route.to_string();
@@ -43,7 +44,7 @@ where
         async move {
             let response = self
                 .controller
-                .handle_request(route, htmx, parts, server_info)
+                .handle_request(route, htmx, parts, server_info, args)
                 .await?;
 
             self.cache

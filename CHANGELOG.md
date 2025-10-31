@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Custom Args type support** in `RoutingController` macro: The `#[controller(...)]` attribute now accepts an optional `args` parameter to specify custom Args types (Issue #19)
+  - Default: `#[controller(AppRoute)]` uses `Args = ()`
+  - Custom: `#[controller(AppRoute, args = Session)]`
+  - Enables passing custom request-scoped state (like user sessions) through the controller hierarchy
+
+### Changed
+- **BREAKING**: `Controller::Args` now represents transient request data passed to `handle_request()` instead of construction parameters (Issue #19)
+  - `Args` is now passed as `&mut Self::Args` to `handle_request()` method
+  - Enables passing mutable session data and other request-scoped state through the controller hierarchy
+  - **Important**: Args must be owned types (`'static` bound). For shared mutable state, use `Arc<Mutex<T>>` or similar patterns
+  - **Args inheritance**: Child controllers receive parent Args merged with path parameters
+    - Path parameters declared with `params()` in `#[subcontroller]` are combined with parent Args
+    - Generated code: `ChildArgs::from((parent_args, param1, param2, ...))`
+    - If parent has `Args = ()`, child receives `(&mut (), param1, param2, ...)`
+    - If parent has `Args = AppContext`, child receives `(&mut AppContext, param1, param2, ...)`
+  - Migration:
+    - Add `args: &mut Self::Args` parameter to all `handle_request()` implementations
+    - Remove `Args` parameter from `HasSubcontroller::as_subcontroller()` method (now just `&self`)
+    - For parameterized subcontrollers: implement `From<(&mut ParentArgs, param1, param2, ...)>` for your Args type
+    - Example with parent `Args = ()`: `impl From<(&mut (), u32, String)> for UserPostArgs { ... }`
+    - Example with parent `Args = AppContext`: `impl From<(&mut AppContext, u32, String)> for UserPostArgs { ... }`
+    - Controllers without params continue to receive parent args directly (no change needed)
+
 ## [0.18.0] - 2025-10-30
 
 ### Added

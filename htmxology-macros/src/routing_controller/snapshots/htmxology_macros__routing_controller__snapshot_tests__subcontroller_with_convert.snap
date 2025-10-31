@@ -4,8 +4,8 @@ expression: test_routing_controller(input)
 ---
 #[allow(unused)]
 mod __test {
-    impl htmxology::HasSubcontroller<'_, BlogController, ()> for AppController {
-        fn as_subcontroller(&self, args: ()) -> BlogController {
+    impl htmxology::HasSubcontroller<'_, BlogController> for AppController {
+        fn as_subcontroller(&self) -> BlogController {
             Self::get_blog(self)
         }
         fn convert_response(
@@ -30,21 +30,26 @@ mod __test {
             htmx: htmxology::htmx::Request,
             parts: http::request::Parts,
             server_info: &htmxology::ServerInfo,
+            args: Self::Args,
         ) -> Self::Response {
             match route {
                 Self::Route::Blog(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         BlogController,
                     >(self)
-                        .handle_request(route, htmx.clone(), parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         BlogController,
-                        (),
                     >>::convert_response(&htmx, response)
                 }
             }
+        }
+    }
+    impl From<AppController> for htmxology::ControllerRouter {
+        fn from(controller: AppController) -> Self {
+            htmxology::ControllerRouter::new(controller, |_| async { <()>::default() })
         }
     }
 }

@@ -36,7 +36,8 @@
       "Bash(cargo deny check:*)",
       "Bash(just deny)",
       "Bash(just check:*)",
-      "Bash(just example blocks:*)"
+      "Bash(just example blocks:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

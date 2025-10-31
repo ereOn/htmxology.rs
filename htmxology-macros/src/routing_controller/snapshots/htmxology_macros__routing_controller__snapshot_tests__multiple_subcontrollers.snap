@@ -4,8 +4,8 @@ expression: test_routing_controller(input)
 ---
 #[allow(unused)]
 mod __test {
-    impl htmxology::HasSubcontroller<'_, HomeController, ()> for AppController {
-        fn as_subcontroller(&self, args: ()) -> HomeController {
+    impl htmxology::HasSubcontroller<'_, HomeController> for AppController {
+        fn as_subcontroller(&self) -> HomeController {
             self.into()
         }
         fn convert_response(
@@ -15,8 +15,8 @@ mod __test {
             response.into()
         }
     }
-    impl htmxology::HasSubcontroller<'_, BlogController, ()> for AppController {
-        fn as_subcontroller(&self, args: ()) -> BlogController {
+    impl htmxology::HasSubcontroller<'_, BlogController> for AppController {
+        fn as_subcontroller(&self) -> BlogController {
             self.into()
         }
         fn convert_response(
@@ -26,8 +26,8 @@ mod __test {
             response.into()
         }
     }
-    impl htmxology::HasSubcontroller<'_, ShopController, ()> for AppController {
-        fn as_subcontroller(&self, args: ()) -> ShopController {
+    impl htmxology::HasSubcontroller<'_, ShopController> for AppController {
+        fn as_subcontroller(&self) -> ShopController {
             self.into()
         }
         fn convert_response(
@@ -56,45 +56,48 @@ mod __test {
             htmx: htmxology::htmx::Request,
             parts: http::request::Parts,
             server_info: &htmxology::ServerInfo,
+            args: Self::Args,
         ) -> Self::Response {
             match route {
                 Self::Route::Home(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         HomeController,
                     >(self)
-                        .handle_request(route, htmx.clone(), parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         HomeController,
-                        (),
                     >>::convert_response(&htmx, response)
                 }
                 Self::Route::Blog(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         BlogController,
                     >(self)
-                        .handle_request(route, htmx.clone(), parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         BlogController,
-                        (),
                     >>::convert_response(&htmx, response)
                 }
                 Self::Route::Shop(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
                         ShopController,
                     >(self)
-                        .handle_request(route, htmx.clone(), parts, server_info)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
                     <Self as htmxology::HasSubcontroller<
                         '_,
                         ShopController,
-                        (),
                     >>::convert_response(&htmx, response)
                 }
             }
+        }
+    }
+    impl From<AppController> for htmxology::ControllerRouter {
+        fn from(controller: AppController) -> Self {
+            htmxology::ControllerRouter::new(controller, |_| async { <()>::default() })
         }
     }
 }

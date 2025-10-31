@@ -18,6 +18,8 @@ pub(super) const CONVERT_WITH: &str = "convert_with";
 pub(super) const CONVERT_RESPONSE: &str = "convert_response";
 pub(super) const PARAMS: &str = "params";
 pub(super) const RESPONSE: &str = "response";
+pub(super) const ARGS: &str = "args";
+pub(super) const ARGS_FACTORY: &str = "args_factory";
 
 pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     // Get the name of the root type.
@@ -47,9 +49,9 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 quote! {}
             };
 
-            // Generate route variant with or without params
+            // Generate route variant - tuple variant if no params, struct variant if params
             route_variants.push(if spec.params.is_empty() {
-                // No params - generate simple variant
+                // No params - simple tuple variant
                 match spec.path {
                     Some(path) => {
                         quote_spanned! { spec.route_variant.span() =>
@@ -67,7 +69,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                     }
                 }
             } else {
-                // Has params - generate struct variant with param fields
+                // Has params - struct variant with param fields
                 let param_fields = spec.params.iter().map(|p| {
                     let name = &p.name;
                     let ty = &p.ty;
@@ -101,29 +103,31 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
 
             let controller_type = remove_lifetimes(controller_type);
 
-            // Generate handle_request match arm with or without params
+            // Generate handle_request match arm
             handle_request_variants.push(if spec.params.is_empty() {
-                // No params - use get_subcontroller()
+                // No params - simple tuple variant, pass parent args through
                 quote_spanned! { spec.route_variant.span() =>
                     Self::Route::#route_variant(route) => {
                         let response = htmxology::SubcontrollerExt::get_subcontroller::<#controller_type>(self)
-                            .handle_request(route, htmx.clone(), parts, server_info)
+                            .handle_request(route, htmx.clone(), parts, server_info, args)
                             .await;
-                        <Self as htmxology::HasSubcontroller<'_, #controller_type, ()>>::convert_response(&htmx, response)
+                        <Self as htmxology::HasSubcontroller<'_, #controller_type>>::convert_response(&htmx, response)
                     }
                 }
             } else {
-                // Has params - use get_subcontroller_with(tuple)
+                // Has params - struct variant, construct Args from parent args + params
                 let param_names = spec.params.iter().map(|p| &p.name);
-                let param_tuple_items = spec.params.iter().map(|p| &p.name);
-                let param_types = spec.params.iter().map(|p| &p.ty);
+                let param_names_for_construction = spec.params.iter().map(|p| &p.name);
 
                 quote_spanned! { spec.route_variant.span() =>
                     Self::Route::#route_variant { #(#param_names,)* subroute } => {
-                        let response = htmxology::SubcontrollerExt::get_subcontroller_with::<#controller_type>(self, (#(#param_tuple_items,)*))
-                            .handle_request(subroute, htmx.clone(), parts, server_info)
+                        // Construct Args from parent args and path parameters
+                        // User must implement From<(ParentArgs, param1, param2, ...)> for ChildArgs
+                        let sub_args = <#controller_type as htmxology::Controller>::Args::from((args, #(#param_names_for_construction,)*));
+                        let response = htmxology::SubcontrollerExt::get_subcontroller::<#controller_type>(self)
+                            .handle_request(subroute, htmx.clone(), parts, server_info, sub_args)
                             .await;
-                        <Self as htmxology::HasSubcontroller<'_, #controller_type, (#(#param_types,)*)>>::convert_response(&htmx, response)
+                        <Self as htmxology::HasSubcontroller<'_, #controller_type>>::convert_response(&htmx, response)
                     }
                 }
             });
@@ -153,6 +157,10 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let response_type = controller_spec.response_type.unwrap_or_else(
         || parse_quote!(Result<axum::response::Response, axum::response::Response>),
     );
+    let args_type = controller_spec
+        .args_type
+        .unwrap_or_else(|| parse_quote!(()));
+    let args_factory = controller_spec.args_factory;
 
     let route_decl = quote_spanned! { route_ident.span() =>
         #[derive(Debug, Clone, htmxology::Route)]
@@ -164,7 +172,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let controller_impl = quote_spanned! { root_ident.span() =>
         impl htmxology::Controller for #root_ident {
             type Route = #route_ident;
-            type Args = ();
+            type Args = #args_type;
             type Response = #response_type;
 
             async fn handle_request(
@@ -173,6 +181,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 htmx: htmxology::htmx::Request,
                 parts: http::request::Parts,
                 server_info: &htmxology::ServerInfo,
+                args: Self::Args,
             ) -> Self::Response {
                 match route {
                     #(#handle_request_variants)*
@@ -181,10 +190,27 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         }
     };
 
+    // Generate From<Controller> for ControllerRouter implementation
+    // Always pass a factory - either the custom one or default
+    let factory_fn = if let Some(factory) = &args_factory {
+        factory.clone()
+    } else {
+        quote! { |_| async { <#args_type>::default() } }
+    };
+
+    let controller_router_impl = quote_spanned! { root_ident.span() =>
+        impl From<#root_ident> for htmxology::ControllerRouter {
+            fn from(controller: #root_ident) -> Self {
+                htmxology::ControllerRouter::new(controller, #factory_fn)
+            }
+        }
+    };
+
     Ok(quote! {
         #(#as_subcontroller_impls)*
         #route_decl
         #controller_impl
+        #controller_router_impl
     })
 }
 
@@ -292,6 +318,8 @@ impl Parse for ParamSpec {
 struct ControllerSpec {
     route_ident: Ident,
     response_type: Option<Type>,
+    args_type: Option<Type>,
+    args_factory: Option<proc_macro2::TokenStream>,
 }
 
 impl Parse for ControllerSpec {
@@ -300,28 +328,68 @@ impl Parse for ControllerSpec {
         let route_ident: Ident = input.parse()?;
 
         let mut response_type = None;
+        let mut args_type = None;
+        let mut args_factory = None;
 
         // Check if there's a comma followed by named arguments
-        if input.peek(Token![,]) {
+        while input.peek(Token![,]) {
             input.parse::<Token![,]>()?;
 
-            // Parse "response = Type"
-            let key: Ident = input.parse()?;
-
-            if key != RESPONSE {
-                return Err(syn::Error::new_spanned(
-                    &key,
-                    format!("expected `{}`, found `{}`", RESPONSE, key),
-                ));
+            if input.is_empty() {
+                break;
             }
 
+            // Parse "key = value"
+            let key: Ident = input.parse()?;
             input.parse::<Token![=]>()?;
-            response_type = Some(input.parse()?);
+
+            match key.to_string().as_str() {
+                RESPONSE => {
+                    if response_type.is_some() {
+                        return Err(syn::Error::new_spanned(
+                            &key,
+                            "duplicate `response` parameter",
+                        ));
+                    }
+                    response_type = Some(input.parse()?);
+                }
+                ARGS => {
+                    if args_type.is_some() {
+                        return Err(syn::Error::new_spanned(&key, "duplicate `args` parameter"));
+                    }
+                    args_type = Some(input.parse()?);
+                }
+                ARGS_FACTORY => {
+                    if args_factory.is_some() {
+                        return Err(syn::Error::new_spanned(
+                            &key,
+                            "duplicate `args_factory` parameter",
+                        ));
+                    }
+                    let fn_name: LitStr = input.parse()?;
+                    args_factory = Some(fn_name.value().parse().map_err(|err| {
+                        syn::Error::new_spanned(
+                            fn_name,
+                            format!("failed to parse function name: {err}"),
+                        )
+                    })?);
+                }
+                _ => {
+                    return Err(syn::Error::new_spanned(
+                        &key,
+                        format!(
+                            "expected `{RESPONSE}`, `{ARGS}`, or `{ARGS_FACTORY}`, found `{key}`"
+                        ),
+                    ));
+                }
+            }
         }
 
         Ok(ControllerSpec {
             route_ident,
             response_type,
+            args_type,
+            args_factory,
         })
     }
 }
@@ -344,7 +412,6 @@ impl Parse for SubcontrollerSpec {
         let mut doc = None;
         let mut params = Vec::new();
         let mut body_impl = quote! { self.into() };
-        let mut convert_with_fn = None;
         let mut convert_response_fn = None;
 
         if input.peek(Token![,]) {
@@ -355,7 +422,6 @@ impl Parse for SubcontrollerSpec {
             for arg in args {
                 match arg {
                     SubcontrollerArg::ConvertWith(fn_expr) => {
-                        convert_with_fn = Some(fn_expr.clone());
                         body_impl = quote! { #fn_expr(self) };
                     }
                     SubcontrollerArg::ConvertResponse(fn_expr) => {
@@ -415,31 +481,9 @@ impl Parse for SubcontrollerSpec {
             }
         };
 
-        // Build the Args tuple type if params are present
-        let args_type = if params.is_empty() {
-            quote! { () }
-        } else {
-            let param_types = params.iter().map(|p| &p.ty);
-            quote! { (#(#param_types,)*) }
-        };
-
-        // Build the conversion body that unpacks args if needed
-        let conversion_body = if params.is_empty() {
-            body_impl
-        } else if let Some(fn_expr) = convert_with_fn {
-            // Unpack tuple and pass to convert_with function
-            let param_indices = (0..params.len()).map(syn::Index::from);
-            quote! {
-                #fn_expr(self, #(args.#param_indices),*)
-            }
-        } else {
-            // For Into, we need to somehow pass args to the Into impl
-            // This is tricky - the user will need to implement From with the right signature
-            let param_indices = (0..params.len()).map(syn::Index::from);
-            quote! {
-                <#controller_type_with_spec_lifetime>::from((self, #(args.#param_indices),*))
-            }
-        };
+        // Build the conversion body for as_subcontroller
+        // No params anymore, so just use body_impl
+        let conversion_body = body_impl;
 
         // Generate convert_response body based on whether a custom function was specified
         let convert_response_body = if let Some(ref fn_expr) = convert_response_fn {
@@ -459,8 +503,8 @@ impl Parse for SubcontrollerSpec {
             if has_lifetime {
                 Box::new(move |root_ident: &Ident| {
                     quote! {
-                        impl<#lifetime> htmxology::HasSubcontroller<#lifetime, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
-                            fn as_subcontroller(&#lifetime self, args: #args_type) -> #controller_type_with_spec_lifetime {
+                        impl<#lifetime> htmxology::HasSubcontroller<#lifetime, #controller_type_with_spec_lifetime> for #root_ident {
+                            fn as_subcontroller(&#lifetime self) -> #controller_type_with_spec_lifetime {
                                 #conversion_body
                             }
 
@@ -476,8 +520,8 @@ impl Parse for SubcontrollerSpec {
             } else {
                 Box::new(move |root_ident: &Ident| {
                     quote! {
-                        impl htmxology::HasSubcontroller<'_, #controller_type_with_spec_lifetime, #args_type> for #root_ident {
-                            fn as_subcontroller(&self, args: #args_type) -> #controller_type_with_spec_lifetime {
+                        impl htmxology::HasSubcontroller<'_, #controller_type_with_spec_lifetime> for #root_ident {
+                            fn as_subcontroller(&self) -> #controller_type_with_spec_lifetime {
                                 #conversion_body
                             }
 
@@ -752,67 +796,8 @@ mod snapshot_tests {
         assert_snapshot!(test_routing_controller(input));
     }
 
-    #[test]
-    fn subcontroller_with_single_param() {
-        let input = r#"
-            #[controller(AppRoute)]
-            #[subcontroller(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32))]
-            struct AppController {
-                state: AppState,
-            }
-        "#;
-        assert_snapshot!(test_routing_controller(input));
-    }
-
-    #[test]
-    fn subcontroller_with_multiple_params() {
-        let input = r#"
-            #[controller(AppRoute)]
-            #[subcontroller(PostController, route = Post, path = "blog/{blog_id}/post/{post_id}/", params(blog_id: u32, post_id: String))]
-            struct AppController {
-                state: AppState,
-            }
-        "#;
-        assert_snapshot!(test_routing_controller(input));
-    }
-
-    #[test]
-    fn subcontroller_with_params_and_convert() {
-        let input = r#"
-            #[controller(AppRoute)]
-            #[subcontroller(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32), convert_with = "Self::make_blog")]
-            struct AppController {
-                state: AppState,
-            }
-        "#;
-        assert_snapshot!(test_routing_controller(input));
-    }
-
-    #[test]
-    fn mixed_params_and_no_params() {
-        let input = r#"
-            #[controller(AppRoute)]
-            #[subcontroller(HomeController, route = Home, path = "")]
-            #[subcontroller(BlogController, route = Blog, path = "blog/{blog_id}/", params(blog_id: u32))]
-            #[subcontroller(UserController, route = User, path = "user/{user_id}/", params(user_id: String))]
-            struct AppController {
-                state: AppState,
-            }
-        "#;
-        assert_snapshot!(test_routing_controller(input));
-    }
-
-    #[test]
-    fn catch_all_with_params() {
-        let input = r#"
-            #[controller(AppRoute)]
-            #[subcontroller(DynamicController, route = Dynamic, params(resource_id: u64))]
-            struct AppController {
-                state: AppState,
-            }
-        "#;
-        assert_snapshot!(test_routing_controller(input));
-    }
+    // Note: Removed parameterized subcontroller tests since params() is no longer supported.
+    // Path parameters should be handled at the Route level, not for subcontroller construction.
 
     #[test]
     fn custom_response_type() {
