@@ -24,16 +24,16 @@ use std::future::Future;
 ///         htmx: htmx::Request,
 ///         parts: http::request::Parts,
 ///         server_info: &ServerInfo,
-///         args: &mut Self::Args,
+///         args: Self::Args,
 ///     ) -> Self::Response {
 ///         Ok(my_response.into_response())
 ///     }
 /// }
 ///
-/// // Controller with session Args that can be mutated
+/// // Controller with session Args using Arc<RwLock<T>> for shared mutable state
 /// struct AppContext {
-///     session: UserSession,
-///     db: Database,
+///     session: Arc<RwLock<UserSession>>,
+///     db: Arc<Database>,
 /// }
 ///
 /// impl Controller for BlogController {
@@ -47,10 +47,11 @@ use std::future::Future;
 ///         htmx: htmx::Request,
 ///         parts: http::request::Parts,
 ///         server_info: &ServerInfo,
-///         args: &mut Self::Args,
+///         args: Self::Args,
 ///     ) -> Self::Response {
-///         // Can access and mutate args.session, args.db, etc.
-///         args.session.last_accessed = now();
+///         // Can access and mutate session through Arc<RwLock<T>>
+///         let mut session = args.session.write().await;
+///         session.last_accessed = now();
 ///         Ok(BlogResponse { /* ... */ })
 ///     }
 /// }
@@ -67,14 +68,15 @@ pub trait Controller: Send + Sync + Clone {
     /// Arguments passed to the `handle_request` method.
     ///
     /// This type represents transient data that flows through the controller hierarchy,
-    /// such as user sessions, database connections, or other request-scoped state that
-    /// may need to be accessed or modified during request processing.
+    /// such as user sessions, database connections, or other request-scoped state.
+    /// Args are created fresh for each request via the `args_factory` function and
+    /// passed by value to `handle_request`.
     ///
     /// For controllers that don't require such data, set this to `()`.
     /// For controllers needing shared context, use a struct type like `AppContext`.
     ///
-    /// **Note on mutability**: Since Args must be `'static`, you cannot use plain references
-    /// like `&mut Database`. For shared mutable state, use `Arc<Mutex<T>>` or similar.
+    /// **Note on mutability**: Args are passed by value (owned), not by reference.
+    /// For shared mutable state across requests, use `Arc<RwLock<T>>` or `Arc<Mutex<T>>`.
     ///
     /// **Note on path parameters**: Path parameters (like `blog_id`) should remain in Route
     /// variants, not in Args.
@@ -87,7 +89,7 @@ pub trait Controller: Send + Sync + Clone {
     ///
     /// // Owned args with shared mutable state
     /// struct AppContext {
-    ///     db: Arc<Mutex<Database>>,
+    ///     db: Arc<RwLock<Database>>,
     ///     user_id: u32,
     /// }
     /// type Args = AppContext;

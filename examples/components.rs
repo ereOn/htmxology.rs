@@ -307,7 +307,7 @@ mod controller {
     pub struct UserPostController;
 
     // Args struct for UserPostController - receives parent args + path parameters
-    // Since MainController has Args = UserSession, we receive (&mut UserSession, u32, String)
+    // Since MainController has Args = UserSession, we receive (UserSession, u32, String)
     pub struct UserPostArgs {
         pub session: UserSession,
         pub user_id: u32,
