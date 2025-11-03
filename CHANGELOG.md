@@ -7,29 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.19.0] - 2025-11-03
+
 ### Added
 - **Custom Args type support** in `RoutingController` macro: The `#[controller(...)]` attribute now accepts an optional `args` parameter to specify custom Args types (Issue #19)
   - Default: `#[controller(AppRoute)]` uses `Args = ()`
   - Custom: `#[controller(AppRoute, args = Session)]`
   - Enables passing custom request-scoped state (like user sessions) through the controller hierarchy
+- **Async args_factory support**: The `#[controller(...)]` attribute now accepts an optional `args_factory` parameter to specify how Args are created for each request
+  - Factory is called per-request with a reference to the controller: `Fn(&Controller) -> impl Future<Output = Args>`
+  - Example: `#[controller(AppRoute, args = UserSession, args_factory = "|controller: &MainController| -> _ { let session = controller.session.clone(); async move { session } }")]`
+  - Enables async initialization of request-scoped state (e.g., database queries, authentication checks)
 
 ### Changed
-- **BREAKING**: `Controller::Args` now represents transient request data passed to `handle_request()` instead of construction parameters (Issue #19)
-  - `Args` is now passed as `&mut Self::Args` to `handle_request()` method
-  - Enables passing mutable session data and other request-scoped state through the controller hierarchy
-  - **Important**: Args must be owned types (`'static` bound). For shared mutable state, use `Arc<Mutex<T>>` or similar patterns
+- **BREAKING**: `Controller::Args` now represents transient request data passed to `handle_request()` by value instead of construction parameters (Issue #19)
+  - `Args` is now passed as `args: Self::Args` to `handle_request()` method (not `&mut Self::Args`)
+  - Args are created fresh for each request via the args_factory function
+  - Enables passing session data and other request-scoped state through the controller hierarchy
+  - **Important**: Args must be owned types (`'static` bound). For shared mutable state, use `Arc<RwLock<T>>` or similar patterns
   - **Args inheritance**: Child controllers receive parent Args merged with path parameters
     - Path parameters declared with `params()` in `#[subcontroller]` are combined with parent Args
     - Generated code: `ChildArgs::from((parent_args, param1, param2, ...))`
-    - If parent has `Args = ()`, child receives `(&mut (), param1, param2, ...)`
-    - If parent has `Args = AppContext`, child receives `(&mut AppContext, param1, param2, ...)`
+    - If parent has `Args = ()`, child receives `((), param1, param2, ...)`
+    - If parent has `Args = AppContext`, child receives `(AppContext, param1, param2, ...)`
   - Migration:
-    - Add `args: &mut Self::Args` parameter to all `handle_request()` implementations
-    - Remove `Args` parameter from `HasSubcontroller::as_subcontroller()` method (now just `&self`)
-    - For parameterized subcontrollers: implement `From<(&mut ParentArgs, param1, param2, ...)>` for your Args type
-    - Example with parent `Args = ()`: `impl From<(&mut (), u32, String)> for UserPostArgs { ... }`
-    - Example with parent `Args = AppContext`: `impl From<(&mut AppContext, u32, String)> for UserPostArgs { ... }`
+    - Change `args: &mut Self::Args` parameter to `args: Self::Args` in all `handle_request()` implementations
+    - Update `From` implementations for parameterized subcontrollers to take values instead of mutable references
+    - Example with parent `Args = ()`: `impl From<((), u32, String)> for UserPostArgs { ... }`
+    - Example with parent `Args = AppContext`: `impl From<(AppContext, u32, String)> for UserPostArgs { ... }`
     - Controllers without params continue to receive parent args directly (no change needed)
+- **BREAKING**: `ControllerRouter::new()` now requires an `args_factory` parameter
+  - Factory function signature: `Fn(&C) -> impl Future<Output = C::Args> + Send`
+  - Called once per request to create Args for that request
+  - Example: `ControllerRouter::new(controller, |_| async { () })`
 
 ## [0.18.0] - 2025-10-30
 
