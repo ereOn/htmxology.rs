@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.20.0] - 2025-11-04
+
+### Changed
+- **BREAKING**: Removed automatic `From<Controller> for ControllerRouter` implementation from `RoutingController` macro (Issue #21)
+  - The generated `From` implementation was too restrictive, requiring `Controller::Response = Result<axum::response::Response, axum::response::Response>`
+  - This prevented using custom response types for semantic composition between controllers
+  - Users must now manually create `ControllerRouter` instances using `ControllerRouter::new(controller, args_factory)`
+- **BREAKING**: Removed `args_factory` parameter from `#[controller(...)]` attribute (Issue #21)
+  - The parameter is no longer needed since the `From` implementation is not generated
+  - Args factory is now specified directly when calling `ControllerRouter::new()`
+  - Migration example:
+    ```rust
+    // Before (v0.19.0):
+    #[controller(AppRoute, args = UserSession, args_factory = "|c: &Controller| async { c.session.clone() }")]
+    struct MyController { session: UserSession }
+
+    server.serve(MyController::new(session)).await?; // Automatic conversion
+
+    // After (v0.20.0):
+    #[controller(AppRoute, args = UserSession)]
+    struct MyController { session: UserSession }
+
+    let controller = MyController::new(session);
+    let router = ControllerRouter::new(controller, |c| async { c.session().clone() });
+    server.serve(router).await?;
+    ```
+
 ## [0.19.0] - 2025-11-03
 
 ### Added
