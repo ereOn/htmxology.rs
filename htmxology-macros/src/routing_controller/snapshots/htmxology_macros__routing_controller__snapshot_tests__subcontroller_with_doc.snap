@@ -48,9 +48,4 @@ mod __test {
             }
         }
     }
-    impl From<AppController> for htmxology::ControllerRouter {
-        fn from(controller: AppController) -> Self {
-            htmxology::ControllerRouter::new(controller, |_| async { <()>::default() })
-        }
-    }
 }

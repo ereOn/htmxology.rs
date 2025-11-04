@@ -28,11 +28,14 @@ async fn main() -> anyhow::Result<()> {
         .with_options_from_env()?
         .build();
 
-    // The controller now stores the session and uses args_factory to clone it per request
-    server
-        .serve(MainController::new(session))
-        .await
-        .map_err(Into::into)
+    // Create controller and manually construct ControllerRouter with args_factory
+    let controller = MainController::new(session);
+    let router = htmxology::ControllerRouter::new(controller, |controller: &MainController| {
+        let session = controller.session().clone();
+        async move { session }
+    });
+
+    server.serve(router).await.map_err(Into::into)
 }
 
 mod controller {
@@ -58,7 +61,7 @@ mod controller {
 
     /// The main controller implementation.
     #[derive(Debug, Clone, RoutingController)]
-    #[controller(AppRoute, args = UserSession, args_factory = "|controller: &MainController| -> _ { let session = controller.session.clone(); async move { session } }")]
+    #[controller(AppRoute, args = UserSession)]
     #[subcontroller(HelloWorldController, route=HelloWorld, path = "hello-world/", convert_response = "Self::convert_plain_response")]
     #[subcontroller(ImageGalleryController<'_>, route=ImageGallery, path = "image-gallery/", convert_with = "ImageGalleryController::from_main_controller")]
     #[subcontroller(UserPostController, route=UserPost, path = "user/{user_id}/post/{post_id}/", params(user_id: u32, post_id: String))]
@@ -74,6 +77,10 @@ mod controller {
                 image_gallery_base_url: "https://picsum.photos/id/".to_string(),
                 session,
             }
+        }
+
+        pub fn session(&self) -> &UserSession {
+            &self.session
         }
     }
 

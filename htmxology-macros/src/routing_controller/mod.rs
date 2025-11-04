@@ -19,7 +19,6 @@ pub(super) const CONVERT_RESPONSE: &str = "convert_response";
 pub(super) const PARAMS: &str = "params";
 pub(super) const RESPONSE: &str = "response";
 pub(super) const ARGS: &str = "args";
-pub(super) const ARGS_FACTORY: &str = "args_factory";
 
 pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     // Get the name of the root type.
@@ -160,7 +159,6 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let args_type = controller_spec
         .args_type
         .unwrap_or_else(|| parse_quote!(()));
-    let args_factory = controller_spec.args_factory;
 
     let route_decl = quote_spanned! { route_ident.span() =>
         #[derive(Debug, Clone, htmxology::Route)]
@@ -190,27 +188,10 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         }
     };
 
-    // Generate From<Controller> for ControllerRouter implementation
-    // Always pass a factory - either the custom one or default
-    let factory_fn = if let Some(factory) = &args_factory {
-        factory.clone()
-    } else {
-        quote! { |_| async { <#args_type>::default() } }
-    };
-
-    let controller_router_impl = quote_spanned! { root_ident.span() =>
-        impl From<#root_ident> for htmxology::ControllerRouter {
-            fn from(controller: #root_ident) -> Self {
-                htmxology::ControllerRouter::new(controller, #factory_fn)
-            }
-        }
-    };
-
     Ok(quote! {
         #(#as_subcontroller_impls)*
         #route_decl
         #controller_impl
-        #controller_router_impl
     })
 }
 
@@ -319,7 +300,6 @@ struct ControllerSpec {
     route_ident: Ident,
     response_type: Option<Type>,
     args_type: Option<Type>,
-    args_factory: Option<proc_macro2::TokenStream>,
 }
 
 impl Parse for ControllerSpec {
@@ -329,7 +309,6 @@ impl Parse for ControllerSpec {
 
         let mut response_type = None;
         let mut args_type = None;
-        let mut args_factory = None;
 
         // Check if there's a comma followed by named arguments
         while input.peek(Token![,]) {
@@ -359,27 +338,10 @@ impl Parse for ControllerSpec {
                     }
                     args_type = Some(input.parse()?);
                 }
-                ARGS_FACTORY => {
-                    if args_factory.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            &key,
-                            "duplicate `args_factory` parameter",
-                        ));
-                    }
-                    let fn_name: LitStr = input.parse()?;
-                    args_factory = Some(fn_name.value().parse().map_err(|err| {
-                        syn::Error::new_spanned(
-                            fn_name,
-                            format!("failed to parse function name: {err}"),
-                        )
-                    })?);
-                }
                 _ => {
                     return Err(syn::Error::new_spanned(
                         &key,
-                        format!(
-                            "expected `{RESPONSE}`, `{ARGS}`, or `{ARGS_FACTORY}`, found `{key}`"
-                        ),
+                        format!("expected `{RESPONSE}` or `{ARGS}`, found `{key}`"),
                     ));
                 }
             }
@@ -389,7 +351,6 @@ impl Parse for ControllerSpec {
             route_ident,
             response_type,
             args_type,
-            args_factory,
         })
     }
 }

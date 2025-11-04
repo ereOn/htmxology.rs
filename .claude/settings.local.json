@@ -37,7 +37,9 @@
       "Bash(just deny)",
       "Bash(just check:*)",
       "Bash(just example blocks:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git remote get-url:*)",
+      "Bash(git grep:*)"
     ],
     "deny": [],
     "ask": []

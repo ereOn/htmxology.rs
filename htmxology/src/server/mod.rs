@@ -138,22 +138,23 @@ impl Server {
         Ok(Self::builder(listener).with_ctrl_c_graceful_shutdown())
     }
 
-    /// Serve the specified controller.
+    /// Serve the specified controller router.
     ///
-    /// When using the `RoutingController` derive macro, the controller will be automatically
-    /// converted to a `ControllerRouter` using the `args_factory` parameter if provided,
-    /// or `Default::default()` for Args if not.
+    /// You must manually create a `ControllerRouter` using `ControllerRouter::new()`
+    /// with an appropriate args factory function.
     ///
     /// # Example
     ///
     /// ```rust,ignore
     /// #[derive(RoutingController)]
-    /// #[controller(AppRoute, args = UserSession, args_factory = "|controller| async { controller.session.clone() }")]
+    /// #[controller(AppRoute, args = UserSession)]
     /// struct AppController {
     ///     session: Arc<RwLock<UserSession>>,
     /// }
     ///
-    /// server.serve(controller).await?;
+    /// let controller = AppController::new(session);
+    /// let router = ControllerRouter::new(controller, |c| async { c.session.clone() });
+    /// server.serve(router).await?;
     /// ```
     pub async fn serve(self, router: impl Into<ControllerRouter>) -> Result<(), ServeError> {
         self.serve_with_router(router.into()).await

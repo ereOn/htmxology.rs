@@ -42,12 +42,9 @@ pub fn derive_display_delegate(input: proc_macro::TokenStream) -> proc_macro::To
 ///
 /// # Attributes
 ///
-/// - `#[controller(RouteType, args = ArgsType, args_factory = "factory_fn")]` - Specifies the route enum type and optional Args configuration:
+/// - `#[controller(RouteType, args = ArgsType)]` - Specifies the route enum type and optional Args configuration:
 ///   - `RouteType` - The route enum type for this controller (required)
 ///   - `args = ArgsType` - The Args type passed to handle_request (optional, defaults to `()`)
-///   - `args_factory = "factory_fn"` - Async function to create Args for each request (optional, defaults to `Default::default()`)
-///     - Signature: `Fn(&Controller) -> impl Future<Output = Args> + Send`
-///     - Example: `"|controller: &MainController| -> _ { let session = controller.session.clone(); async move { session } }"`
 /// - `#[subcontroller(...)]` - Defines a subcontroller with the following options:
 ///   - `route = VariantName` - The route variant name (required)
 ///   - `path = "path/"` - URL path for this subcontroller (optional)
