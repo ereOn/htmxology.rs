@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Pre-handler support** in `RoutingController` macro (Issue #20)
+  - New optional `pre_handler` parameter in `#[controller(...)]` attribute
+  - Async function called before routing to enable authentication, rate limiting, and request validation
+  - Signature: `async fn(&self, &Route, &htmx::Request, &http::request::Parts, &ServerInfo, &mut Args) -> Option<Response>`
+  - Returns `Some(response)` to short-circuit routing and return immediately
+  - Returns `None` to proceed with normal routing
+  - Example:
+    ```rust
+    #[controller(AppRoute, args = Session, pre_handler = "Self::authenticate")]
+    struct MyController { ... }
+
+    impl MyController {
+        async fn authenticate(&self, route: &AppRoute, ..., args: &mut Session) -> Option<Response> {
+            if !args.is_authenticated {
+                return Some(Ok(Redirect::to("/login").into_response()));
+            }
+            None
+        }
+    }
+    ```
+
+### Changed
+- Generated `handle_request` now uses `mut args: Self::Args` when `pre_handler` is configured
+  - Only applies when using the `pre_handler` parameter
+  - Controllers without `pre_handler` continue to use `args: Self::Args` (no breaking change)
+  - Manual `Controller` implementations don't need to change unless using `pre_handler`
+
 ## [0.20.0] - 2025-11-04
 
 ### Changed

@@ -42,9 +42,14 @@ pub fn derive_display_delegate(input: proc_macro::TokenStream) -> proc_macro::To
 ///
 /// # Attributes
 ///
-/// - `#[controller(RouteType, args = ArgsType)]` - Specifies the route enum type and optional Args configuration:
+/// - `#[controller(RouteType, args = ArgsType, pre_handler = "function")]` - Specifies the route enum type and optional configuration:
 ///   - `RouteType` - The route enum type for this controller (required)
 ///   - `args = ArgsType` - The Args type passed to handle_request (optional, defaults to `()`)
+///   - `pre_handler = "function"` - Async function called before routing (optional)
+///     - Signature: `async fn(&self, &Route, &htmx::Request, &http::request::Parts, &ServerInfo, &mut Args) -> Option<Response>`
+///     - Returns `Some(response)` to short-circuit routing and return immediately
+///     - Returns `None` to proceed with normal routing
+///     - Use case: Authentication, rate limiting, request validation
 /// - `#[subcontroller(...)]` - Defines a subcontroller with the following options:
 ///   - `route = VariantName` - The route variant name (required)
 ///   - `path = "path/"` - URL path for this subcontroller (optional)
@@ -87,6 +92,38 @@ pub fn derive_display_delegate(input: proc_macro::TokenStream) -> proc_macro::To
 /// )]
 /// struct MainController {
 ///     // ... fields
+/// }
+/// ```
+///
+/// # Example with Pre-Handler
+///
+/// ```ignore
+/// use htmxology::{Controller, RoutingController, Route, htmx, ServerInfo};
+///
+/// #[derive(RoutingController)]
+/// #[controller(AppRoute, args = Session, pre_handler = "Self::authenticate")]
+/// #[subcontroller(DashboardController, route = Dashboard, path = "dashboard/")]
+/// struct MainController {
+///     // ... fields
+/// }
+///
+/// impl MainController {
+///     async fn authenticate(
+///         &self,
+///         route: &AppRoute,
+///         htmx: &htmx::Request,
+///         parts: &http::request::Parts,
+///         server_info: &ServerInfo,
+///         args: &mut Session,
+///     ) -> Option<Result<axum::response::Response, axum::response::Response>> {
+///         // Check authentication
+///         if !args.is_authenticated {
+///             // Return early with redirect to login
+///             return Some(Ok(axum::response::Redirect::to("/login").into_response()));
+///         }
+///         // Continue with normal routing
+///         None
+///     }
 /// }
 /// ```
 #[proc_macro_derive(RoutingController, attributes(controller, subcontroller))]

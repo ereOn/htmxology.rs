@@ -19,6 +19,7 @@ pub(super) const CONVERT_RESPONSE: &str = "convert_response";
 pub(super) const PARAMS: &str = "params";
 pub(super) const RESPONSE: &str = "response";
 pub(super) const ARGS: &str = "args";
+pub(super) const PRE_HANDLER: &str = "pre_handler";
 
 pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     // Get the name of the root type.
@@ -159,12 +160,28 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let args_type = controller_spec
         .args_type
         .unwrap_or_else(|| parse_quote!(()));
+    let pre_handler = controller_spec.pre_handler;
 
     let route_decl = quote_spanned! { route_ident.span() =>
         #[derive(Debug, Clone, htmxology::Route)]
         pub enum #route_ident {
             #(#route_variants)*
         }
+    };
+
+    // Generate pre-handler call if configured
+    let (pre_handler_call, args_mutability) = if let Some(pre_handler_fn) = &pre_handler {
+        (
+            quote! {
+                // Call pre-handler and return early if it provides a response
+                if let Some(response) = #pre_handler_fn(self, &route, &htmx, &parts, server_info, &mut args).await {
+                    return response;
+                }
+            },
+            quote! { mut },
+        )
+    } else {
+        (quote! {}, quote! {})
     };
 
     let controller_impl = quote_spanned! { root_ident.span() =>
@@ -179,8 +196,10 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 htmx: htmxology::htmx::Request,
                 parts: http::request::Parts,
                 server_info: &htmxology::ServerInfo,
-                args: Self::Args,
+                #args_mutability args: Self::Args,
             ) -> Self::Response {
+                #pre_handler_call
+
                 match route {
                     #(#handle_request_variants)*
                 }
@@ -300,6 +319,7 @@ struct ControllerSpec {
     route_ident: Ident,
     response_type: Option<Type>,
     args_type: Option<Type>,
+    pre_handler: Option<proc_macro2::TokenStream>,
 }
 
 impl Parse for ControllerSpec {
@@ -309,6 +329,7 @@ impl Parse for ControllerSpec {
 
         let mut response_type = None;
         let mut args_type = None;
+        let mut pre_handler = None;
 
         // Check if there's a comma followed by named arguments
         while input.peek(Token![,]) {
@@ -338,10 +359,27 @@ impl Parse for ControllerSpec {
                     }
                     args_type = Some(input.parse()?);
                 }
+                PRE_HANDLER => {
+                    if pre_handler.is_some() {
+                        return Err(syn::Error::new_spanned(
+                            &key,
+                            "duplicate `pre_handler` parameter",
+                        ));
+                    }
+                    let fn_name: LitStr = input.parse()?;
+                    pre_handler = Some(fn_name.value().parse().map_err(|err| {
+                        syn::Error::new_spanned(
+                            fn_name,
+                            format!("failed to parse function name: {err}"),
+                        )
+                    })?);
+                }
                 _ => {
                     return Err(syn::Error::new_spanned(
                         &key,
-                        format!("expected `{RESPONSE}` or `{ARGS}`, found `{key}`"),
+                        format!(
+                            "expected `{RESPONSE}`, `{ARGS}`, or `{PRE_HANDLER}`, found `{key}`"
+                        ),
                     ));
                 }
             }
@@ -351,6 +389,7 @@ impl Parse for ControllerSpec {
             route_ident,
             response_type,
             args_type,
+            pre_handler,
         })
     }
 }
@@ -779,6 +818,32 @@ mod snapshot_tests {
             #[subcontroller(HomeController, route = Home, path = "")]
             struct AppController {
                 home: HomeController,
+            }
+        "#;
+        assert_snapshot!(test_routing_controller(input));
+    }
+
+    #[test]
+    fn with_pre_handler() {
+        let input = r#"
+            #[controller(AppRoute, args = Session, pre_handler = "Self::authenticate")]
+            #[subcontroller(DashboardController, route = Dashboard, path = "dashboard/")]
+            #[subcontroller(AdminController, route = Admin, path = "admin/")]
+            struct AppController {
+                dashboard: DashboardController,
+                admin: AdminController,
+            }
+        "#;
+        assert_snapshot!(test_routing_controller(input));
+    }
+
+    #[test]
+    fn without_pre_handler() {
+        let input = r#"
+            #[controller(AppRoute, args = Session)]
+            #[subcontroller(DashboardController, route = Dashboard, path = "dashboard/")]
+            struct AppController {
+                dashboard: DashboardController,
             }
         "#;
         assert_snapshot!(test_routing_controller(input));

@@ -1,0 +1,86 @@
+---
+source: htmxology-macros/src/routing_controller/mod.rs
+expression: test_routing_controller(input)
+---
+#[allow(unused)]
+mod __test {
+    impl htmxology::HasSubcontroller<'_, DashboardController> for AppController {
+        fn as_subcontroller(&self) -> DashboardController {
+            self.into()
+        }
+        fn convert_response(
+            htmx: &htmxology::htmx::Request,
+            response: <DashboardController as htmxology::Controller>::Response,
+        ) -> <Self as htmxology::Controller>::Response {
+            response.into()
+        }
+    }
+    impl htmxology::HasSubcontroller<'_, AdminController> for AppController {
+        fn as_subcontroller(&self) -> AdminController {
+            self.into()
+        }
+        fn convert_response(
+            htmx: &htmxology::htmx::Request,
+            response: <AdminController as htmxology::Controller>::Response,
+        ) -> <Self as htmxology::Controller>::Response {
+            response.into()
+        }
+    }
+    #[derive(Debug, Clone, htmxology::Route)]
+    pub enum AppRoute {
+        #[route("dashboard/")]
+        Dashboard(#[subroute] <DashboardController as htmxology::Controller>::Route),
+        #[route("admin/")]
+        Admin(#[subroute] <AdminController as htmxology::Controller>::Route),
+    }
+    impl htmxology::Controller for AppController {
+        type Route = AppRoute;
+        type Args = Session;
+        type Response = Result<axum::response::Response, axum::response::Response>;
+        async fn handle_request(
+            &self,
+            route: Self::Route,
+            htmx: htmxology::htmx::Request,
+            parts: http::request::Parts,
+            server_info: &htmxology::ServerInfo,
+            mut args: Self::Args,
+        ) -> Self::Response {
+            if let Some(response) = Self::authenticate(
+                    self,
+                    &route,
+                    &htmx,
+                    &parts,
+                    server_info,
+                    &mut args,
+                )
+                .await
+            {
+                return response;
+            }
+            match route {
+                Self::Route::Dashboard(route) => {
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        DashboardController,
+                    >(self)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
+                        .await;
+                    <Self as htmxology::HasSubcontroller<
+                        '_,
+                        DashboardController,
+                    >>::convert_response(&htmx, response)
+                }
+                Self::Route::Admin(route) => {
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        AdminController,
+                    >(self)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
+                        .await;
+                    <Self as htmxology::HasSubcontroller<
+                        '_,
+                        AdminController,
+                    >>::convert_response(&htmx, response)
+                }
+            }
+        }
+    }
+}

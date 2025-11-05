@@ -39,7 +39,8 @@
       "Bash(just example blocks:*)",
       "Bash(git checkout:*)",
       "Bash(git remote get-url:*)",
-      "Bash(git grep:*)"
+      "Bash(git grep:*)",
+      "Bash(cargo fix:*)"
     ],
     "deny": [],
     "ask": []
