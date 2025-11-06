@@ -425,6 +425,7 @@ impl<T> ResponseExt for T where T: Sized {}
 ///
 /// As the content of `HtmlId` is checked, it is guaranteed to be a valid HTML identifier which
 /// requires no escaping when used as the value of an `id` attribute.
+#[derive(Clone)]
 pub struct HtmlId(Cow<'static, str>);
 
 /// An error that occurs when trying to create an `HtmlId` from an invalid string.
@@ -528,6 +529,7 @@ impl HtmlId {
 ///
 /// As the content of `HtmlName` is checked, it is guaranteed to be a valid HTML name which
 /// requires no escaping when used as the value of a `name` attribute.
+#[derive(Clone)]
 pub struct HtmlName(Cow<'static, str>);
 
 /// An error that occurs when trying to create an `HtmlName` from an invalid string.
