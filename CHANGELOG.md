@@ -7,7 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.21.0] - 2025-11-11
+
 ### Added
+- **Extra derives support** in `RoutingController` macro (Issue #24)
+  - New optional `extra_derives` parameter in `#[controller(...)]` attribute
+  - Allows specifying additional derive traits for the generated Route enum
+  - Syntax: `#[controller(AppRoute, extra_derives = (PartialEq, Eq, Hash))]`
+  - The extra derives are appended to the default derives (Debug, Clone, htmxology::Route)
+  - Useful for adding `PartialEq`, `Eq`, `Hash`, `Serialize`, `Deserialize`, etc.
+  - Example:
+    ```rust
+    #[derive(RoutingController)]
+    #[controller(AppRoute, extra_derives = (PartialEq, Eq, Hash))]
+    #[subcontroller(HomeController, route = Home, path = "")]
+    struct AppController { ... }
+    // Generates: #[derive(Debug, Clone, htmxology::Route, PartialEq, Eq, Hash)]
+    ```
 - **Pre-handler support** in `RoutingController` macro (Issue #20)
   - New optional `pre_handler` parameter in `#[controller(...)]` attribute
   - Async function called before routing to enable authentication, rate limiting, and request validation
