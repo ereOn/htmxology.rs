@@ -439,3 +439,96 @@ pub fn generate_display_match(config: &VariantConfig) -> syn::Result<TokenStream
 
     Ok(quote_spanned! { span => #pattern => #url_format })
 }
+
+/// Generates the parsing code for FromStr implementation (GET routes only).
+///
+/// This creates code that extracts path and query parameters from a URL string
+/// and constructs the route variant.
+pub fn generate_from_str_parsing(config: &VariantConfig) -> TokenStream {
+    // Path parameters
+    let path_params: Vec<_> = config.fields.iter().filter(|f| f.is_path_param()).collect();
+
+    let path_parse = if path_params.is_empty() {
+        quote!()
+    } else if config.fields.is_named() {
+        // Named fields: use parameter names
+        let parse_stmts: Vec<_> = path_params
+            .iter()
+            .map(|field| {
+                let ident = &field.ident;
+                let ty = &field.ty;
+                quote! {
+                    let #ident: #ty = __captures
+                        .name(stringify!(#ident))
+                        .ok_or_else(|| htmxology::ParseError::MissingPathParam {
+                            param_name: stringify!(#ident).to_string(),
+                        })?
+                        .as_str()
+                        .parse::<#ty>()
+                        .map_err(|e| htmxology::ParseError::PathParamParse {
+                            param_name: stringify!(#ident).to_string(),
+                            value: __captures.name(stringify!(#ident)).unwrap().as_str().to_string(),
+                            error: e.to_string(),
+                        })?;
+                }
+            })
+            .collect();
+
+        quote! { #(#parse_stmts)* }
+    } else {
+        // Unnamed fields: use positional indices
+        let parse_stmts: Vec<_> = path_params
+            .iter()
+            .enumerate()
+            .map(|(i, field)| {
+                let ident = &field.ident;
+                let ty = &field.ty;
+                let idx = i + 1; // Regex capture groups are 1-indexed
+                quote! {
+                    let #ident: #ty = __captures
+                        .get(#idx)
+                        .ok_or_else(|| htmxology::ParseError::MissingPathParam {
+                            param_name: format!("arg{}", #idx),
+                        })?
+                        .as_str()
+                        .parse::<#ty>()
+                        .map_err(|e| htmxology::ParseError::PathParamParse {
+                            param_name: format!("arg{}", #idx),
+                            value: __captures.get(#idx).unwrap().as_str().to_string(),
+                            error: e.to_string(),
+                        })?;
+                }
+            })
+            .collect();
+
+        quote! { #(#parse_stmts)* }
+    };
+
+    // Query parameter
+    let query_parse = if let Some(query_field) = config.query_param() {
+        let ident = &query_field.ident;
+        let ty = &query_field.ty;
+        quote! {
+            let #ident = serde_html_form::from_str::<#ty>(__query_str)
+                .map_err(|e| htmxology::ParseError::QueryStringParse {
+                    error: e.to_string(),
+                })?;
+        }
+    } else {
+        quote!()
+    };
+
+    let construction = generate_variant_construction(config);
+
+    if !path_parse.is_empty() || !query_parse.is_empty() {
+        quote! {
+            {
+                #path_parse
+                #query_parse
+                #construction
+            }
+        }
+    } else {
+        construction
+    }
+}

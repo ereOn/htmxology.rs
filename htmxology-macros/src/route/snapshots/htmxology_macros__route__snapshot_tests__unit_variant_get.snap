@@ -22,6 +22,25 @@ mod __test {
             Ok(())
         }
     }
+    impl std::str::FromStr for MyRoute {
+        type Err = htmxology::ParseError;
+        fn from_str(__s: &str) -> Result<Self, Self::Err> {
+            {
+                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
+                regex::Regex::new("^/$").unwrap());
+                let (__path, __query_str): (&str, &str) = match __s.split_once('?') {
+                    Some((p, q)) => (p, q),
+                    None => (__s, ""),
+                };
+                if let Some(__captures) = RE.captures(__path) {
+                    return Ok(Self::Home);
+                }
+            }
+            Err(htmxology::ParseError::NoMatchingRoute {
+                url: __s.to_string(),
+            })
+        }
+    }
     impl<S: Send + Sync> axum::extract::FromRequest<S> for MyRoute {
         type Rejection = axum::response::Response;
         async fn from_request(

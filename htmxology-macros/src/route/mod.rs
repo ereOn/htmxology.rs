@@ -40,6 +40,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
 
     let mut simple_routes = BTreeMap::new();
     let mut sub_routes = BTreeMap::new();
+    let mut get_only_routes = BTreeMap::new(); // For FromStr implementation
     let mut catch_all = quote! {
         Err(http::StatusCode::NOT_FOUND.into_response())
     };
@@ -60,6 +61,14 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                     .entry(config.route_url.clone())
                     .or_insert_with(Vec::new)
                     .push((method.clone(), handler));
+
+                // Collect GET routes for FromStr
+                if method == &http::Method::GET {
+                    let from_str_handler = codegen::generate_from_str_parsing(config);
+                    get_only_routes
+                        .entry(config.route_url.clone())
+                        .or_insert(from_str_handler);
+                }
             }
             RouteType::SubRoute => {
                 let handler = generate_subroute_handler(config)?;
@@ -118,6 +127,27 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         }});
     }
 
+    // Generate FromStr parsing logic for GET-only routes
+    let mut from_str_parsing = Vec::new();
+
+    for (url, handler) in get_only_routes.into_iter().rev() {
+        let url = url.to_path_regex();
+
+        from_str_parsing.push(quote! {{
+            static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| regex::Regex::new(#url).unwrap());
+
+            // Split path and query string before matching regex
+            let (__path, __query_str): (&str, &str) = match __s.split_once('?') {
+                Some((p, q)) => (p, q),
+                None => (__s, ""),
+            };
+
+            if let Some(__captures) = RE.captures(__path) {
+                return Ok(#handler);
+            }
+        }});
+    }
+
     Ok(quote! {
         use axum::response::IntoResponse as _;
 
@@ -136,6 +166,18 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 };
 
                 Ok(())
+            }
+        }
+
+        impl std::str::FromStr for #root_ident {
+            type Err = htmxology::ParseError;
+
+            fn from_str(__s: &str) -> Result<Self, Self::Err> {
+                #(#from_str_parsing)*
+
+                Err(htmxology::ParseError::NoMatchingRoute {
+                    url: __s.to_string(),
+                })
             }
         }
 

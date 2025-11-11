@@ -24,6 +24,14 @@ mod __test {
             Ok(())
         }
     }
+    impl std::str::FromStr for MyRoute {
+        type Err = htmxology::ParseError;
+        fn from_str(__s: &str) -> Result<Self, Self::Err> {
+            Err(htmxology::ParseError::NoMatchingRoute {
+                url: __s.to_string(),
+            })
+        }
+    }
     impl<S: Send + Sync> axum::extract::FromRequest<S> for MyRoute {
         type Rejection = axum::response::Response;
         async fn from_request(

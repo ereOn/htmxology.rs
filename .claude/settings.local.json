@@ -40,7 +40,13 @@
       "Bash(git checkout:*)",
       "Bash(git remote get-url:*)",
       "Bash(git grep:*)",
-      "Bash(cargo fix:*)"
+      "Bash(cargo fix:*)",
+      "Bash(git fetch:*)",
+      "Bash(git stash:*)",
+      "Bash(just --list:*)",
+      "Bash(just --show build:*)",
+      "Bash(just --show check:*)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

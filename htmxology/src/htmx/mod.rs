@@ -1117,6 +1117,14 @@ mod tests {
             Home,
         }
 
+        impl std::str::FromStr for TestRoute {
+            type Err = crate::route::ParseError;
+
+            fn from_str(_s: &str) -> Result<Self, Self::Err> {
+                Ok(TestRoute::Home)
+            }
+        }
+
         impl Route for TestRoute {
             fn method(&self) -> http::Method {
                 http::Method::GET

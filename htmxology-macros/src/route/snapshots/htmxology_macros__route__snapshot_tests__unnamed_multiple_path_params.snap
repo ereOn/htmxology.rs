@@ -29,6 +29,56 @@ mod __test {
             Ok(())
         }
     }
+    impl std::str::FromStr for MyRoute {
+        type Err = htmxology::ParseError;
+        fn from_str(__s: &str) -> Result<Self, Self::Err> {
+            {
+                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
+                {
+                    regex::Regex::new(
+                            "^/users/(?P<user_id>[^/]+)/posts/(?P<post_id>[^/]+)$",
+                        )
+                        .unwrap()
+                });
+                let (__path, __query_str): (&str, &str) = match __s.split_once('?') {
+                    Some((p, q)) => (p, q),
+                    None => (__s, ""),
+                };
+                if let Some(__captures) = RE.captures(__path) {
+                    return Ok({
+                        let arg0: u32 = __captures
+                            .get(1usize)
+                            .ok_or_else(|| htmxology::ParseError::MissingPathParam {
+                                param_name: format!("arg{}", 1usize),
+                            })?
+                            .as_str()
+                            .parse::<u32>()
+                            .map_err(|e| htmxology::ParseError::PathParamParse {
+                                param_name: format!("arg{}", 1usize),
+                                value: __captures.get(1usize).unwrap().as_str().to_string(),
+                                error: e.to_string(),
+                            })?;
+                        let arg1: u32 = __captures
+                            .get(2usize)
+                            .ok_or_else(|| htmxology::ParseError::MissingPathParam {
+                                param_name: format!("arg{}", 2usize),
+                            })?
+                            .as_str()
+                            .parse::<u32>()
+                            .map_err(|e| htmxology::ParseError::PathParamParse {
+                                param_name: format!("arg{}", 2usize),
+                                value: __captures.get(2usize).unwrap().as_str().to_string(),
+                                error: e.to_string(),
+                            })?;
+                        Self::Post(arg0, arg1)
+                    });
+                }
+            }
+            Err(htmxology::ParseError::NoMatchingRoute {
+                url: __s.to_string(),
+            })
+        }
+    }
     impl<S: Send + Sync> axum::extract::FromRequest<S> for MyRoute {
         type Rejection = axum::response::Response;
         async fn from_request(

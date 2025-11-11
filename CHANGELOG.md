@@ -28,6 +28,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         }
     }
     ```
+- **`FromStr` implementation for Route types** (Issue #26)
+  - The `Route` derive macro now automatically implements `std::str::FromStr` for GET routes
+  - Allows parsing URL strings into route instances: `"/users/123".parse::<MyRoute>()`
+  - Only works for GET routes (routes without request bodies) since they can be fully represented by a URL
+  - Parses both path parameters and query parameters from the URL string
+  - Returns `htmxology::ParseError` if:
+    - No matching GET route is found
+    - URL matches a non-GET route
+    - Path or query parameters fail to parse
+  - Example:
+    ```rust
+    #[derive(Route)]
+    enum MyRoute {
+        #[route("users/{id}")]
+        User { id: u32, #[query] filters: Filters },
+    }
+
+    let route: MyRoute = "/users/123?sort=asc".parse()?;
+    ```
+- **`ParseError` type for route parsing errors**
+  - New error type `htmxology::ParseError` with detailed error variants
+  - Replaces String errors in `FromStr` implementation
+  - Provides clear error messages for debugging route parsing issues
 
 ### Changed
 - **BREAKING**: Simplified `HasSubcontroller` trait by removing `convert_response` method (Issue #22)

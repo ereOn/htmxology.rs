@@ -1,18 +1,26 @@
 //! The route trait.
 
 use std::fmt::Display;
+use std::str::FromStr;
 
 use axum::response::IntoResponse;
 use de::PathArgumentDeserializer;
 use http::uri::PathAndQuery;
 
 mod de;
+mod error;
+
+pub use error::ParseError;
 
 /// The route trait can be implemented for types that represent a possible set of routes in an
 /// application.
 ///
 /// Typically implemented through the `Route` derive macro.
-pub trait Route: Display {
+///
+/// The `FromStr` implementation allows parsing URL paths into route instances, but only
+/// for GET routes (routes without request bodies). Attempting to parse a URL that maps
+/// to a non-GET route will return a `ParseError`.
+pub trait Route: Display + FromStr<Err = ParseError> {
     /// Get the method for the route.
     fn method(&self) -> http::Method;
 
@@ -89,6 +97,14 @@ mod tests {
         impl Display for TestRoute {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "/test/route")
+            }
+        }
+
+        impl FromStr for TestRoute {
+            type Err = ParseError;
+
+            fn from_str(_s: &str) -> Result<Self, Self::Err> {
+                Ok(TestRoute)
             }
         }
 
