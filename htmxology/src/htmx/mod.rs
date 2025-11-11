@@ -115,6 +115,12 @@ pub struct Response<T> {
     oob_elements: Vec<(InsertStrategy, Cow<'static, str>, Box<dyn Display + Send>)>,
 }
 
+impl<T: Default> Default for Response<T> {
+    fn default() -> Self {
+        Self::new(T::default())
+    }
+}
+
 /// An HTMX insert strategy.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
