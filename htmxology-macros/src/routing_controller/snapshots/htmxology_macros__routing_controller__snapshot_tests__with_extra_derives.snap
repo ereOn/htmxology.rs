@@ -1,0 +1,56 @@
+---
+source: htmxology-macros/src/routing_controller/mod.rs
+expression: test_routing_controller(input)
+---
+#[allow(unused)]
+mod __test {
+    impl htmxology::HasSubcontroller<'_, HomeController> for AppController {
+        fn as_subcontroller(&self) -> HomeController {
+            self.into()
+        }
+    }
+    impl htmxology::HasSubcontroller<'_, BlogController> for AppController {
+        fn as_subcontroller(&self) -> BlogController {
+            self.into()
+        }
+    }
+    #[derive(Debug, Clone, htmxology::Route, PartialEq, Eq, Hash)]
+    pub enum AppRoute {
+        #[route("")]
+        Home(#[subroute] <HomeController as htmxology::Controller>::Route),
+        #[route("blog/")]
+        Blog(#[subroute] <BlogController as htmxology::Controller>::Route),
+    }
+    impl htmxology::Controller for AppController {
+        type Route = AppRoute;
+        type Args = ();
+        type Response = Result<axum::response::Response, axum::response::Response>;
+        async fn handle_request(
+            &self,
+            route: Self::Route,
+            htmx: htmxology::htmx::Request,
+            parts: http::request::Parts,
+            server_info: &htmxology::ServerInfo,
+            args: Self::Args,
+        ) -> Self::Response {
+            match route {
+                Self::Route::Home(route) => {
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        HomeController,
+                    >(self)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
+                        .await;
+                    response.into()
+                }
+                Self::Route::Blog(route) => {
+                    let response = htmxology::SubcontrollerExt::get_subcontroller::<
+                        BlogController,
+                    >(self)
+                        .handle_request(route, htmx.clone(), parts, server_info, args)
+                        .await;
+                    response.into()
+                }
+            }
+        }
+    }
+}

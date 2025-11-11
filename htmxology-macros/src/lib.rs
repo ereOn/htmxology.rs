@@ -42,7 +42,7 @@ pub fn derive_display_delegate(input: proc_macro::TokenStream) -> proc_macro::To
 ///
 /// # Attributes
 ///
-/// - `#[controller(RouteType, args = ArgsType, pre_handler = "function")]` - Specifies the route enum type and optional configuration:
+/// - `#[controller(RouteType, args = ArgsType, pre_handler = "function", extra_derives = (Trait1, Trait2))]` - Specifies the route enum type and optional configuration:
 ///   - `RouteType` - The route enum type for this controller (required)
 ///   - `args = ArgsType` - The Args type passed to handle_request (optional, defaults to `()`)
 ///   - `pre_handler = "function"` - Async function called before routing (optional)
@@ -50,6 +50,8 @@ pub fn derive_display_delegate(input: proc_macro::TokenStream) -> proc_macro::To
 ///     - Returns `Some(response)` to short-circuit routing and return immediately
 ///     - Returns `None` to proceed with normal routing
 ///     - Use case: Authentication, rate limiting, request validation
+///   - `extra_derives = (Trait1, Trait2, ...)` - Additional derive traits for the generated route enum (optional)
+///     - Useful for adding `PartialEq`, `Eq`, `Hash`, `Serialize`, `Deserialize`, etc.
 /// - `#[subcontroller(...)]` - Defines a subcontroller with the following options:
 ///   - `route = VariantName` - The route variant name (required)
 ///   - `path = "path/"` - URL path for this subcontroller (optional)

@@ -63,7 +63,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                     .push((method.clone(), handler));
 
                 // Collect GET routes for FromStr
-                if method == &http::Method::GET {
+                if method == http::Method::GET {
                     let from_str_handler = codegen::generate_from_str_parsing(config);
                     get_only_routes
                         .entry(config.route_url.clone())

@@ -20,6 +20,7 @@ pub(super) const PARAMS: &str = "params";
 pub(super) const RESPONSE: &str = "response";
 pub(super) const ARGS: &str = "args";
 pub(super) const PRE_HANDLER: &str = "pre_handler";
+pub(super) const EXTRA_DERIVES: &str = "extra_derives";
 
 pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStream> {
     // Get the name of the root type.
@@ -175,9 +176,17 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         .args_type
         .unwrap_or_else(|| parse_quote!(()));
     let pre_handler = controller_spec.pre_handler;
+    let extra_derives = controller_spec.extra_derives;
+
+    // Build the derive attribute with default and extra derives
+    let derive_attr = if extra_derives.is_empty() {
+        quote! { #[derive(Debug, Clone, htmxology::Route)] }
+    } else {
+        quote! { #[derive(Debug, Clone, htmxology::Route, #(#extra_derives),*)] }
+    };
 
     let route_decl = quote_spanned! { route_ident.span() =>
-        #[derive(Debug, Clone, htmxology::Route)]
+        #derive_attr
         pub enum #route_ident {
             #(#route_variants)*
         }
@@ -335,6 +344,7 @@ struct ControllerSpec {
     response_type: Option<Type>,
     args_type: Option<Type>,
     pre_handler: Option<proc_macro2::TokenStream>,
+    extra_derives: Vec<Ident>,
 }
 
 impl Parse for ControllerSpec {
@@ -345,6 +355,7 @@ impl Parse for ControllerSpec {
         let mut response_type = None;
         let mut args_type = None;
         let mut pre_handler = None;
+        let mut extra_derives = Vec::new();
 
         // Check if there's a comma followed by named arguments
         while input.peek(Token![,]) {
@@ -389,11 +400,25 @@ impl Parse for ControllerSpec {
                         )
                     })?);
                 }
+                EXTRA_DERIVES => {
+                    if !extra_derives.is_empty() {
+                        return Err(syn::Error::new_spanned(
+                            &key,
+                            "duplicate `extra_derives` parameter",
+                        ));
+                    }
+                    // Parse parenthesized list: extra_derives = (PartialEq, Eq, Hash)
+                    let content;
+                    syn::parenthesized!(content in input);
+                    let derives: Punctuated<Ident, Token![,]> =
+                        content.parse_terminated(Ident::parse, Token![,])?;
+                    extra_derives = derives.into_iter().collect();
+                }
                 _ => {
                     return Err(syn::Error::new_spanned(
                         &key,
                         format!(
-                            "expected `{RESPONSE}`, `{ARGS}`, or `{PRE_HANDLER}`, found `{key}`"
+                            "expected `{RESPONSE}`, `{ARGS}`, `{PRE_HANDLER}`, or `{EXTRA_DERIVES}`, found `{key}`"
                         ),
                     ));
                 }
@@ -405,6 +430,7 @@ impl Parse for ControllerSpec {
             response_type,
             args_type,
             pre_handler,
+            extra_derives,
         })
     }
 }
@@ -829,6 +855,44 @@ mod snapshot_tests {
     fn without_pre_handler() {
         let input = r#"
             #[controller(AppRoute, args = Session)]
+            #[subcontroller(DashboardController, route = Dashboard, path = "dashboard/")]
+            struct AppController {
+                dashboard: DashboardController,
+            }
+        "#;
+        assert_snapshot!(test_routing_controller(input));
+    }
+
+    #[test]
+    fn with_extra_derives() {
+        let input = r#"
+            #[controller(AppRoute, extra_derives = (PartialEq, Eq, Hash))]
+            #[subcontroller(HomeController, route = Home, path = "")]
+            #[subcontroller(BlogController, route = Blog, path = "blog/")]
+            struct AppController {
+                home: HomeController,
+                blog: BlogController,
+            }
+        "#;
+        assert_snapshot!(test_routing_controller(input));
+    }
+
+    #[test]
+    fn with_single_extra_derive() {
+        let input = r#"
+            #[controller(AppRoute, extra_derives = (PartialEq))]
+            #[subcontroller(HomeController, route = Home, path = "")]
+            struct AppController {
+                home: HomeController,
+            }
+        "#;
+        assert_snapshot!(test_routing_controller(input));
+    }
+
+    #[test]
+    fn with_extra_derives_and_other_options() {
+        let input = r#"
+            #[controller(AppRoute, args = Session, response = Result<MyResponse, MyError>, extra_derives = (PartialEq, Eq))]
             #[subcontroller(DashboardController, route = Dashboard, path = "dashboard/")]
             struct AppController {
                 dashboard: DashboardController,
