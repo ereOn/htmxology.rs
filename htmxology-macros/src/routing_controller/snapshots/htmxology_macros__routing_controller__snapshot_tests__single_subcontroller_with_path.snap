@@ -8,12 +8,6 @@ mod __test {
         fn as_subcontroller(&self) -> BlogController {
             self.into()
         }
-        fn convert_response(
-            htmx: &htmxology::htmx::Request,
-            response: <BlogController as htmxology::Controller>::Response,
-        ) -> <Self as htmxology::Controller>::Response {
-            response.into()
-        }
     }
     #[derive(Debug, Clone, htmxology::Route)]
     pub enum AppRoute {
@@ -39,10 +33,7 @@ mod __test {
                     >(self)
                         .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
-                    <Self as htmxology::HasSubcontroller<
-                        '_,
-                        BlogController,
-                    >>::convert_response(&htmx, response)
+                    response.into()
                 }
             }
         }

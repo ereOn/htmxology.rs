@@ -40,6 +40,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
 
             let route_variant = &spec.route_variant;
             let controller_type = &spec.controller_type;
+            let convert_response_fn = &spec.convert_response_fn;
 
             let doc_attr = if let Some(doc) = &spec.doc {
                 quote_spanned! { spec.controller_type.span() =>
@@ -103,6 +104,19 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
 
             let controller_type = remove_lifetimes(controller_type);
 
+            // Generate the conversion logic based on whether a custom function was specified
+            let conversion_logic = if let Some(fn_expr) = convert_response_fn {
+                // Custom function specified
+                quote! {
+                    #fn_expr(&htmx, response)
+                }
+            } else {
+                // Default: use Into trait
+                quote! {
+                    response.into()
+                }
+            };
+
             // Generate handle_request match arm
             handle_request_variants.push(if spec.params.is_empty() {
                 // No params - simple tuple variant, pass parent args through
@@ -111,7 +125,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                         let response = htmxology::SubcontrollerExt::get_subcontroller::<#controller_type>(self)
                             .handle_request(route, htmx.clone(), parts, server_info, args)
                             .await;
-                        <Self as htmxology::HasSubcontroller<'_, #controller_type>>::convert_response(&htmx, response)
+                        #conversion_logic
                     }
                 }
             } else {
@@ -127,7 +141,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                         let response = htmxology::SubcontrollerExt::get_subcontroller::<#controller_type>(self)
                             .handle_request(subroute, htmx.clone(), parts, server_info, sub_args)
                             .await;
-                        <Self as htmxology::HasSubcontroller<'_, #controller_type>>::convert_response(&htmx, response)
+                        #conversion_logic
                     }
                 }
             });
@@ -221,6 +235,7 @@ struct SubcontrollerSpec {
     path: Option<String>,
     doc: Option<String>,
     params: Vec<ParamSpec>,
+    convert_response_fn: Option<proc_macro2::TokenStream>,
 }
 
 /// A parameter specification for a subcontroller route.
@@ -485,34 +500,13 @@ impl Parse for SubcontrollerSpec {
         // No params anymore, so just use body_impl
         let conversion_body = body_impl;
 
-        // Generate convert_response body based on whether a custom function was specified
-        let convert_response_body = if let Some(ref fn_expr) = convert_response_fn {
-            // Custom function specified
-            quote! {
-                #fn_expr(htmx, response)
-            }
-        } else {
-            // Default: assume ParentResponse: From<SubControllerResponse> and use Into
-            quote! {
-                response.into()
-            }
-        };
-
         let as_subcontroller_impl_fn: Box<dyn Fn(&Ident) -> proc_macro2::TokenStream> = {
-            let convert_response_body_clone = convert_response_body.clone();
             if has_lifetime {
                 Box::new(move |root_ident: &Ident| {
                     quote! {
                         impl<#lifetime> htmxology::HasSubcontroller<#lifetime, #controller_type_with_spec_lifetime> for #root_ident {
                             fn as_subcontroller(&#lifetime self) -> #controller_type_with_spec_lifetime {
                                 #conversion_body
-                            }
-
-                            fn convert_response(
-                                htmx: &htmxology::htmx::Request,
-                                response: <#controller_type_with_spec_lifetime as htmxology::Controller>::Response
-                            ) -> <Self as htmxology::Controller>::Response {
-                                #convert_response_body_clone
                             }
                         }
                     }
@@ -523,13 +517,6 @@ impl Parse for SubcontrollerSpec {
                         impl htmxology::HasSubcontroller<'_, #controller_type_with_spec_lifetime> for #root_ident {
                             fn as_subcontroller(&self) -> #controller_type_with_spec_lifetime {
                                 #conversion_body
-                            }
-
-                            fn convert_response(
-                                htmx: &htmxology::htmx::Request,
-                                response: <#controller_type_with_spec_lifetime as htmxology::Controller>::Response
-                            ) -> <Self as htmxology::Controller>::Response {
-                                #convert_response_body
                             }
                         }
                     }
@@ -544,6 +531,7 @@ impl Parse for SubcontrollerSpec {
             path,
             doc,
             params,
+            convert_response_fn,
         })
     }
 }

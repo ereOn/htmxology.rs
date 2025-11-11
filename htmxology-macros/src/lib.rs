@@ -60,12 +60,12 @@ pub fn derive_display_delegate(input: proc_macro::TokenStream) -> proc_macro::To
 ///
 /// # Response Type Conversion
 ///
-/// The macro generates a `convert_response` method in the `HasSubcontroller` implementation
-/// to convert the subcontroller's `Response` type to the parent controller's `Response` type.
+/// The macro automatically handles converting subcontroller responses to parent controller responses
+/// in the generated `handle_request` method.
 ///
-/// By default, the generated conversion uses `.into()`, assuming the parent's response type
+/// By default, the conversion uses `.into()`, assuming the parent's response type
 /// implements `From<SubcontrollerResponse>`. For custom conversions, use the `convert_response`
-/// attribute.
+/// attribute to specify a conversion function that will be called inline.
 ///
 /// ```ignore
 /// #[subcontroller(

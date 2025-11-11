@@ -30,6 +30,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     ```
 
 ### Changed
+- **BREAKING**: Simplified `HasSubcontroller` trait by removing `convert_response` method (Issue #22)
+  - The `convert_response` trait method has been removed
+  - Response conversion is now inlined directly in the generated `handle_request` method
+  - Default behavior uses `.into()` (same as before)
+  - Custom conversion functions can still be specified via `convert_response = "fn"` attribute in `RoutingController` macro
+  - **For users of `RoutingController` macro**: No code changes needed - the macro generates everything automatically
+  - **For manual `HasSubcontroller` implementations** (rare): Remove the `convert_response` method from your impl block
+  - Benefits:
+    - Simpler trait with less boilerplate
+    - More idiomatic use of Rust's `Into`/`From` traits
+    - Better ergonomics as `htmx` context is naturally available in generated code
+    - No double indirection
 - Generated `handle_request` now uses `mut args: Self::Args` when `pre_handler` is configured
   - Only applies when using the `pre_handler` parameter
   - Controllers without `pre_handler` continue to use `args: Self::Args` (no breaking change)

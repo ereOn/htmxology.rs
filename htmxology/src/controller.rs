@@ -60,7 +60,8 @@ use std::future::Future;
 /// For root controllers that directly serve HTTP responses, use
 /// `Result<axum::response::Response, axum::response::Response>` as the `Response` type.
 /// Intermediate controllers can use custom types that will be converted by parent controllers
-/// via the `HasSubcontroller::convert_response()` method.
+/// using Rust's `Into`/`From` traits (or via the `convert_response` attribute in the
+/// `RoutingController` macro for custom conversion logic).
 pub trait Controller: Send + Sync + Clone {
     /// The route type associated with the controller.
     type Route: super::Route + Send + axum::extract::FromRequest<Self>;
@@ -102,7 +103,9 @@ pub trait Controller: Send + Sync + Clone {
     /// should use `Result<axum::response::Response, axum::response::Response>`, while
     /// intermediate controllers can use custom types like `Result<MyResponse, MyError>`.
     ///
-    /// Parent controllers convert child responses using `HasSubcontroller::convert_response()`.
+    /// Parent controllers convert child responses using Rust's `Into`/`From` traits, or via
+    /// custom conversion functions specified with the `convert_response` attribute in the
+    /// `RoutingController` macro.
     type Response: Send + 'static;
 
     /// Handle the request for a given route.
@@ -140,39 +143,6 @@ pub trait SubcontrollerExt: Controller {
     {
         <Self as HasSubcontroller<'c, C>>::as_subcontroller(self)
     }
-
-    /// Handle a request using a subcontroller and convert its response.
-    ///
-    /// This is a convenience method that combines getting a subcontroller, calling
-    /// `handle_request` on it, and converting the response to the parent controller's
-    /// response type.
-    ///
-    /// # Example
-    /// ```rust,ignore
-    /// // In handle_request for route Blog(subroute)
-    /// self.handle_subcontroller_request::<BlogController>(subroute, htmx, parts, server_info, args)
-    ///     .await
-    /// ```
-    fn handle_subcontroller_request<'c, C>(
-        &'c self,
-        route: C::Route,
-        htmx: super::htmx::Request,
-        parts: http::request::Parts,
-        server_info: &super::ServerInfo,
-        args: C::Args,
-    ) -> impl std::future::Future<Output = Self::Response> + Send
-    where
-        Self: HasSubcontroller<'c, C>,
-        C: Controller,
-    {
-        async move {
-            let subcontroller = self.get_subcontroller::<C>();
-            let response = subcontroller
-                .handle_request(route, htmx.clone(), parts, server_info, args)
-                .await;
-            <Self as HasSubcontroller<'c, C>>::convert_response(&htmx, response)
-        }
-    }
 }
 
 impl<T: Controller> SubcontrollerExt for T {}
@@ -180,11 +150,9 @@ impl<T: Controller> SubcontrollerExt for T {}
 /// A trait for controllers that have subcontrollers.
 ///
 /// This trait enables composing controllers by allowing a parent controller to provide
-/// subcontroller instances.
-///
-/// The `convert_response` method handles converting the subcontroller's `Response` type
-/// to the parent controller's `Response` type, enabling flexible composition without
-/// forcing all controllers to use the same response types.
+/// subcontroller instances. Response conversion from subcontroller to parent is handled
+/// via Rust's standard `Into`/`From` traits or can be customized using the
+/// `convert_response` attribute in the `RoutingController` macro.
 ///
 /// # Type Parameters
 /// - `'c`: Lifetime of the controller reference
@@ -199,33 +167,4 @@ where
     /// embedded in route variants, and transient data (like sessions) is passed via
     /// the `Args` parameter to `handle_request`.
     fn as_subcontroller(&'c self) -> Subcontroller;
-
-    /// Convert the subcontroller's response to the parent controller's response type.
-    ///
-    /// This method is called after the subcontroller handles a request, allowing the parent
-    /// to transform or wrap the child's response. For cases where both parent and child use
-    /// the same `Response` type, this can be an identity function.
-    ///
-    /// The `htmx` parameter provides access to the HTMX request context, which can be used
-    /// to determine whether to return a full page or a fragment based on the request type.
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// // When both use axum::Response (identity conversion)
-    /// fn convert_response(htmx: &super::htmx::Request, response: Subcontroller::Response) -> Self::Response {
-    ///     response
-    /// }
-    ///
-    /// // When converting custom types to axum::Response
-    /// fn convert_response(htmx: &super::htmx::Request, response: Result<BlogResponse, BlogError>) -> Self::Response {
-    ///     response
-    ///         .map(|r| r.into_response())
-    ///         .map_err(|e| e.into_response())
-    /// }
-    /// ```
-    fn convert_response(
-        htmx: &super::htmx::Request,
-        response: Subcontroller::Response,
-    ) -> Self::Response;
 }

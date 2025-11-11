@@ -8,22 +8,10 @@ mod __test {
         fn as_subcontroller(&self) -> DashboardController {
             self.into()
         }
-        fn convert_response(
-            htmx: &htmxology::htmx::Request,
-            response: <DashboardController as htmxology::Controller>::Response,
-        ) -> <Self as htmxology::Controller>::Response {
-            response.into()
-        }
     }
     impl htmxology::HasSubcontroller<'_, AdminController> for AppController {
         fn as_subcontroller(&self) -> AdminController {
             self.into()
-        }
-        fn convert_response(
-            htmx: &htmxology::htmx::Request,
-            response: <AdminController as htmxology::Controller>::Response,
-        ) -> <Self as htmxology::Controller>::Response {
-            response.into()
         }
     }
     #[derive(Debug, Clone, htmxology::Route)]
@@ -64,10 +52,7 @@ mod __test {
                     >(self)
                         .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
-                    <Self as htmxology::HasSubcontroller<
-                        '_,
-                        DashboardController,
-                    >>::convert_response(&htmx, response)
+                    response.into()
                 }
                 Self::Route::Admin(route) => {
                     let response = htmxology::SubcontrollerExt::get_subcontroller::<
@@ -75,10 +60,7 @@ mod __test {
                     >(self)
                         .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
-                    <Self as htmxology::HasSubcontroller<
-                        '_,
-                        AdminController,
-                    >>::convert_response(&htmx, response)
+                    response.into()
                 }
             }
         }

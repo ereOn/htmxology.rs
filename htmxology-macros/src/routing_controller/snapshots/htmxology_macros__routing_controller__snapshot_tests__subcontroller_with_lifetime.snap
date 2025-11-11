@@ -15,12 +15,6 @@ mod __test {
         ) -> &'_component_spec_lifetime DataController {
             self.into()
         }
-        fn convert_response(
-            htmx: &htmxology::htmx::Request,
-            response: <&'_component_spec_lifetime DataController as htmxology::Controller>::Response,
-        ) -> <Self as htmxology::Controller>::Response {
-            response.into()
-        }
     }
     #[derive(Debug, Clone, htmxology::Route)]
     pub enum AppRoute {
@@ -46,10 +40,7 @@ mod __test {
                     >(self)
                         .handle_request(route, htmx.clone(), parts, server_info, args)
                         .await;
-                    <Self as htmxology::HasSubcontroller<
-                        '_,
-                        &DataController,
-                    >>::convert_response(&htmx, response)
+                    response.into()
                 }
             }
         }
