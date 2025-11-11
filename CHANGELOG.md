@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.23.0] - 2025-11-11
+
+### Added
+- **HTMX redirect and location header support**
+  - New `with_redirect(url)` method for full page redirects using the `HX-Redirect` header
+  - New `with_location(path)` method for AJAX-based navigation using the `HX-Location` header
+  - New `with_location_details(path, target)` method for advanced `HX-Location` with target specification
+  - Uses `serde_json::json!` macro for reliable JSON formatting in location details
+  - All methods follow builder pattern with panic on duplicate headers
+- **Default implementation for Response type**
+  - `Response<T>` now implements `Default` when `T: Default`
+  - Enables easier construction of responses with default values
+
+### Changed
+- Made `serde_json` a regular dependency (was previously optional)
+
 ## [0.22.0] - 2025-11-11
 
 ### Fixed
