@@ -2,6 +2,24 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## IMPORTANT: Starting Any Work
+
+**ALWAYS check for upstream changes before starting any work:**
+
+```bash
+git fetch origin
+git log --oneline origin/main ^main -5
+```
+
+If there are upstream commits that haven't been fetched:
+1. **STOP** and ask the human how to proceed
+2. Options to discuss:
+   - Fetch and rebase: `git pull --rebase origin main`
+   - Fetch and merge: `git pull origin main`
+   - Continue without fetching (if working on independent feature)
+
+**Never start work, create commits, or make releases without checking for upstream changes first.** This prevents the need for rebasing after publishing releases or creating tags.
+
 ## Project Overview
 
 HTMXOLOGY is a Server Side Rendering (SSR) framework written in Rust using HTMX and Axum. It provides a type-safe way to build web applications with server-side rendering, leveraging HTMX for dynamic interactions.
