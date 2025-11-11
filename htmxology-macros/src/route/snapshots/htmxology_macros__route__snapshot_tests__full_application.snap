@@ -111,6 +111,24 @@ mod __test {
             }
             {
                 static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
+                regex::Regex::new("^/admin(?P<subroute>/.*)$").unwrap());
+                let (__path, __query_str): (&str, &str) = match __s.split_once('?') {
+                    Some((p, q)) => (p, q),
+                    None => (__s, ""),
+                };
+                if let Some(__captures) = RE.captures(__path) {
+                    return Ok({
+                        let __subroute_path = __captures
+                            .name("subroute")
+                            .unwrap()
+                            .as_str();
+                        let route = AdminRoute::from_str(__subroute_path)?;
+                        Self::Admin { route }
+                    });
+                }
+            }
+            {
+                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
                 regex::Regex::new("^/$").unwrap());
                 let (__path, __query_str): (&str, &str) = match __s.split_once('?') {
                     Some((p, q)) => (p, q),
@@ -120,8 +138,9 @@ mod __test {
                     return Ok(Self::Home);
                 }
             }
-            Err(htmxology::ParseError::NoMatchingRoute {
-                url: __s.to_string(),
+            Ok({
+                let catch_all = NotFoundRoute::from_str(__s)?;
+                Self::NotFound(catch_all)
             })
         }
     }

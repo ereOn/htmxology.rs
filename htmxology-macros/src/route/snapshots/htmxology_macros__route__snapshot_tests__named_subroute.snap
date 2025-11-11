@@ -27,6 +27,24 @@ mod __test {
     impl std::str::FromStr for MyRoute {
         type Err = htmxology::ParseError;
         fn from_str(__s: &str) -> Result<Self, Self::Err> {
+            {
+                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
+                regex::Regex::new("^/api(?P<subroute>/.*)$").unwrap());
+                let (__path, __query_str): (&str, &str) = match __s.split_once('?') {
+                    Some((p, q)) => (p, q),
+                    None => (__s, ""),
+                };
+                if let Some(__captures) = RE.captures(__path) {
+                    return Ok({
+                        let __subroute_path = __captures
+                            .name("subroute")
+                            .unwrap()
+                            .as_str();
+                        let route = ApiRoute::from_str(__subroute_path)?;
+                        Self::Api { route }
+                    });
+                }
+            }
             Err(htmxology::ParseError::NoMatchingRoute {
                 url: __s.to_string(),
             })

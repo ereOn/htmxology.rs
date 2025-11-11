@@ -38,8 +38,9 @@ mod __test {
                     return Ok(Self::Home);
                 }
             }
-            Err(htmxology::ParseError::NoMatchingRoute {
-                url: __s.to_string(),
+            Ok({
+                let catch_all = NotFoundRoute::from_str(__s)?;
+                Self::NotFound(catch_all)
             })
         }
     }

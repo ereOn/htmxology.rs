@@ -46,7 +46,8 @@
       "Bash(just --list:*)",
       "Bash(just --show build:*)",
       "Bash(just --show check:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(xargs:*)"
     ],
     "deny": [],
     "ask": []

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.22.0] - 2025-11-11
+
+### Fixed
+- **FromStr implementation for subroutes and catch-all routes**
+  - `FromStr` now correctly handles routes with subroute variants
+  - Subroutes parse their path parameters and delegate to the inner route's `FromStr`
+  - Catch-all routes are now used as a fallback when no other routes match
+  - Enables complete URL-to-Route parsing for all GET route types
+  - Added comprehensive tests for subroutes and catch-all FromStr behavior
+
 ## [0.21.0] - 2025-11-11
 
 ### Added

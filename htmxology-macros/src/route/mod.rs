@@ -44,6 +44,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let mut catch_all = quote! {
         Err(http::StatusCode::NOT_FOUND.into_response())
     };
+    let mut catch_all_from_str: Option<proc_macro2::TokenStream> = None;
 
     for config in &configs {
         // Generate Display and method() match arms
@@ -81,9 +82,18 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                         "duplicate subroute prefix",
                     ));
                 }
+
+                // Add subroute to get_only_routes for FromStr
+                let from_str_handler = generate_subroute_from_str_handler(config)?;
+                get_only_routes
+                    .entry(config.route_url.clone())
+                    .or_insert(from_str_handler);
             }
             RouteType::CatchAll => {
                 catch_all = generate_catch_all_handler(config)?;
+
+                // Store catch-all FromStr handler separately to use as fallback
+                catch_all_from_str = Some(generate_catch_all_from_str_handler(config)?);
             }
         }
     }
@@ -148,6 +158,19 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         }});
     }
 
+    // Add catch-all handler as fallback if present, or error if not
+    let from_str_fallback = if let Some(catch_all_handler) = catch_all_from_str {
+        quote! {
+            Ok(#catch_all_handler)
+        }
+    } else {
+        quote! {
+            Err(htmxology::ParseError::NoMatchingRoute {
+                url: __s.to_string(),
+            })
+        }
+    };
+
     Ok(quote! {
         use axum::response::IntoResponse as _;
 
@@ -175,9 +198,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
             fn from_str(__s: &str) -> Result<Self, Self::Err> {
                 #(#from_str_parsing)*
 
-                Err(htmxology::ParseError::NoMatchingRoute {
-                    url: __s.to_string(),
-                })
+                #from_str_fallback
             }
         }
 
@@ -283,6 +304,119 @@ fn generate_catch_all_handler(config: &VariantConfig) -> syn::Result<proc_macro2
             <#field_ty as axum::extract::FromRequest<S>>::from_request(__req, __state)
                 .await
                 .map(Self::#ident)
+        }});
+    }
+
+    Err(Error::new_spanned(
+        &config.ident,
+        "catch-all variant must have exactly one unnamed field",
+    ))
+}
+
+/// Generates the FromStr handler code for a subroute variant.
+fn generate_subroute_from_str_handler(
+    config: &VariantConfig,
+) -> syn::Result<proc_macro2::TokenStream> {
+    let subroute_field = config
+        .subroute_param()
+        .expect("SubRoute should have subroute field");
+
+    let subroute_ident = &subroute_field.ident;
+    let subroute_ty = &subroute_field.ty;
+    let ident = &config.ident;
+
+    // Generate path parameter parsing
+    let path_params: Vec<_> = config.fields.iter().filter(|f| f.is_path_param()).collect();
+
+    let path_parse = if path_params.is_empty() {
+        quote!()
+    } else if config.fields.is_named() {
+        let parse_stmts: Vec<_> = path_params
+            .iter()
+            .map(|field| {
+                let field_ident = &field.ident;
+                let ty = &field.ty;
+                quote! {
+                    let #field_ident: #ty = __captures
+                        .name(stringify!(#field_ident))
+                        .ok_or_else(|| htmxology::ParseError::MissingPathParam {
+                            param_name: stringify!(#field_ident).to_string(),
+                        })?
+                        .as_str()
+                        .parse::<#ty>()
+                        .map_err(|e| htmxology::ParseError::PathParamParse {
+                            param_name: stringify!(#field_ident).to_string(),
+                            value: __captures.name(stringify!(#field_ident)).unwrap().as_str().to_string(),
+                            error: e.to_string(),
+                        })?;
+                }
+            })
+            .collect();
+        quote! { #(#parse_stmts)* }
+    } else {
+        let parse_stmts: Vec<_> = path_params
+            .iter()
+            .enumerate()
+            .map(|(i, field)| {
+                let field_ident = &field.ident;
+                let ty = &field.ty;
+                let idx = i + 1;
+                quote! {
+                    let #field_ident: #ty = __captures
+                        .get(#idx)
+                        .ok_or_else(|| htmxology::ParseError::MissingPathParam {
+                            param_name: format!("arg{}", #idx),
+                        })?
+                        .as_str()
+                        .parse::<#ty>()
+                        .map_err(|e| htmxology::ParseError::PathParamParse {
+                            param_name: format!("arg{}", #idx),
+                            value: __captures.get(#idx).unwrap().as_str().to_string(),
+                            error: e.to_string(),
+                        })?;
+                }
+            })
+            .collect();
+        quote! { #(#parse_stmts)* }
+    };
+
+    // Generate variant construction
+    let construction = match &config.fields {
+        FieldsConfig::Named(fields) => {
+            let field_idents: Vec<_> = fields.iter().map(|f| &f.ident).collect();
+            quote! { Self::#ident { #(#field_idents),* } }
+        }
+        FieldsConfig::Unnamed(fields) => {
+            let field_idents: Vec<_> = fields.iter().map(|f| &f.ident).collect();
+            quote! { Self::#ident(#(#field_idents),*) }
+        }
+        _ => unreachable!("SubRoute must have fields"),
+    };
+
+    Ok(quote! {{
+        #path_parse
+
+        let __subroute_path = __captures.name("subroute").unwrap().as_str();
+        let #subroute_ident = #subroute_ty::from_str(__subroute_path)?;
+
+        #construction
+    }})
+}
+
+/// Generates the FromStr handler code for a catch-all variant.
+fn generate_catch_all_from_str_handler(
+    config: &VariantConfig,
+) -> syn::Result<proc_macro2::TokenStream> {
+    // Catch-all should have exactly one unnamed field
+    if let FieldsConfig::Unnamed(fields) = &config.fields
+        && fields.len() == 1
+    {
+        let field_ty = &fields[0].ty;
+        let ident = &config.ident;
+
+        return Ok(quote! {{
+            let catch_all = #field_ty::from_str(__s)?;
+            Self::#ident(catch_all)
         }});
     }
 
