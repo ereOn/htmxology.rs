@@ -23,8 +23,10 @@ mod header {
     pub(super) const HX_TRIGGER: http::HeaderName = http::HeaderName::from_static("hx-trigger");
 
     // Response headers.
-    pub(super) const HX_RETARGET: http::HeaderName = http::HeaderName::from_static("hx-retarget");
+    pub(super) const HX_LOCATION: http::HeaderName = http::HeaderName::from_static("hx-location");
     pub(super) const HX_PUSH_URL: http::HeaderName = http::HeaderName::from_static("hx-push-url");
+    pub(super) const HX_REDIRECT: http::HeaderName = http::HeaderName::from_static("hx-redirect");
+    pub(super) const HX_RETARGET: http::HeaderName = http::HeaderName::from_static("hx-retarget");
 }
 
 /// An HTMX request header extractor.
@@ -374,6 +376,126 @@ impl<T> Response<T> {
                 .insert(header::HX_PUSH_URL, header_value,)
                 .is_none(),
             "hx-push-url header already present"
+        );
+
+        self
+    }
+
+    /// Trigger a client-side redirect to a new URL that does a full page reload.
+    ///
+    /// This uses the `HX-Redirect` header, which causes the browser to perform a complete
+    /// page reload as if the user had manually entered the URL or clicked a non-boosted link.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// Response::new(html)
+    ///     .with_redirect("/login")
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// If another `hx-redirect` header is already present, the call will panic.
+    ///
+    /// The URL must be a valid HTTP header value or the call will panic.
+    pub fn with_redirect(mut self, url: impl AsRef<str>) -> Self {
+        let header_value = http::HeaderValue::from_str(url.as_ref()).expect("invalid redirect URL");
+
+        assert!(
+            self.extra_headers
+                .insert(header::HX_REDIRECT, header_value)
+                .is_none(),
+            "hx-redirect header already present"
+        );
+
+        self
+    }
+
+    /// Trigger a client-side redirect without a full page reload (AJAX-based navigation).
+    ///
+    /// This uses the `HX-Location` header with a simple path, which behaves like following
+    /// an hx-boost link - creating a new history entry and issuing an AJAX request.
+    ///
+    /// For more control (e.g., specifying a target element), use `with_location_details`.
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// Response::new(html)
+    ///     .with_location("/dashboard")
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// If another `hx-location` header is already present, the call will panic.
+    ///
+    /// The URL must be a valid HTTP header value or the call will panic.
+    pub fn with_location(mut self, path: impl AsRef<str>) -> Self {
+        let header_value =
+            http::HeaderValue::from_str(path.as_ref()).expect("invalid location path");
+
+        assert!(
+            self.extra_headers
+                .insert(header::HX_LOCATION, header_value)
+                .is_none(),
+            "hx-location header already present"
+        );
+
+        self
+    }
+
+    /// Trigger a client-side redirect with detailed configuration using JSON.
+    ///
+    /// This uses the `HX-Location` header with a JSON object that allows specifying
+    /// additional options like the target element for the swap.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The URL to load
+    /// * `target` - Optional CSS selector for the element to swap (e.g., "#content", ".main")
+    ///
+    /// # Example
+    ///
+    /// ```ignore
+    /// // Redirect and swap into a specific element
+    /// Response::new(html)
+    ///     .with_location_details("/dashboard", Some("#main-content"))
+    ///
+    /// // Redirect without specifying a target (equivalent to with_location)
+    /// Response::new(html)
+    ///     .with_location_details("/dashboard", None)
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// If another `hx-location` header is already present, the call will panic.
+    ///
+    /// The generated JSON must be a valid HTTP header value or the call will panic.
+    pub fn with_location_details(
+        mut self,
+        path: impl AsRef<str>,
+        target: Option<impl AsRef<str>>,
+    ) -> Self {
+        let location_value = if let Some(target) = target {
+            // Use JSON format for advanced configuration
+            serde_json::json!({
+                "path": path.as_ref(),
+                "target": target.as_ref()
+            })
+            .to_string()
+        } else {
+            // Simple path format
+            path.as_ref().to_string()
+        };
+
+        let header_value =
+            http::HeaderValue::from_str(&location_value).expect("invalid location value");
+
+        assert!(
+            self.extra_headers
+                .insert(header::HX_LOCATION, header_value)
+                .is_none(),
+            "hx-location header already present"
         );
 
         self
@@ -1103,6 +1225,87 @@ mod tests {
         // Compile-time assertion that Response<T> is Send when T is Send
         fn assert_send<T: Send>() {}
         assert_send::<Response<String>>();
+    }
+
+    #[test]
+    fn test_with_redirect() {
+        use axum::response::IntoResponse;
+
+        let response = Response::new("test body").with_redirect("/login");
+        let axum_response = response.into_response();
+
+        // Check that the HX-Redirect header is set
+        let redirect_header = axum_response
+            .headers()
+            .get("hx-redirect")
+            .expect("hx-redirect header should be present");
+        assert_eq!(redirect_header, "/login");
+    }
+
+    #[test]
+    fn test_with_location_simple() {
+        use axum::response::IntoResponse;
+
+        let response = Response::new("test body").with_location("/dashboard");
+        let axum_response = response.into_response();
+
+        // Check that the HX-Location header is set
+        let location_header = axum_response
+            .headers()
+            .get("hx-location")
+            .expect("hx-location header should be present");
+        assert_eq!(location_header, "/dashboard");
+    }
+
+    #[test]
+    fn test_with_location_details_without_target() {
+        use axum::response::IntoResponse;
+
+        let response = Response::new("test body").with_location_details("/dashboard", None::<&str>);
+        let axum_response = response.into_response();
+
+        // Check that the HX-Location header is set to simple path
+        let location_header = axum_response
+            .headers()
+            .get("hx-location")
+            .expect("hx-location header should be present");
+        assert_eq!(location_header, "/dashboard");
+    }
+
+    #[test]
+    fn test_with_location_details_with_target() {
+        use axum::response::IntoResponse;
+
+        let response =
+            Response::new("test body").with_location_details("/dashboard", Some("#main-content"));
+        let axum_response = response.into_response();
+
+        // Check that the HX-Location header is set to JSON format
+        let location_header = axum_response
+            .headers()
+            .get("hx-location")
+            .expect("hx-location header should be present");
+        let location_str = location_header.to_str().unwrap();
+
+        // Verify it's JSON with both path and target
+        assert!(location_str.contains("\"path\":\"/dashboard\""));
+        assert!(location_str.contains("\"target\":\"#main-content\""));
+    }
+
+    #[test]
+    #[should_panic(expected = "hx-redirect header already present")]
+    fn test_with_redirect_duplicate_panics() {
+        Response::new("test body")
+            .with_redirect("/login")
+            .with_redirect("/logout");
+    }
+
+    #[test]
+    #[should_panic(expected = "hx-location header already present")]
+    fn test_with_location_duplicate_panics() {
+        Response::new("test body")
+            .with_location("/dashboard")
+            .with_location("/settings");
     }
 
     // Test that htmx::Response can be used as a Controller response type
