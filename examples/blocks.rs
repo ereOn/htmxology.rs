@@ -37,7 +37,7 @@ async fn main() -> anyhow::Result<()> {
 mod views {
 
     use askama::Template;
-    use htmxology::{DisplayDelegate, Fragment, Identity, Route, htmx::Identity as IdentityTrait};
+    use htmxology::{DisplayDelegate, Fragment, Identity, Route};
 
     use crate::controller::AppRoute;
 

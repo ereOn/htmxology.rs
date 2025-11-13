@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.24.0] - 2025-11-13
+
+### Changed
+- **Simplified trait re-exports**: The `Fragment`, `Identity`, and `Named` traits are now re-exported at the root level with the same names as their corresponding derive macros (Issue #7)
+  - Previously: `use htmxology::{Fragment as FragmentTrait, Identity as IdentityTrait, Named as NamedTrait}`
+  - Now: `use htmxology::{Fragment, Identity, Named}`
+  - This makes the API more intuitive since the trait names now match the derive macro names
+  - The derive macros remain: `#[derive(Fragment)]`, `#[derive(Identity)]`, `#[derive(Named)]`
+  - **Note**: When you derive a trait, you need to import the trait itself to use its methods. Now both the derive and the trait share the same name for consistency.
+
 ## [0.23.0] - 2025-11-11
 
 ### Added
