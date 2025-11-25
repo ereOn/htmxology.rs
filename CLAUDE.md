@@ -195,21 +195,33 @@ impl Controller for BlogController {
 }
 ```
 
-**Response Conversion**: When composing controllers, the `HasSubcontroller` trait handles response conversion:
+**Response Conversion**: When composing controllers, custom response conversion can be specified using the `convert_response` attribute:
 ```rust
-impl HasSubcontroller<'_, BlogController, ()> for AppController {
-    fn as_subcontroller(&self, _args: ()) -> BlogController {
-        self.blog_controller.clone()
-    }
+#[derive(RoutingController)]
+#[controller(AppRoute)]
+#[subcontroller(BlogController, route = Blog, path = "blog/", convert_response = "Self::convert_blog_response")]
+struct AppController {
+    blog_controller: BlogController,
+}
 
-    fn convert_response(htmx: &htmx::Request, response: BlogController::Response) -> Self::Response {
-        // Convert Result<BlogResponse, BlogError> to Result<Response, Response>
+impl AppController {
+    fn convert_blog_response(
+        htmx: &htmx::Request,
+        parts: &http::request::Parts,
+        server_info: &ServerInfo,
+        args: &AppArgs,
+        response: BlogResponse,
+    ) -> AppResponse {
+        // Convert BlogResponse to AppResponse
+        // You have access to all request context: htmx headers, HTTP parts, server info, and controller args
         response
             .map(|r| r.into_response())
             .map_err(|e| e.into_response())
     }
 }
 ```
+
+**Note**: The `convert_response` function receives all parameters from `handle_request` by reference, allowing you to inspect request metadata and controller arguments during response conversion. The values are cloned before being passed to avoid move conflicts with the subcontroller's `handle_request` call.
 
 The `RoutingController` macro automatically generates `HasSubcontroller` implementations with identity conversion (when both parent and child use `Result<axum::Response, axum::Response>`).
 

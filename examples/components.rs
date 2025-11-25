@@ -88,6 +88,9 @@ mod controller {
         #[expect(clippy::result_large_err)]
         fn convert_plain_response(
             _htmx: &htmxology::htmx::Request,
+            _parts: &http::request::Parts,
+            _server_info: &htmxology::ServerInfo,
+            _args: &UserSession,
             response: axum::response::Response,
         ) -> Result<axum::response::Response, axum::response::Response> {
             Ok(response)

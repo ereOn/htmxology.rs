@@ -107,9 +107,10 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
 
             // Generate the conversion logic based on whether a custom function was specified
             let conversion_logic = if let Some(fn_expr) = convert_response_fn {
-                // Custom function specified
+                // Custom function specified - pass all handle_request parameters
+                // Note: parts_for_convert and args_for_convert will be cloned before handle_request is called
                 quote! {
-                    #fn_expr(&htmx, response)
+                    #fn_expr(&htmx, &parts_for_convert, server_info, &args_for_convert, response)
                 }
             } else {
                 // Default: use Into trait
@@ -121,12 +122,26 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
             // Generate handle_request match arm
             handle_request_variants.push(if spec.params.is_empty() {
                 // No params - simple tuple variant, pass parent args through
-                quote_spanned! { spec.route_variant.span() =>
-                    Self::Route::#route_variant(route) => {
-                        let response = htmxology::SubcontrollerExt::get_subcontroller::<#controller_type>(self)
-                            .handle_request(route, htmx.clone(), parts, server_info, args)
-                            .await;
-                        #conversion_logic
+                if convert_response_fn.is_some() {
+                    // If using custom convert_response, clone values for convert_response before moving
+                    quote_spanned! { spec.route_variant.span() =>
+                        Self::Route::#route_variant(route) => {
+                            let parts_for_convert = parts.clone();
+                            let args_for_convert = args.clone();
+                            let response = htmxology::SubcontrollerExt::get_subcontroller::<#controller_type>(self)
+                                .handle_request(route, htmx.clone(), parts, server_info, args)
+                                .await;
+                            #conversion_logic
+                        }
+                    }
+                } else {
+                    quote_spanned! { spec.route_variant.span() =>
+                        Self::Route::#route_variant(route) => {
+                            let response = htmxology::SubcontrollerExt::get_subcontroller::<#controller_type>(self)
+                                .handle_request(route, htmx.clone(), parts, server_info, args)
+                                .await;
+                            #conversion_logic
+                        }
                     }
                 }
             } else {
@@ -134,15 +149,32 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 let param_names = spec.params.iter().map(|p| &p.name);
                 let param_names_for_construction = spec.params.iter().map(|p| &p.name);
 
-                quote_spanned! { spec.route_variant.span() =>
-                    Self::Route::#route_variant { #(#param_names,)* subroute } => {
-                        // Construct Args from parent args and path parameters
-                        // User must implement From<(ParentArgs, param1, param2, ...)> for ChildArgs
-                        let sub_args = <#controller_type as htmxology::Controller>::Args::from((args, #(#param_names_for_construction,)*));
-                        let response = htmxology::SubcontrollerExt::get_subcontroller::<#controller_type>(self)
-                            .handle_request(subroute, htmx.clone(), parts, server_info, sub_args)
-                            .await;
-                        #conversion_logic
+                if convert_response_fn.is_some() {
+                    // If using custom convert_response, clone values for convert_response before moving
+                    quote_spanned! { spec.route_variant.span() =>
+                        Self::Route::#route_variant { #(#param_names,)* subroute } => {
+                            let parts_for_convert = parts.clone();
+                            let args_for_convert = args.clone();
+                            // Construct Args from parent args and path parameters
+                            // User must implement From<(ParentArgs, param1, param2, ...)> for ChildArgs
+                            let sub_args = <#controller_type as htmxology::Controller>::Args::from((args, #(#param_names_for_construction,)*));
+                            let response = htmxology::SubcontrollerExt::get_subcontroller::<#controller_type>(self)
+                                .handle_request(subroute, htmx.clone(), parts, server_info, sub_args)
+                                .await;
+                            #conversion_logic
+                        }
+                    }
+                } else {
+                    quote_spanned! { spec.route_variant.span() =>
+                        Self::Route::#route_variant { #(#param_names,)* subroute } => {
+                            // Construct Args from parent args and path parameters
+                            // User must implement From<(ParentArgs, param1, param2, ...)> for ChildArgs
+                            let sub_args = <#controller_type as htmxology::Controller>::Args::from((args, #(#param_names_for_construction,)*));
+                            let response = htmxology::SubcontrollerExt::get_subcontroller::<#controller_type>(self)
+                                .handle_request(subroute, htmx.clone(), parts, server_info, sub_args)
+                                .await;
+                            #conversion_logic
+                        }
                     }
                 }
             });

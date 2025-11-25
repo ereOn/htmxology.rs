@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **BREAKING**: `convert_response` attribute functions now receive all `handle_request` parameters (Issue #28)
+  - Previously: `fn convert_response(htmx: &Request, response: Response) -> Response`
+  - Now: `fn convert_response(htmx: &Request, parts: &Parts, server_info: &ServerInfo, args: &Args, response: Response) -> Response`
+  - This allows response conversion functions to access request metadata and controller arguments
+  - Values are cloned before being passed to `convert_response` to avoid move conflicts
+
 ## [0.24.0] - 2025-11-13
 
 ### Changed
