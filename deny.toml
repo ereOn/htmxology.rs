@@ -11,11 +11,7 @@ version = 2
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
 yanked = "warn"
-ignore = [
-    # fxhash is unmaintained but it's a transitive dependency from scraper
-    # The functionality is simple (hashing) and stable, so the risk is low
-    "RUSTSEC-2025-0057",
-]
+ignore = []
 
 [licenses]
 # Only allow permissive licenses that can be used in closed-source commercial software
