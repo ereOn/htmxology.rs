@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.0] - 2025-12-15
+
+### Changed
+- **BREAKING**: `convert_response` attribute functions now receive `&self` as the first parameter (Issue #32)
+  - Previously: `fn convert_response(htmx: &Request, parts: &Parts, server_info: &ServerInfo, args: &Args, response: Response) -> Response`
+  - Now: `fn convert_response(&self, htmx: &Request, parts: &Parts, server_info: &ServerInfo, args: &Args, response: Response) -> Response`
+  - This allows response conversion functions to access controller state and methods
+  - Migration: Add `&self` as the first parameter to all `convert_response` functions
+- **Updated dependencies** (Issue #30)
+  - `axum-extra` 0.10 -> 0.12
+  - `convert_case` 0.8 -> 0.10
+  - `netdev` 0.38 -> 0.39
+  - `scraper` 0.22 -> 0.25
+
+### Fixed
+- Fixed "license expression was not specified in manifest" warning by using `license = "MIT"` instead of `license-file`
+
 ## [0.25.0] - 2025-11-24
 
 ### Changed

@@ -47,7 +47,12 @@
       "Bash(just --show build:*)",
       "Bash(just --show check:*)",
       "Bash(grep:*)",
-      "Bash(xargs:*)"
+      "Bash(xargs:*)",
+      "Bash(gh issue list:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(cargo update:*)",
+      "Bash(find:*)",
+      "WebSearch"
     ],
     "deny": [],
     "ask": []

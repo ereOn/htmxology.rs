@@ -87,6 +87,7 @@ mod controller {
     impl MainController {
         #[expect(clippy::result_large_err)]
         fn convert_plain_response(
+            &self,
             _htmx: &htmxology::htmx::Request,
             _parts: &http::request::Parts,
             _server_info: &htmxology::ServerInfo,

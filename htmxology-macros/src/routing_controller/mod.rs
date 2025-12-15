@@ -109,8 +109,9 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
             let conversion_logic = if let Some(fn_expr) = convert_response_fn {
                 // Custom function specified - pass all handle_request parameters
                 // Note: parts_for_convert and args_for_convert will be cloned before handle_request is called
+                // The first parameter is &self to allow access to controller state
                 quote! {
-                    #fn_expr(&htmx, &parts_for_convert, server_info, &args_for_convert, response)
+                    #fn_expr(self, &htmx, &parts_for_convert, server_info, &args_for_convert, response)
                 }
             } else {
                 // Default: use Into trait

@@ -206,6 +206,7 @@ struct AppController {
 
 impl AppController {
     fn convert_blog_response(
+        &self,
         htmx: &htmx::Request,
         parts: &http::request::Parts,
         server_info: &ServerInfo,
@@ -213,7 +214,7 @@ impl AppController {
         response: BlogResponse,
     ) -> AppResponse {
         // Convert BlogResponse to AppResponse
-        // You have access to all request context: htmx headers, HTTP parts, server info, and controller args
+        // You have access to controller state via &self, plus all request context
         response
             .map(|r| r.into_response())
             .map_err(|e| e.into_response())
@@ -221,7 +222,7 @@ impl AppController {
 }
 ```
 
-**Note**: The `convert_response` function receives all parameters from `handle_request` by reference, allowing you to inspect request metadata and controller arguments during response conversion. The values are cloned before being passed to avoid move conflicts with the subcontroller's `handle_request` call.
+**Note**: The `convert_response` function receives `&self` as the first parameter for controller state access, plus all parameters from `handle_request` by reference, allowing you to inspect request metadata and controller arguments during response conversion. The values are cloned before being passed to avoid move conflicts with the subcontroller's `handle_request` call.
 
 The `RoutingController` macro automatically generates `HasSubcontroller` implementations with identity conversion (when both parent and child use `Result<axum::Response, axum::Response>`).
 
