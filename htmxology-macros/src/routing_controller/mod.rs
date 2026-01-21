@@ -31,11 +31,27 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let mut handle_request_variants = Vec::new();
 
     let mut controller_spec: Option<ControllerSpec> = None;
+    let mut default_subcontroller_route: Option<Ident> = None;
 
     // Let's iterate over the top-level `subcontroller` attributes.
     for attr in &input.attrs {
         if attr.path().is_ident(SUBCONTROLLER) {
             let spec: SubcontrollerSpec = attr.parse_args()?;
+
+            // Check for multiple default subcontrollers (without `path`)
+            if spec.path.is_none() {
+                if let Some(ref existing) = default_subcontroller_route {
+                    return Err(syn::Error::new_spanned(
+                        &spec.route_variant,
+                        format!(
+                            "only one default subcontroller (without `path`) is allowed; \
+                             `{}` is already defined as the default",
+                            existing
+                        ),
+                    ));
+                }
+                default_subcontroller_route = Some(spec.route_variant.clone());
+            }
 
             as_subcontroller_impls.push((spec.as_subcontroller_impl_fn)(root_ident));
 
@@ -932,5 +948,27 @@ mod snapshot_tests {
             }
         "#;
         assert_snapshot!(test_routing_controller(input));
+    }
+
+    #[test]
+    fn multiple_default_subcontrollers_error() {
+        let input = r#"
+            #[controller(AppRoute)]
+            #[subcontroller(FallbackA, route = FallbackA)]
+            #[subcontroller(FallbackB, route = FallbackB)]
+            struct AppController {
+                fallback_a: FallbackA,
+                fallback_b: FallbackB,
+            }
+        "#;
+        let mut parsed: syn::DeriveInput = syn::parse_str(input).expect("Failed to parse input");
+        let result = derive(&mut parsed);
+        assert!(result.is_err(), "Expected error for multiple default subcontrollers");
+        let error_message = result.unwrap_err().to_string();
+        assert!(
+            error_message.contains("only one default subcontroller"),
+            "Expected error about multiple default subcontrollers, got: {}",
+            error_message
+        );
     }
 }
