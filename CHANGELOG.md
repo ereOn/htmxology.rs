@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.26.1] - 2026-01-21
+
+### Added
+- **Validation for multiple default subcontrollers**: The `RoutingController` macro now emits a compile-time error if more than one `#[subcontroller(...)]` attribute omits the `path` argument
+  - Previously, multiple catch-all subcontrollers would silently compile but only one would be used, leading to confusing behavior
+  - Now provides a clear error message indicating which route variant was already defined as the default
+
 ## [0.26.0] - 2025-12-15
 
 ### Changed

@@ -963,7 +963,10 @@ mod snapshot_tests {
         "#;
         let mut parsed: syn::DeriveInput = syn::parse_str(input).expect("Failed to parse input");
         let result = derive(&mut parsed);
-        assert!(result.is_err(), "Expected error for multiple default subcontrollers");
+        assert!(
+            result.is_err(),
+            "Expected error for multiple default subcontrollers"
+        );
         let error_message = result.unwrap_err().to_string();
         assert!(
             error_message.contains("only one default subcontroller"),
