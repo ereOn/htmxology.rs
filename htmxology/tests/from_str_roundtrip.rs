@@ -1,5 +1,7 @@
 //! Test that FromStr can parse Display output for all GET route variants
 
+#![cfg(feature = "derive")]
+
 use htmxology::Route;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;

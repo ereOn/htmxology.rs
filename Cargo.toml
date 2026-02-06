@@ -18,7 +18,7 @@ anyhow = "1"
 askama = { version = "0.15" }
 axum = { version = "0.8", features = ["tokio"]}
 axum-extra = { version = "0.12", features = ["form"] }
-convert_case = "0.10"
+convert_case = "0.11"
 itertools = "0.14"
 listenfd = "1"
 hex = "0.4"
