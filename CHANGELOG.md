@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Updated `netdev` dependency from 0.40 to 0.41
+- Updated `scraper` dependency from 0.25 to 0.26
+
+### Added
+- Claude Code skills for commit and release workflows
+
 ## [0.26.2] - 2026-02-06
 
 ### Changed

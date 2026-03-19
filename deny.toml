@@ -56,11 +56,7 @@ external-default-features = "allow"
 allow = []
 deny = []
 
-# Skip duplicate version checking for these crates
-# windows-sys: Different versions pulled in by tokio ecosystem dependencies
-skip = [
-    { name = "windows-sys" },
-]
+skip = []
 skip-tree = []
 
 [sources]
