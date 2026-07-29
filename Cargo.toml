@@ -15,16 +15,16 @@ htmxology = { path = "./htmxology" }
 htmxology-macros = { path = "./htmxology-macros", version = "0.26.3" }
 
 anyhow = "1"
-askama = { version = "0.15" }
+askama = { version = "0.16" }
 axum = { version = "0.8", features = ["tokio"]}
 axum-extra = { version = "0.12", features = ["form"] }
 convert_case = "0.11"
-itertools = "0.14"
+itertools = "0.15"
 listenfd = "1"
 hex = "0.4"
 http = "1"
-md-5 = "0.10"
-netdev = "0.41"
+md-5 = "0.11"
+netdev = "0.45"
 proc-macro2 = "1"
 quote = "1"
 percent-encoding = "2"
@@ -32,12 +32,12 @@ regex = "1"
 serde = { version ="1", features = ["derive"] }
 serde_json = "1"
 serde_html_form = "0.4"
-syn = { version = "2", features = ["full"] }
+syn = { version = "3", features = ["full"] }
 thiserror = "2"
 insta = { version = "1", features = ["yaml"] }
-prettyplease = "0.2"
+prettyplease = "0.3"
 tokio = { version = "1", features = ["macros"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3" }
 uuid = { version = "1", features = ["v4"] }
-scraper = "0.26"
+scraper = "0.27"

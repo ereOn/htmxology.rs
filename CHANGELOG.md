@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Updated `askama` dependency from 0.15 to 0.16
+- Updated `itertools` dependency from 0.14 to 0.15
+- Updated `md-5` dependency from 0.10 to 0.11
+- Updated `netdev` dependency from 0.41 to 0.45
+- Updated `prettyplease` dependency from 0.2 to 0.3
+- Updated `scraper` dependency from 0.26 to 0.27
+- Updated `syn` dependency from 2 to 3
+- Adapted `RouteUrl` path and `Display` codegen to the struct-based `itertools::Position` API introduced in 0.15
+
 ## [0.26.3] - 2026-03-19
 
 ### Added

@@ -133,7 +133,13 @@ impl RouteUrl {
 
         for (position, segment) in segments {
             match (position, &segment) {
-                (Position::Last, RouteUrlSegment::Separator) => {
+                (
+                    Position {
+                        is_first: false,
+                        is_last: true,
+                    },
+                    RouteUrlSegment::Separator,
+                ) => {
                     result.push_str("(?P<subroute>/.*)");
                 }
                 (_, RouteUrlSegment::Separator) => result.push('/'),
@@ -367,7 +373,13 @@ impl Display for RouteUrl {
 
         for (position, segment) in segments {
             match (position, &segment) {
-                (Position::Last, RouteUrlSegment::Separator) => {}
+                (
+                    Position {
+                        is_first: false,
+                        is_last: true,
+                    },
+                    RouteUrlSegment::Separator,
+                ) => {}
                 (_, RouteUrlSegment::Separator) => f.write_str("/")?,
                 (_, RouteUrlSegment::Literal(s)) => f.write_str(s)?,
                 (_, RouteUrlSegment::Parameter { name }) => {
