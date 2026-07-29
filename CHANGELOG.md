@@ -7,8 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-07-29
+
 ### Changed
-- Updated `askama` dependency from 0.15 to 0.16
+- **Breaking**: Updated `askama` dependency from 0.15 to 0.16. Users of the `templating` feature must upgrade to `askama` 0.16, as `askama::Template` and `askama::Values` appear in the public `RenderIntoResponse` API.
 - Updated `itertools` dependency from 0.14 to 0.15
 - Updated `md-5` dependency from 0.10 to 0.11
 - Updated `netdev` dependency from 0.41 to 0.45
