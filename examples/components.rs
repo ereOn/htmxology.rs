@@ -47,6 +47,27 @@ mod controller {
     use htmxology::{Route, RoutingController, ServerInfo};
     use tokio::sync::RwLock;
 
+    /// Escape a string for safe inclusion in HTML text or a double-quoted attribute.
+    ///
+    /// This example builds HTML with `format!` for brevity; real applications should use a
+    /// template engine (see the `blocks` example) which escapes automatically.
+    fn html_escape(s: &str) -> String {
+        let mut escaped = String::with_capacity(s.len());
+
+        for c in s.chars() {
+            match c {
+                '&' => escaped.push_str("&amp;"),
+                '<' => escaped.push_str("&lt;"),
+                '>' => escaped.push_str("&gt;"),
+                '"' => escaped.push_str("&quot;"),
+                '\'' => escaped.push_str("&#39;"),
+                c => escaped.push(c),
+            }
+        }
+
+        escaped
+    }
+
     /// User session that flows through the controller hierarchy.
     /// This represents request-scoped state that can be accessed and modified
     /// by any controller in the hierarchy.
@@ -197,8 +218,12 @@ mod controller {
         ) -> Result<axum::response::Response, axum::response::Response> {
             let session = session.read().await;
 
+            // `message` comes straight from the URL: it MUST be escaped before being embedded in
+            // HTML. Templates (e.g. askama) do this for you; hand-written `format!` does not.
+            let message = html_escape(message);
+
             Ok((
-                [(http::header::CONTENT_TYPE, "text/html")],
+                [(http::header::CONTENT_TYPE, "text/html; charset=utf-8")],
                 format!(
                     "<p>Message echoed: {message}</p><p>Visit count: {}</p>",
                     session.visit_count
@@ -366,14 +391,16 @@ mod controller {
         ) -> Self::Response {
             // Path parameters AND session are passed through Args!
             let user_id = args.user_id;
-            let post_id = &args.post_id;
             let session = args.session.read().await;
 
             let base_route = AppRoute::UserPost {
                 user_id,
-                post_id: post_id.clone(),
+                post_id: args.post_id.clone(),
                 subroute: UserPostRoute::Index,
             };
+
+            // `post_id` comes straight from the URL: escape it before embedding it in HTML.
+            let post_id = html_escape(&args.post_id);
 
             match route {
                 UserPostRoute::Index => Ok((

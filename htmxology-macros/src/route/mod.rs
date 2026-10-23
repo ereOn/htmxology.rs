@@ -337,18 +337,15 @@ fn generate_subroute_from_str_handler(
                 let field_ident = &field.ident;
                 let ty = &field.ty;
                 quote! {
-                    let #field_ident: #ty = __captures
-                        .name(stringify!(#field_ident))
-                        .ok_or_else(|| htmxology::ParseError::MissingPathParam {
-                            param_name: stringify!(#field_ident).to_string(),
-                        })?
-                        .as_str()
-                        .parse::<#ty>()
-                        .map_err(|e| htmxology::ParseError::PathParamParse {
-                            param_name: stringify!(#field_ident).to_string(),
-                            value: __captures.name(stringify!(#field_ident)).unwrap().as_str().to_string(),
-                            error: e.to_string(),
-                        })?;
+                    let #field_ident: #ty = htmxology::parse_path_param(
+                        stringify!(#field_ident),
+                        __captures
+                            .name(stringify!(#field_ident))
+                            .ok_or_else(|| htmxology::ParseError::MissingPathParam {
+                                param_name: stringify!(#field_ident).to_string(),
+                            })?
+                            .as_str(),
+                    )?;
                 }
             })
             .collect();
@@ -362,18 +359,15 @@ fn generate_subroute_from_str_handler(
                 let ty = &field.ty;
                 let idx = i + 1;
                 quote! {
-                    let #field_ident: #ty = __captures
-                        .get(#idx)
-                        .ok_or_else(|| htmxology::ParseError::MissingPathParam {
-                            param_name: format!("arg{}", #idx),
-                        })?
-                        .as_str()
-                        .parse::<#ty>()
-                        .map_err(|e| htmxology::ParseError::PathParamParse {
-                            param_name: format!("arg{}", #idx),
-                            value: __captures.get(#idx).unwrap().as_str().to_string(),
-                            error: e.to_string(),
-                        })?;
+                    let #field_ident: #ty = htmxology::parse_path_param(
+                        &format!("arg{}", #idx),
+                        __captures
+                            .get(#idx)
+                            .ok_or_else(|| htmxology::ParseError::MissingPathParam {
+                                param_name: format!("arg{}", #idx),
+                            })?
+                            .as_str(),
+                    )?;
                 }
             })
             .collect();

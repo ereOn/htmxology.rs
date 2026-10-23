@@ -458,18 +458,15 @@ pub fn generate_from_str_parsing(config: &VariantConfig) -> TokenStream {
                 let ident = &field.ident;
                 let ty = &field.ty;
                 quote! {
-                    let #ident: #ty = __captures
-                        .name(stringify!(#ident))
-                        .ok_or_else(|| htmxology::ParseError::MissingPathParam {
-                            param_name: stringify!(#ident).to_string(),
-                        })?
-                        .as_str()
-                        .parse::<#ty>()
-                        .map_err(|e| htmxology::ParseError::PathParamParse {
-                            param_name: stringify!(#ident).to_string(),
-                            value: __captures.name(stringify!(#ident)).unwrap().as_str().to_string(),
-                            error: e.to_string(),
-                        })?;
+                    let #ident: #ty = htmxology::parse_path_param(
+                        stringify!(#ident),
+                        __captures
+                            .name(stringify!(#ident))
+                            .ok_or_else(|| htmxology::ParseError::MissingPathParam {
+                                param_name: stringify!(#ident).to_string(),
+                            })?
+                            .as_str(),
+                    )?;
                 }
             })
             .collect();
@@ -485,18 +482,15 @@ pub fn generate_from_str_parsing(config: &VariantConfig) -> TokenStream {
                 let ty = &field.ty;
                 let idx = i + 1; // Regex capture groups are 1-indexed
                 quote! {
-                    let #ident: #ty = __captures
-                        .get(#idx)
-                        .ok_or_else(|| htmxology::ParseError::MissingPathParam {
-                            param_name: format!("arg{}", #idx),
-                        })?
-                        .as_str()
-                        .parse::<#ty>()
-                        .map_err(|e| htmxology::ParseError::PathParamParse {
-                            param_name: format!("arg{}", #idx),
-                            value: __captures.get(#idx).unwrap().as_str().to_string(),
-                            error: e.to_string(),
-                        })?;
+                    let #ident: #ty = htmxology::parse_path_param(
+                        &format!("arg{}", #idx),
+                        __captures
+                            .get(#idx)
+                            .ok_or_else(|| htmxology::ParseError::MissingPathParam {
+                                param_name: format!("arg{}", #idx),
+                            })?
+                            .as_str(),
+                    )?;
                 }
             })
             .collect();

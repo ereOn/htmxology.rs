@@ -143,7 +143,7 @@ impl RouteUrl {
                     result.push_str("(?P<subroute>/.*)");
                 }
                 (_, RouteUrlSegment::Separator) => result.push('/'),
-                (_, RouteUrlSegment::Literal(s)) => result.push_str(s),
+                (_, RouteUrlSegment::Literal(s)) => push_regex_escaped(&mut result, s),
                 (_, RouteUrlSegment::Parameter { name }) => {
                     result.push_str("(?P<");
                     result.push_str(name);
@@ -209,7 +209,7 @@ impl RouteUrl {
                         )
                     })?;
 
-                    statements.push(quote! {#ident.fmt(f)?;});
+                    statements.push(quote! {htmxology::PathSegment(&#ident).fmt(f)?;});
                 }
             }
         }
@@ -252,7 +252,7 @@ impl RouteUrl {
                         )
                     })?;
 
-                    statements.push(quote! {#ident.fmt(f)?;});
+                    statements.push(quote! {htmxology::PathSegment(&#ident).fmt(f)?;});
                 }
             }
         }
@@ -394,6 +394,23 @@ impl Display for RouteUrl {
     }
 }
 
+/// Append a literal path segment to a regex, escaping any regex metacharacter.
+///
+/// Valid URL path characters include `.`, `+`, `*`, `$`, `(` and `)`, which would otherwise
+/// change the meaning of the generated route regex (or shift capture group indices).
+fn push_regex_escaped(result: &mut String, literal: &str) {
+    for c in literal.chars() {
+        if matches!(
+            c,
+            '\\' | '.' | '+' | '*' | '?' | '(' | ')' | '|' | '[' | ']' | '{' | '}' | '^' | '$'
+        ) {
+            result.push('\\');
+        }
+
+        result.push(c);
+    }
+}
+
 /// Returns whether a character is a valid URL path character.
 ///
 /// Valid URL path characters, as per
@@ -437,6 +454,24 @@ mod tests {
             u.to_path_regex(),
             "^/user/(?P<uid>[^/]+)/comment/(?P<cid>[^/]+)$"
         );
+    }
+
+    #[test]
+    fn test_literal_regex_escaping() {
+        let u: RouteUrl = "files/data.json".parse().unwrap();
+        assert_eq!(u.to_path_regex(), r"^/files/data\.json$");
+        let re = regex::Regex::new(&u.to_path_regex()).unwrap();
+        assert!(re.is_match("/files/data.json"));
+        assert!(!re.is_match("/files/dataXjson"));
+
+        // Parentheses in a literal must not create capture groups that would shift the
+        // positional capture indices used by unnamed path parameters.
+        let u: RouteUrl = "a(b)+c*/{id}".parse().unwrap();
+        assert_eq!(u.to_path_regex(), r"^/a\(b\)\+c\*/(?P<id>[^/]+)$");
+        let re = regex::Regex::new(&u.to_path_regex()).unwrap();
+        let caps = re.captures("/a(b)+c*/42").unwrap();
+        assert_eq!(caps.get(1).unwrap().as_str(), "42");
+        assert!(!re.is_match("/abbbc/42"));
     }
 
     #[test]

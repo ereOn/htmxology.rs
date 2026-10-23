@@ -7,12 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- Out-of-band fragments: `inject_oob_attribute` re-emitted the root element's attribute values *decoded* and unescaped, undoing the escaping done by the template engine. A correctly escaped `&quot;` in an attribute could break out of it and inject new attributes (e.g. `onmouseover=`). Attribute values and the `hx-swap-oob` target are now HTML-escaped on re-serialization.
+- Route `Display` (and therefore `as_htmx_attribute()`, `action_attribute()`, `to_absolute_url()` and `as_redirect_response()`) now percent-encodes path parameters. Previously a `String` path parameter containing `"`, `<`, `/`, `?`, `#` or control characters was written verbatim, which allowed attribute injection in `hx-*="..."` attributes, protocol-relative open redirects (`//evil.com`) and a panic in `as_redirect_response()` on CR/LF.
+- The `components` example reflected path parameters into HTML without escaping; it now escapes them and documents why.
+
 ### Changed
+- **Breaking**: `Route::from_str` now percent-decodes path parameters, matching `FromRequest`. Previously `"/items/a%20b".parse()` yielded `"a%20b"` while the same request yielded `"a b"`. Use the new `htmxology::parse_path_param` helper if you implement `FromStr` by hand; `htmxology::PathSegment` is the matching `Display` wrapper.
+- **Breaking**: `CacheControl` gained a `Bypass` variant. `Cache` now only validates/decorates `GET`/`HEAD` requests with a 2xx response and no `Set-Cookie` header; other responses pass through untouched.
+- `htmx::Response` now defaults to `Content-Type: text/html; charset=utf-8` (was `text/html`).
+- `cargo-deny` now denies yanked crates and unknown registries/git sources instead of warning.
+- Updated `convert_case` dependency from 0.11 to 0.12
 - Updated `convert_case` dependency from 0.11 to 0.12
 - Updated `netdev` dependency from 0.45 to 0.46
 - Updated `scraper` dependency from 0.27 to 0.29
 - Downgraded `md-5` dependency from 0.11 to 0.10 to share `digest` with `axum`'s `sha1` and avoid duplicate crates
 - Downgraded `serde_html_form` dependency from 0.4 to 0.2 to match `axum-extra` and avoid duplicate crates
+
+### Fixed
+- Route literals containing regex metacharacters (`.`, `+`, `*`, `(`, `)`, `$`, ...) are now escaped in the generated matcher: `#[route("data.json")]` no longer also matches `/dataXjson`, and parentheses no longer shift the capture indices of unnamed path parameters.
+- `Cache`: computed ETags are now quoted as required by RFC 9110; `If-None-Match` handles weak validators (`W/`) and `*`; a `304 Not Modified` keeps the `ETag`, `Cache-Control` and `Vary` headers instead of being an empty response; `Vary` is extended (now also with `hx-boosted` and `hx-current-url`) instead of overwriting a value set by the handler; responses larger than `max_body_size` or of unknown size are passed through instead of turning into a `500`.
+- `Route::to_absolute_url` no longer produces a `//` when the base URL has a trailing slash.
 
 ## [0.27.0] - 2026-07-29
 

@@ -24,7 +24,10 @@ pub use caching::{
     ControllerExt as CachingControllerExt,
 };
 pub use controller::{Controller, HasSubcontroller, SubcontrollerExt};
-pub use route::{ParseError, Route, RouteExt, decode_path_argument, replace_request_path};
+pub use route::{
+    ParseError, PathSegment, Route, RouteExt, decode_path_argument, parse_path_param,
+    replace_request_path,
+};
 #[cfg(feature = "auto-reload")]
 pub use server::auto_reload::get_or_bind_tcp_listener;
 pub use server::{

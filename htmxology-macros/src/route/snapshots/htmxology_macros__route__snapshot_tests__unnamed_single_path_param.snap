@@ -19,7 +19,7 @@ mod __test {
                     std::fmt::Write::write_char(f, '/')?;
                     f.write_str("users")?;
                     std::fmt::Write::write_char(f, '/')?;
-                    arg0.fmt(f)?;
+                    htmxology::PathSegment(&arg0).fmt(f)?;
                 }
             };
             Ok(())
@@ -37,18 +37,15 @@ mod __test {
                 };
                 if let Some(__captures) = RE.captures(__path) {
                     return Ok({
-                        let arg0: u32 = __captures
-                            .get(1usize)
-                            .ok_or_else(|| htmxology::ParseError::MissingPathParam {
-                                param_name: format!("arg{}", 1usize),
-                            })?
-                            .as_str()
-                            .parse::<u32>()
-                            .map_err(|e| htmxology::ParseError::PathParamParse {
-                                param_name: format!("arg{}", 1usize),
-                                value: __captures.get(1usize).unwrap().as_str().to_string(),
-                                error: e.to_string(),
-                            })?;
+                        let arg0: u32 = htmxology::parse_path_param(
+                            &format!("arg{}", 1usize),
+                            __captures
+                                .get(1usize)
+                                .ok_or_else(|| htmxology::ParseError::MissingPathParam {
+                                    param_name: format!("arg{}", 1usize),
+                                })?
+                                .as_str(),
+                        )?;
                         Self::User(arg0)
                     });
                 }

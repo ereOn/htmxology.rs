@@ -216,17 +216,24 @@ fn inject_oob_attribute(html: &str, strategy: &InsertStrategy, target: &str) -> 
             format!("{}:{}", strategy, target)
         };
 
-        // Get all attributes
+        // Get all attributes.
+        //
+        // The parser hands us *decoded* attribute values, so they must be re-escaped before being
+        // written back inside double quotes, otherwise a value that was correctly escaped in the
+        // template (e.g. `&quot;`) would be emitted raw and break out of the attribute.
         let mut attrs = Vec::new();
         for (name, value) in root.value().attrs() {
             // Skip existing hx-swap-oob attributes
             if name != "hx-swap-oob" {
-                attrs.push(format!("{}=\"{}\"", name, value));
+                attrs.push(format!("{}=\"{}\"", name, escape_attribute_value(value)));
             }
         }
 
         // Add the hx-swap-oob attribute
-        attrs.push(format!("hx-swap-oob=\"{}\"", oob_value));
+        attrs.push(format!(
+            "hx-swap-oob=\"{}\"",
+            escape_attribute_value(&oob_value)
+        ));
 
         // Reconstruct the element with the new attribute
         let attrs_str = attrs.join(" ");
@@ -243,9 +250,31 @@ fn inject_oob_attribute(html: &str, strategy: &InsertStrategy, target: &str) -> 
         let oob_value = format!("{}:{}", strategy, target);
         format!(
             "<template hx-swap-oob=\"{}\">{}</template>",
-            oob_value, html
+            escape_attribute_value(&oob_value),
+            html
         )
     }
+}
+
+/// Escape a string so that it can be safely embedded in a double-quoted HTML attribute value.
+fn escape_attribute_value(value: &str) -> Cow<'_, str> {
+    if !value.contains(['&', '"', '<', '>']) {
+        return Cow::Borrowed(value);
+    }
+
+    let mut escaped = String::with_capacity(value.len() + 8);
+
+    for c in value.chars() {
+        match c {
+            '&' => escaped.push_str("&amp;"),
+            '"' => escaped.push_str("&quot;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            c => escaped.push(c),
+        }
+    }
+
+    Cow::Owned(escaped)
 }
 
 /// Check if an HTML tag is a void element (self-closing).
@@ -274,7 +303,7 @@ impl<T> Response<T> {
     pub fn new(body: T) -> Self {
         Self {
             body,
-            content_type: http::HeaderValue::from_static("text/html"),
+            content_type: http::HeaderValue::from_static("text/html; charset=utf-8"),
             htmx_retarget: None,
             extra_headers: http::HeaderMap::new(),
             oob_elements: vec![],
@@ -1115,6 +1144,47 @@ mod tests {
         assert!(
             result.contains(r#"hx-swap-oob="true""#),
             "hx-swap-oob attribute should be added"
+        );
+    }
+
+    #[test]
+    fn test_inject_oob_attribute_escapes_attribute_values() {
+        // A template that correctly escaped user input must not have that escaping undone when
+        // the root element is re-serialized with the `hx-swap-oob` attribute.
+        let html = r#"<div id="test" title="&quot; onmouseover=&quot;alert(1)" data-x="a &amp; b &lt;c&gt;">Content</div>"#;
+        let result = inject_oob_attribute(html, &InsertStrategy::OuterHtml, "#test");
+
+        // Attribute order is not preserved by the parser, so check each attribute separately.
+        for expected in [
+            r#"id="test""#,
+            r#"title="&quot; onmouseover=&quot;alert(1)""#,
+            r#"data-x="a &amp; b &lt;c&gt;""#,
+            r#"hx-swap-oob="true""#,
+        ] {
+            assert!(
+                result.contains(expected),
+                "missing `{expected}` in: {result}"
+            );
+        }
+        assert!(!result.contains(r#"onmouseover="alert"#), "got: {result}");
+    }
+
+    #[test]
+    fn test_inject_oob_attribute_escapes_target() {
+        let html = r#"<div>Content</div>"#;
+        let result = inject_oob_attribute(html, &InsertStrategy::InnerHtml, r#"[data-x="1"]"#);
+
+        assert_eq!(
+            result,
+            r#"<div hx-swap-oob="innerHTML:[data-x=&quot;1&quot;]">Content</div>"#
+        );
+
+        let html = r#"<div>First</div><div>Second</div>"#;
+        let result = inject_oob_attribute(html, &InsertStrategy::InnerHtml, r#"[data-x="1"]"#);
+
+        assert_eq!(
+            result,
+            r#"<template hx-swap-oob="innerHTML:[data-x=&quot;1&quot;]"><div>First</div><div>Second</div></template>"#
         );
     }
 

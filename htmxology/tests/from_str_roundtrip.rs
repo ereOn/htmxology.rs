@@ -174,7 +174,7 @@ fn test_special_characters_in_path_params() {
         Item { name: String },
     }
 
-    // Test with simple string (path params are not URL-encoded by Display)
+    // Test with simple string
     let item = ItemRoute::Item {
         name: "widget".to_string(),
     };
@@ -184,4 +184,27 @@ fn test_special_characters_in_path_params() {
     // FromStr should be able to parse it back
     let parsed = ItemRoute::from_str(&item_str).unwrap();
     assert_eq!(parsed, item);
+
+    // Path parameters are percent-encoded by Display so that they can never span several
+    // segments, alter the query string, or break out of an HTML attribute...
+    let item = ItemRoute::Item {
+        name: r#"a/b?c#d e"f<g>&h"#.to_string(),
+    };
+    let item_str = item.to_string();
+    assert_eq!(item_str, "/items/a%2Fb%3Fc%23d%20e%22f%3Cg%3E%26h");
+    assert_eq!(
+        item.as_htmx_attribute(),
+        r#"hx-get="/items/a%2Fb%3Fc%23d%20e%22f%3Cg%3E%26h""#
+    );
+
+    // ...and FromStr percent-decodes them back, exactly like FromRequest does.
+    let parsed = ItemRoute::from_str(&item_str).unwrap();
+    assert_eq!(parsed, item);
+    let parsed = ItemRoute::from_str("/items/alpha%20beta").unwrap();
+    assert_eq!(
+        parsed,
+        ItemRoute::Item {
+            name: "alpha beta".to_string()
+        }
+    );
 }
