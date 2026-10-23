@@ -3,9 +3,9 @@ all: check
 build:
   cargo build --all-targets --all-features
 
-# Check licenses, security advisories, and dependency sources
+# Check licenses, security advisories, and dependency sources (with all features, like CI)
 deny:
-  cargo deny check
+  cargo deny --all-features check
 
 # Run all checks (build, format, tests, licenses)
 check: build deny

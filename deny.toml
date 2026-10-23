@@ -11,7 +11,12 @@ version = 2
 db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
 yanked = "deny"
-ignore = []
+ignore = [
+    # `basic-toml` is archived. It is only reached through `askama_derive` (the `templating`
+    # feature), where it parses `askama.toml` at compile time; no askama release without it
+    # exists yet. Revisit when askama moves off it.
+    { id = "RUSTSEC-2026-0374", reason = "unmaintained basic-toml, transitive via askama_derive" },
+]
 
 [licenses]
 # Only allow permissive licenses that can be used in closed-source commercial software
