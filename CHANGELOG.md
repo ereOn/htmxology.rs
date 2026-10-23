@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-10-22
+
 ### Security
 - Out-of-band fragments: `inject_oob_attribute` re-emitted the root element's attribute values *decoded* and unescaped, undoing the escaping done by the template engine. A correctly escaped `&quot;` in an attribute could break out of it and inject new attributes (e.g. `onmouseover=`). Attribute values and the `hx-swap-oob` target are now HTML-escaped on re-serialization.
 - Route `Display` (and therefore `as_htmx_attribute()`, `action_attribute()`, `to_absolute_url()` and `as_redirect_response()`) now percent-encodes path parameters. Previously a `String` path parameter containing `"`, `<`, `/`, `?`, `#` or control characters was written verbatim, which allowed attribute injection in `hx-*="..."` attributes, protocol-relative open redirects (`//evil.com`) and a panic in `as_redirect_response()` on CR/LF.
@@ -17,7 +19,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Breaking**: `CacheControl` gained a `Bypass` variant. `Cache` now only validates/decorates `GET`/`HEAD` requests with a 2xx response and no `Set-Cookie` header; other responses pass through untouched.
 - `htmx::Response` now defaults to `Content-Type: text/html; charset=utf-8` (was `text/html`).
 - `cargo-deny` now denies yanked crates and unknown registries/git sources instead of warning.
-- Updated `convert_case` dependency from 0.11 to 0.12
 - Updated `convert_case` dependency from 0.11 to 0.12
 - Updated `netdev` dependency from 0.45 to 0.46
 - Updated `scraper` dependency from 0.27 to 0.29
