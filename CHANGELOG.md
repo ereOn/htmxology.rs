@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Updated `convert_case` dependency from 0.11 to 0.12
+- Updated `netdev` dependency from 0.45 to 0.46
+- Updated `scraper` dependency from 0.27 to 0.29
+- Downgraded `md-5` dependency from 0.11 to 0.10 to share `digest` with `axum`'s `sha1` and avoid duplicate crates
+- Downgraded `serde_html_form` dependency from 0.4 to 0.2 to match `axum-extra` and avoid duplicate crates
+
 ## [0.27.0] - 2026-07-29
 
 ### Changed
