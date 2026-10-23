@@ -44,9 +44,7 @@ A complete application: a form on `/`, a `POST` that redirects, and a page with 
 ```rust,no_run
 use askama::Template;
 use axum::response::{Html, IntoResponse};
-use htmxology::{
-    Controller, ControllerRouter, RenderIntoResponse, Route, RouteExt, Server, ServerInfo, htmx,
-};
+use htmxology::{Controller, RenderIntoResponse, Route, RouteExt, Server, ServerInfo, htmx};
 
 /// Every route of the application, as one enum.
 #[derive(Debug, Clone, Route)]
@@ -122,16 +120,16 @@ impl Controller for AppController {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3000").await?;
-    let router = ControllerRouter::new(AppController, |_: &AppController| async {});
 
-    Server::builder(listener).build().serve(router).await?;
+    Server::builder(listener).build().serve(AppController).await?;
 
     Ok(())
 }
 ```
 
 Run it and open <http://127.0.0.1:3000/>. Requests that match no route get a `404`; a known
-path with the wrong method gets a `405`; a body or query that fails to deserialize gets a `400`.
+path with the wrong method gets a `405`; a path parameter or query that fails to parse gets a
+`400`, and a form body that fails to deserialize gets a `422`.
 
 ## Routes
 
@@ -358,6 +356,64 @@ let route = AppRoute::Profile {
 assert_eq!(route.to_string(), "/users/42/settings");
 ```
 
+A controller is served through a `ControllerRouter`, an Axum router whose fallback is the
+controller. Controllers with `Args = ()` (or any `Default` `Args`) convert into one directly;
+others need an args factory, called once per request. Anything else your application serves goes
+next to the controller, and `into_router` gives you a plain `axum::Router` for tests or for
+serving it yourself:
+
+```rust
+use axum::routing::get;
+use htmxology::{ControllerRouter, ServerInfo};
+# use htmxology::{Controller, Route, htmx};
+# #[derive(Debug, Clone, Route)]
+# enum AppRoute {
+#     #[route("")]
+#     Home,
+# }
+# #[derive(Debug, Clone)]
+# struct AppController {
+#     session: String,
+# }
+# impl Controller for AppController {
+#     type Route = AppRoute;
+#     type Args = String;
+#     type Response = Result<axum::response::Response, axum::response::Response>;
+#     async fn handle_request(
+#         &self,
+#         _route: AppRoute,
+#         _htmx: htmx::Request,
+#         _parts: http::request::Parts,
+#         _server_info: &ServerInfo,
+#         _args: String,
+#     ) -> Self::Response {
+#         Ok(axum::response::Html("ok").into_response())
+#     }
+# }
+# use axum::response::IntoResponse;
+# let controller = AppController { session: "s".to_owned() };
+
+async fn log_requests(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    println!("{} {}", request.method(), request.uri());
+    next.run(request).await
+}
+
+let router = ControllerRouter::new(controller, |c: &AppController| {
+    let session = c.session.clone();
+    async move { session }
+})
+.route("/health", get(|| async { "ok" }))
+.layer(axum::middleware::from_fn(log_requests));
+
+// `server.serve(router)` would do this with the base URL it determined.
+let _app: axum::Router = router.into_router(ServerInfo {
+    base_url: "https://example.com/".parse().unwrap(),
+});
+```
+
 `#[controller(...)]` also accepts `pre_handler = "Self::func"` (an async hook that runs before
 dispatch and can short-circuit with a response, for authentication or rate limiting) and
 `extra_derives = (PartialEq, Eq)` for the generated enum. `#[subcontroller(...)]` accepts
@@ -484,8 +540,7 @@ let controller = AppController.with_cache(
         .with_max_body_size(512 * 1024),
 );
 
-// A cached controller whose `Args` implement `Default` converts straight into a
-// `ControllerRouter`, so `server.serve(controller)` works without an args factory.
+// The wrapper is a controller like any other: `server.serve(controller)` works.
 let _router: htmxology::ControllerRouter = controller.into();
 ```
 
@@ -524,13 +579,13 @@ address) and shuts down gracefully on `ctrl-c`. Combined with a file watcher, th
 recompilations, so the browser never sees a connection refused:
 
 ```rust,no_run
-# use htmxology::{Controller, ControllerRouter, Route, ServerInfo, htmx};
+# use htmxology::{Controller, Route, ServerInfo, htmx};
 # #[derive(Debug, Clone, Route)]
 # enum AppRoute {
 #     #[route("")]
 #     Home,
 # }
-# #[derive(Debug, Clone)]
+# #[derive(Debug, Clone, Default)]
 # struct AppController;
 # impl Controller for AppController {
 #     type Route = AppRoute;
@@ -556,9 +611,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_options_from_env()?
         .build();
 
-    let router = ControllerRouter::new(AppController, |_: &AppController| async {});
-
-    server.serve(router).await?;
+    server.serve(AppController).await?;
 
     Ok(())
 }

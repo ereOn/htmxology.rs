@@ -1,4 +1,4 @@
-use std::{future::Future, net::SocketAddr, pin::Pin, sync::Arc};
+use std::{future::Future, net::SocketAddr, pin::Pin};
 
 #[cfg(feature = "auto-reload")]
 pub mod auto_reload;
@@ -6,7 +6,6 @@ pub mod auto_reload;
 mod controller_router;
 mod options;
 
-use axum::Router;
 pub use controller_router::ControllerRouter;
 pub use options::{ServerOptions, ServerOptionsFromEnvError};
 
@@ -138,32 +137,27 @@ impl Server {
         Ok(Self::builder(listener).with_ctrl_c_graceful_shutdown())
     }
 
-    /// Serve the specified controller router.
+    /// Serve a controller.
     ///
-    /// You must manually create a `ControllerRouter` using `ControllerRouter::new()`
-    /// with an appropriate args factory function.
+    /// Accepts anything that converts into a [`ControllerRouter`]: a controller whose `Args`
+    /// implement `Default`, or a `ControllerRouter` built with [`ControllerRouter::new`] (for an
+    /// args factory) and possibly extended with extra routes and middleware.
+    ///
+    /// The base URL from the server options (or guessed from the listener) is made available to
+    /// the controller as [`ServerInfo`].
     ///
     /// # Example
     ///
     /// ```rust,ignore
-    /// #[derive(RoutingController)]
-    /// #[controller(AppRoute, args = UserSession)]
-    /// struct AppController {
-    ///     session: Arc<RwLock<UserSession>>,
-    /// }
+    /// // `Args = ()`: the controller is enough.
+    /// server.serve(AppController::default()).await?;
     ///
-    /// let controller = AppController::new(session);
-    /// let router = ControllerRouter::new(controller, |c| async { c.session.clone() });
+    /// // Custom `Args`: provide the factory, add anything else you need.
+    /// let router = ControllerRouter::new(controller, |c| async { c.session.clone() })
+    ///     .route("/health", axum::routing::get(|| async { "ok" }));
     /// server.serve(router).await?;
     /// ```
     pub async fn serve(self, router: impl Into<ControllerRouter>) -> Result<(), ServeError> {
-        self.serve_with_router(router.into()).await
-    }
-
-    /// Serve the specified controller router.
-    ///
-    /// Use this method to add custom routes to the server before serving it.
-    pub async fn serve_with_router(self, router: ControllerRouter) -> Result<(), ServeError> {
         let local_addr = self.listener.local_addr().map_err(ServeError::LocalAddr)?;
 
         tracing::info!("HTMX SSR server listening on TCP/{local_addr}.");
@@ -173,15 +167,9 @@ impl Server {
             None => Self::guess_base_url(local_addr),
         };
 
-        let server_info = Arc::new(ServerInfo { base_url });
+        tracing::info!("Now serving HTMX SSR server at `{base_url}`...");
 
-        tracing::info!(
-            "Now serving HTMX SSR server at `{}`...",
-            server_info.base_url
-        );
-
-        let router: Router = router.into();
-        let router = router.layer(axum::extract::Extension(server_info));
+        let router = router.into().into_router(ServerInfo { base_url });
 
         let serve = axum::serve(self.listener, router);
 

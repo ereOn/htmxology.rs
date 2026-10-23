@@ -7,7 +7,60 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `ControllerRouter` can be extended without `unsafe`: `route`, `route_service`, `nest`,
+  `nest_service`, `merge`, `layer`, `route_layer` mirror the `axum::Router` methods, and
+  `map_router` gives access to any other one. Added routes take precedence over the controller.
+- `ControllerRouter::into_router(server_info)` turns the router into a plain `axum::Router` with
+  `ServerInfo` installed, for use with `axum::serve`, inside another Axum application, or in tests
+  with `tower::ServiceExt::oneshot`.
+- Any controller whose `Response` is `Result<axum::response::Response, axum::response::Response>`
+  and whose `Args` implement `Default` now converts into a `ControllerRouter` with `From`, so
+  `server.serve(controller)` works without an args factory for `Args = ()`. (This generalizes the
+  conversion that previously existed only for `CachingController`.)
+- End-to-end tests of the request path (`htmxology/tests/controller_router.rs`): `404` for
+  unknown paths, `405` for a wrong method, `400` for an invalid path parameter, `422` for an
+  invalid form body, `ServerInfo` injection, extra routes and layers next to the controller.
+
 ### Changed
+- **BREAKING**: `ControllerRouter` can no longer be turned into an `axum::Router` without a
+  `ServerInfo`. `From<ControllerRouter> for axum::Router` and the `unsafe fn from_router` are
+  gone; `Server::serve_with_router` is gone too (it was `serve` without the `Into`). The
+  `ControllerRouter::default()` constructor, which produced a router without a controller, is
+  also gone. Previously, a router obtained outside `Server::serve` panicked on its first request
+  because `ServerInfo` was only injected there; the panic is now unreachable by construction
+  (and, should the extension still be missing, the fallback answers `500` instead of panicking).
+
+  Migration:
+  ```rust
+  // Before: extending the router meant round-tripping through `axum::Router` with `unsafe`.
+  let router = ControllerRouter::new(controller, args_factory);
+  let router = axum::Router::from(router)
+      .route("/health", get(health))
+      .layer(TraceLayer::new_for_http());
+  let router = unsafe { ControllerRouter::from_router(router) };
+  server.serve_with_router(router).await?;
+
+  // After: build on the `ControllerRouter` directly.
+  let router = ControllerRouter::new(controller, args_factory)
+      .route("/health", get(health))
+      .layer(TraceLayer::new_for_http());
+  server.serve(router).await?;
+
+  // Before: serving with `axum::serve` or driving the router in tests panicked
+  // ("server info was not found in request extensions").
+  let app: axum::Router = router.into();
+
+  // After: say which base URL the controller should see.
+  let app = router.into_router(ServerInfo { base_url: "https://example.com/".parse()? });
+  axum::serve(listener, app).await?;
+
+  // Before: controllers with `Args = ()` still needed an empty args factory.
+  server.serve(ControllerRouter::new(AppController, |_| async {})).await?;
+
+  // After:
+  server.serve(AppController).await?;
+  ```
 - Rewrote the README for the current API: quick start, routes, controller composition, HTMX
   helpers, templates, caching, development server and feature flags. The crate README is now
   the project README (shared with crates.io and docs.rs), and it is included as the crate-level
