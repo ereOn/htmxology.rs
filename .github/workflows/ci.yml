@@ -67,7 +67,8 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.features }}
+          # Cache keys cannot contain commas, so the feature list cannot be used directly.
+          key: features-${{ strategy.job-index }}
       # `--all-targets` also compiles the integration tests, which must gate themselves on the
       # features they need; examples are skipped automatically when their `required-features`
       # are not all enabled.
