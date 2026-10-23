@@ -1,5 +1,6 @@
 # HTMXOLOGY
 
+[![CI](https://github.com/ereOn/htmxology.rs/actions/workflows/ci.yml/badge.svg)](https://github.com/ereOn/htmxology.rs/actions/workflows/ci.yml)
 [![Crates.io](https://img.shields.io/crates/v/htmxology.svg)](https://crates.io/crates/htmxology)
 [![Documentation](https://docs.rs/htmxology/badge.svg)](https://docs.rs/htmxology)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/ereOn/htmxology.rs/blob/main/LICENSE-MIT)

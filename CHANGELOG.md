@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- GitHub Actions CI (`.github/workflows/ci.yml`): formatting, clippy and rustdoc with warnings
+  denied, build and tests with all features, `cargo check` across feature combinations, and
+  `cargo deny`. Dependabot keeps the actions and the Cargo manifests current.
 - `#[body("application/json")]` deserializes the request body with `axum::Json`. Plain `#[body]`
   and `#[body("application/x-www-form-urlencoded")]` keep using `axum_extra::extract::Form`.
   Any other content type is now a compile error instead of being silently treated as a form.
@@ -71,6 +74,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - docs.rs now builds the documentation with all features enabled.
 
 ### Fixed
+- The `auto-reload` feature did not compile on its own: `with_ctrl_c_graceful_shutdown` uses
+  `tokio::signal`, but the feature only enabled `tokio/net`. It now also enables `tokio/signal`.
+  (Found by the new feature-combination CI job.)
 - The derive macros no longer require consumers to depend on the crates their generated code
   uses. Generated code used to name `axum`, `axum_extra`, `http`, `regex` and `serde_html_form`
   by bare path, so a crate using `#[derive(Route)]` had to add `regex`, `serde_html_form` and

@@ -119,6 +119,7 @@ impl<R: Route> Cache<R> {
     /// If the provided response already contains a `Cache-Control` header, it will be left
     /// untouched. `Vary` is extended (not replaced) with the HTMX request headers that may affect
     /// the rendered output.
+    #[expect(clippy::result_large_err)]
     pub async fn check_cache_control(
         &self,
         cache_control: CacheControl,

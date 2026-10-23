@@ -184,6 +184,7 @@ mod controller {
     }
 
     impl DelegatedController {
+        #[expect(clippy::result_large_err)]
         async fn handle_home_request(
             &self,
             _htmx: HtmxRequest,
@@ -218,13 +219,14 @@ mod controller {
                 .into_response())
         }
 
+        #[expect(clippy::result_large_err)]
         async fn handle_echo_request(
             &self,
             _htmx: HtmxRequest,
             _parts: http::request::Parts,
             _server_info: &ServerInfo,
             session: UserSession,
-            message: &String,
+            message: &str,
         ) -> Result<axum::response::Response, axum::response::Response> {
             let session = session.read().await;
 

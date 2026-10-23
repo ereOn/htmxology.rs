@@ -18,7 +18,7 @@ all-features = true
 [features]
 default = []
 full = ["auto-reload", "interfaces", "ws", "derive", "templating"]
-auto-reload = ["dep:listenfd", "tokio/net"]
+auto-reload = ["dep:listenfd", "tokio/net", "tokio/signal"]
 interfaces = ["dep:netdev"]
 ws = ["axum/ws", "dep:uuid"]
 derive = ["dep:htmxology-macros", "dep:serde_html_form", "dep:regex", "dep:axum-extra"]

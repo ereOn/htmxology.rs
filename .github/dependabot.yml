@@ -1,0 +1,13 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  # `Cargo.lock` is not committed, so this only proposes bumps that the version requirements in
+  # the manifests do not already allow (new major versions, or minors for 0.x crates).
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
