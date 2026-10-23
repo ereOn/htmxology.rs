@@ -552,15 +552,22 @@ impl<T> Response<T> {
 /// Render the value of an `HX-Trigger*` header.
 ///
 /// Events without a detail are rendered as a comma-separated list of names, which is the simplest
-/// form HTMX accepts. As soon as one event carries a detail, the whole header becomes a JSON
-/// object mapping event names to details, with non-ASCII characters escaped so that the result is
-/// always a valid header value.
-///
-/// # Panics
-///
-/// If an event name contains characters that are not allowed in an HTTP header value.
+/// form HTMX accepts. As soon as one event carries a detail, or one event name contains a
+/// character outside `[A-Za-z0-9_:.-]` (so that it could be mistaken for a separator or for the
+/// start of a JSON object), the whole header becomes a JSON object mapping event names to
+/// details, with non-ASCII characters escaped so that the result is always a valid header value.
 fn trigger_header_value(triggers: &[(String, serde_json::Value)]) -> http::HeaderValue {
-    let value = if triggers.iter().all(|(_, detail)| detail.is_null()) {
+    fn is_plain_event_name(name: &str) -> bool {
+        !name.is_empty()
+            && name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | ':' | '.' | '-'))
+    }
+
+    let value = if triggers
+        .iter()
+        .all(|(name, detail)| detail.is_null() && is_plain_event_name(name))
+    {
         triggers
             .iter()
             .map(|(name, _)| name.as_str())
@@ -575,7 +582,7 @@ fn trigger_header_value(triggers: &[(String, serde_json::Value)]) -> http::Heade
         escape_non_ascii(&serde_json::Value::Object(object).to_string())
     };
 
-    http::HeaderValue::from_str(&value).expect("invalid event name in HX-Trigger header")
+    http::HeaderValue::from_str(&value).expect("trigger header values are always visible ASCII")
 }
 
 /// Escape every non-ASCII character of a JSON document as `\uXXXX`.
@@ -1624,6 +1631,34 @@ mod tests {
         );
         assert_eq!(headers["hx-trigger-after-swap"], r#"{"count":3}"#);
         assert!(headers.get("hx-trigger-after-settle").is_none());
+    }
+
+    #[test]
+    fn test_trigger_names_with_special_characters_use_the_json_form() {
+        use axum::response::IntoResponse;
+
+        // A comma or a leading brace in a name must not be able to inject events or switch HTMX
+        // into JSON parsing of a list: such names force the JSON form, where they are escaped.
+        for name in ["saved, injected", "{\"evil\":1}", "with space", ""] {
+            let response = Response::new("body")
+                .with_trigger("plain")
+                .with_trigger(name)
+                .into_response();
+
+            let value = response.headers()["hx-trigger"].to_str().unwrap();
+            let decoded: serde_json::Value = serde_json::from_str(value).unwrap();
+            let object = decoded.as_object().unwrap();
+
+            assert_eq!(object.len(), 2, "{value}");
+            assert!(object.contains_key("plain"));
+            assert!(object.contains_key(name), "{value}");
+        }
+
+        // Names made of letters, digits, `_`, `:`, `.` and `-` keep the list form.
+        let response = Response::new("body")
+            .with_trigger("ns:item.saved-ok_1")
+            .into_response();
+        assert_eq!(response.headers()["hx-trigger"], "ns:item.saved-ok_1");
     }
 
     #[test]
