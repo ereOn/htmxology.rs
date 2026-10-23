@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-10-23
+
 ### Added
 - `htmx::Response` covers the remaining HTMX response headers: `with_refresh` (`HX-Refresh`),
   `with_replace_url` / `without_replace_url` (`HX-Replace-Url`), `with_reswap` (`HX-Reswap`,
