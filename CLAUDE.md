@@ -252,7 +252,6 @@ Environment variables:
 
 - `auto-reload` - Development auto-reload using systemfd/listenfd
 - `interfaces` - Network interface detection for base URL guessing
-- `ws` - WebSocket support
 - `derive` - Enable derive macros (`Route`, `DisplayDelegate`, `RoutingController`)
 - `templating` - Askama template integration via `RenderIntoResponse`
 - `full` - Enables all features

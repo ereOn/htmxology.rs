@@ -17,10 +17,9 @@ all-features = true
 
 [features]
 default = []
-full = ["auto-reload", "interfaces", "ws", "derive", "templating"]
+full = ["auto-reload", "interfaces", "derive", "templating"]
 auto-reload = ["dep:listenfd", "tokio/net", "tokio/signal"]
 interfaces = ["dep:netdev"]
-ws = ["axum/ws", "dep:uuid"]
 derive = ["dep:htmxology-macros", "dep:serde_html_form", "dep:regex", "dep:axum-extra"]
 templating = ["dep:askama"]
 examples = ["tokio/full", "dep:tracing-subscriber", "dep:anyhow", "axum/macros", "dep:axum-extra", "dep:askama"]
@@ -67,4 +66,3 @@ tower-layer.workspace = true
 tower-service.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, optional = true }
-uuid = { workspace = true, optional = true }

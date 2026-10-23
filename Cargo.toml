@@ -42,5 +42,4 @@ tower-layer = "0.3"
 tower-service = "0.3"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3" }
-uuid = { version = "1", features = ["v4"] }
 scraper = "0.29"

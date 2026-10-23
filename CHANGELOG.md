@@ -101,6 +101,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `components` example: the "Save Changes" button on the edit-post page did nothing (the form had no `method`/`action`, its fields had no `name`, and no POST route existed — a browser submit was a GET back to the same page). Added a `UserPostRoute::Save` POST route with a form body, an in-memory post store shared through `MainController`, and a `303` redirect back to the post after saving.
 
 ### Removed
+- **BREAKING**: the `ws` feature. It only enabled Axum's `ws` feature and pulled in an unused
+  `uuid` dependency; no htmxology code was behind it. `full` no longer implies it.
+
+  Migration: if you enabled `htmxology/ws` for Axum's `WebSocketUpgrade`, enable Axum's own
+  feature instead:
+  ```toml
+  axum = { version = "0.8", features = ["ws"] }
+  ```
 - Orphaned `examples/templates/components/` askama templates (a todo-list UI) that no example referenced; the `components` example renders its HTML with `format!`.
 
 ## [0.28.0] - 2026-10-22

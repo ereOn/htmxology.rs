@@ -642,7 +642,6 @@ In production, build the server from your own `TcpListener` and pass a shutdown 
 | `templating` | `RenderIntoResponse` for Askama templates. |
 | `auto-reload` | `Server::builder_with_auto_reload` and `listenfd` socket inheritance. |
 | `interfaces` | Base URL guessing from network interfaces. |
-| `ws` | Axum's WebSocket support. HTMXOLOGY has no WebSocket helpers of its own yet. |
 | `full` | All of the above. |
 
 No feature is enabled by default.

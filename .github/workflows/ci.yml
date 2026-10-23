@@ -61,7 +61,6 @@ jobs:
           - derive,templating
           - auto-reload
           - interfaces
-          - ws
           - full
     steps:
       - uses: actions/checkout@v4
