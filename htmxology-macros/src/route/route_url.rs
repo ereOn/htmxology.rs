@@ -164,7 +164,7 @@ impl RouteUrl {
         for segment in &self.0 {
             match segment {
                 RouteUrlSegment::Separator => {
-                    statements.push(quote! {std::fmt::Write::write_char(f, '/')?;})
+                    statements.push(quote! {::std::fmt::Write::write_char(f, '/')?;})
                 }
                 RouteUrlSegment::Literal(s) => statements.push(quote! {f.write_str(#s)?;}),
                 RouteUrlSegment::Parameter { name } => {
@@ -198,7 +198,7 @@ impl RouteUrl {
         for element in &self.0 {
             match element {
                 RouteUrlSegment::Separator => {
-                    statements.push(quote! {std::fmt::Write::write_char(f, '/')?;})
+                    statements.push(quote! {::std::fmt::Write::write_char(f, '/')?;})
                 }
                 RouteUrlSegment::Literal(s) => statements.push(quote! {f.write_str(#s)?;}),
                 RouteUrlSegment::Parameter { name } => {
@@ -241,7 +241,7 @@ impl RouteUrl {
         for element in &self.0 {
             match element {
                 RouteUrlSegment::Separator => {
-                    statements.push(quote! {std::fmt::Write::write_char(f, '/')?;})
+                    statements.push(quote! {::std::fmt::Write::write_char(f, '/')?;})
                 }
                 RouteUrlSegment::Literal(s) => statements.push(quote! {f.write_str(#s)?;}),
                 RouteUrlSegment::Parameter { .. } => {

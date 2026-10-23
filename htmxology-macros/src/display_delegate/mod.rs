@@ -22,9 +22,9 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         .collect::<Vec<_>>();
 
     Ok(quote! {
-        impl<#root_generics_params> std::fmt::Display for #root_ident<#root_generics_params>
+        impl<#root_generics_params> ::std::fmt::Display for #root_ident<#root_generics_params>
             #root_where_clause {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 match self {
                     #(#cases)*
                 }

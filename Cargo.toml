@@ -1,5 +1,5 @@
 [workspace]
-members = ["htmxology", "htmxology-macros"]
+members = ["htmxology", "htmxology-macros", "tests/hygiene"]
 #default-members = ["htmxology"]
 resolver = "2"
 

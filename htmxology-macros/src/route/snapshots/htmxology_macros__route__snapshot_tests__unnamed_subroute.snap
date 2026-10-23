@@ -4,19 +4,18 @@ expression: test_route_derive(input)
 ---
 #[allow(unused)]
 mod __test {
-    use axum::response::IntoResponse as _;
     impl htmxology::Route for MyRoute {
-        fn method(&self) -> http::Method {
+        fn method(&self) -> htmxology::__private::http::Method {
             match self {
                 Self::Api(arg0) => arg0.method(),
             }
         }
     }
-    impl std::fmt::Display for MyRoute {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    impl ::std::fmt::Display for MyRoute {
+        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
             match self {
                 Self::Api(arg0) => {
-                    std::fmt::Write::write_char(f, '/')?;
+                    ::std::fmt::Write::write_char(f, '/')?;
                     f.write_str("api")?;
                     arg0.fmt(f)?;
                 }
@@ -24,12 +23,15 @@ mod __test {
             Ok(())
         }
     }
-    impl std::str::FromStr for MyRoute {
+    impl ::std::str::FromStr for MyRoute {
         type Err = htmxology::ParseError;
         fn from_str(__s: &str) -> Result<Self, Self::Err> {
             {
-                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
-                regex::Regex::new("^/api(?P<subroute>/.*)$").unwrap());
+                static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(||
+                {
+                    htmxology::__private::regex::Regex::new("^/api(?P<subroute>/.*)$")
+                        .unwrap()
+                });
                 let (__path, __query_str): (&str, &str) = match __s.split_once('?') {
                     Some((p, q)) => (p, q),
                     None => (__s, ""),
@@ -50,16 +52,22 @@ mod __test {
             })
         }
     }
-    impl<S: Send + Sync> axum::extract::FromRequest<S> for MyRoute {
-        type Rejection = axum::response::Response;
+    impl<S: Send + Sync> htmxology::__private::axum::extract::FromRequest<S>
+    for MyRoute {
+        type Rejection = htmxology::__private::axum::response::Response;
         async fn from_request(
-            __req: axum::extract::Request,
+            __req: htmxology::__private::axum::extract::Request,
             __state: &S,
         ) -> Result<Self, Self::Rejection> {
-            use axum::extract::FromRequestParts;
+            use htmxology::__private::axum::extract::FromRequest as _;
+            use htmxology::__private::axum::extract::FromRequestParts as _;
+            use htmxology::__private::axum::response::IntoResponse as _;
             {
-                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
-                regex::Regex::new("^/api(?P<subroute>/.*)$").unwrap());
+                static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(||
+                {
+                    htmxology::__private::regex::Regex::new("^/api(?P<subroute>/.*)$")
+                        .unwrap()
+                });
                 if let Some(__captures) = RE.captures(&__req.uri().path()) {
                     {
                         let __new_path = __captures["subroute"].to_owned();
@@ -69,7 +77,7 @@ mod __test {
                     }
                 }
             }
-            Err(http::StatusCode::NOT_FOUND.into_response())
+            Err(htmxology::__private::http::StatusCode::NOT_FOUND.into_response())
         }
     }
 }

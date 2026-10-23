@@ -42,7 +42,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     let mut sub_routes = BTreeMap::new();
     let mut get_only_routes = BTreeMap::new(); // For FromStr implementation
     let mut catch_all = quote! {
-        Err(http::StatusCode::NOT_FOUND.into_response())
+        Err(htmxology::__private::http::StatusCode::NOT_FOUND.into_response())
     };
     let mut catch_all_from_str: Option<proc_macro2::TokenStream> = None;
 
@@ -105,7 +105,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         let prefix = prefix.to_path_regex();
 
         parsing.push(quote! {{
-            static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| regex::Regex::new(#prefix).unwrap());
+            static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(|| htmxology::__private::regex::Regex::new(#prefix).unwrap());
 
             if let Some(__captures) = RE.captures(&__req.uri().path()) {
                 #handler
@@ -121,17 +121,17 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
             .map(|(method, handler)| {
                 let method = method.to_ident();
 
-                quote! {&http::Method::#method => Ok(#handler)}
+                quote! {&htmxology::__private::http::Method::#method => Ok(#handler)}
             })
             .collect();
 
         parsing.push(quote! {{
-            static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| regex::Regex::new(#url).unwrap());
+            static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(|| htmxology::__private::regex::Regex::new(#url).unwrap());
 
             if let Some(__captures) = RE.captures(&__req.uri().path()) {
                 return match __req.method() {
                     #(#local_methods),*,
-                    _ => Err(http::StatusCode::METHOD_NOT_ALLOWED.into_response()),
+                    _ => Err(htmxology::__private::http::StatusCode::METHOD_NOT_ALLOWED.into_response()),
                 };
             }
         }});
@@ -144,7 +144,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
         let url = url.to_path_regex();
 
         from_str_parsing.push(quote! {{
-            static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(|| regex::Regex::new(#url).unwrap());
+            static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(|| htmxology::__private::regex::Regex::new(#url).unwrap());
 
             // Split path and query string before matching regex
             let (__path, __query_str): (&str, &str) = match __s.split_once('?') {
@@ -172,18 +172,16 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     };
 
     Ok(quote! {
-        use axum::response::IntoResponse as _;
-
         impl htmxology::Route for #root_ident {
-            fn method(&self) -> http::Method {
+            fn method(&self) -> htmxology::__private::http::Method {
                 match self {
                     #(#methods),*
                 }
             }
         }
 
-        impl std::fmt::Display for #root_ident {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        impl ::std::fmt::Display for #root_ident {
+            fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
                 match self {
                     #(#to_urls),*
                 };
@@ -192,7 +190,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
             }
         }
 
-        impl std::str::FromStr for #root_ident {
+        impl ::std::str::FromStr for #root_ident {
             type Err = htmxology::ParseError;
 
             fn from_str(__s: &str) -> Result<Self, Self::Err> {
@@ -202,14 +200,16 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
             }
         }
 
-        impl<S: Send + Sync> axum::extract::FromRequest<S> for #root_ident {
-            type Rejection = axum::response::Response;
+        impl<S: Send + Sync> htmxology::__private::axum::extract::FromRequest<S> for #root_ident {
+            type Rejection = htmxology::__private::axum::response::Response;
 
             async fn from_request(
-                __req: axum::extract::Request,
+                __req: htmxology::__private::axum::extract::Request,
                 __state: &S,
             ) -> Result<Self, Self::Rejection> {
-                use axum::extract::FromRequestParts;
+                use htmxology::__private::axum::extract::FromRequest as _;
+                use htmxology::__private::axum::extract::FromRequestParts as _;
+                use htmxology::__private::axum::response::IntoResponse as _;
 
                 #(#parsing)*
 
@@ -301,7 +301,7 @@ fn generate_catch_all_handler(config: &VariantConfig) -> syn::Result<proc_macro2
         let ident = &config.ident;
 
         return Ok(quote! {{
-            <#field_ty as axum::extract::FromRequest<S>>::from_request(__req, __state)
+            <#field_ty as htmxology::__private::axum::extract::FromRequest<S>>::from_request(__req, __state)
                 .await
                 .map(Self::#ident)
         }});

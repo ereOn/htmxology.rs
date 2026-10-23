@@ -1,0 +1,21 @@
+[package]
+name = "htmxology-hygiene-tests"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+publish = false
+description = """
+Compiles the htmxology derive macros from a crate that depends on `htmxology` the way a consumer
+does: without `regex`, `serde_html_form`, `axum-extra` or any other crate the generated code uses
+internally. If this crate stops building, a macro leaked a bare crate path.
+"""
+
+[dependencies]
+# What a consumer implementing `Controller` has anyway.
+htmxology = { workspace = true, features = ["derive"] }
+axum.workspace = true
+http.workspace = true
+serde.workspace = true
+
+[lints.rust]
+unused_crate_dependencies = "deny"

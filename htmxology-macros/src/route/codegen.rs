@@ -261,13 +261,13 @@ fn generate_query_parsing(config: &VariantConfig) -> TokenStream {
         let ident = &query_field.ident;
         quote! {
             let (mut __parts, __body) = __req.into_parts();
-            let axum_extra::extract::Query(#ident) = axum_extra::extract::Query::from_request_parts(
+            let htmxology::__private::axum_extra::extract::Query(#ident) = htmxology::__private::axum_extra::extract::Query::from_request_parts(
                 &mut __parts,
                 __state
             )
             .await
             .map_err(|err| err.into_response())?;
-            let __req = http::Request::from_parts(__parts, __body);
+            let __req = htmxology::__private::http::Request::from_parts(__parts, __body);
         }
     } else {
         quote!()
@@ -288,8 +288,10 @@ fn generate_body_parsing(config: &VariantConfig) -> TokenStream {
             .expect("body param always has a body format");
 
         let extractor = match format {
-            super::config::BodyFormat::Form => quote!(axum_extra::extract::Form),
-            super::config::BodyFormat::Json => quote!(axum::Json),
+            super::config::BodyFormat::Form => {
+                quote!(htmxology::__private::axum_extra::extract::Form)
+            }
+            super::config::BodyFormat::Json => quote!(htmxology::__private::axum::Json),
         };
 
         quote! {
@@ -336,7 +338,7 @@ pub fn generate_method_match(config: &VariantConfig) -> TokenStream {
     match &config.route_type {
         RouteType::Simple { method } => {
             let method_ident = method.to_ident();
-            quote_spanned! { span => #pattern => http::Method::#method_ident }
+            quote_spanned! { span => #pattern => htmxology::__private::http::Method::#method_ident }
         }
         RouteType::SubRoute => {
             // For subroutes, delegate to the subroute's method
@@ -374,7 +376,7 @@ pub fn generate_method_match(config: &VariantConfig) -> TokenStream {
                 }
             } else {
                 // This shouldn't happen if validation worked
-                quote_spanned! { span => #pattern => http::Method::GET }
+                quote_spanned! { span => #pattern => htmxology::__private::http::Method::GET }
             }
         }
         RouteType::CatchAll => {
@@ -517,7 +519,7 @@ pub fn generate_from_str_parsing(config: &VariantConfig) -> TokenStream {
         let ident = &query_field.ident;
         let ty = &query_field.ty;
         quote! {
-            let #ident = serde_html_form::from_str::<#ty>(__query_str)
+            let #ident = htmxology::__private::serde_html_form::from_str::<#ty>(__query_str)
                 .map_err(|e| htmxology::ParseError::QueryStringParse {
                     error: e.to_string(),
                 })?;

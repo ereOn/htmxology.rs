@@ -22,7 +22,7 @@ mod __test {
             &self,
             route: Self::Route,
             htmx: htmxology::htmx::Request,
-            parts: http::request::Parts,
+            parts: htmxology::__private::http::request::Parts,
             server_info: &htmxology::ServerInfo,
             args: Self::Args,
         ) -> Self::Response {

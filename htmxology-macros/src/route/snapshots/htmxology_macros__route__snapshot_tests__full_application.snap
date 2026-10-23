@@ -4,54 +4,53 @@ expression: test_route_derive(input)
 ---
 #[allow(unused)]
 mod __test {
-    use axum::response::IntoResponse as _;
     impl htmxology::Route for AppRoute {
-        fn method(&self) -> http::Method {
+        fn method(&self) -> htmxology::__private::http::Method {
             match self {
-                Self::Home => http::Method::GET,
-                Self::UserProfile { .. } => http::Method::GET,
-                Self::Search { .. } => http::Method::GET,
-                Self::DeletePost { .. } => http::Method::DELETE,
-                Self::Login { .. } => http::Method::POST,
+                Self::Home => htmxology::__private::http::Method::GET,
+                Self::UserProfile { .. } => htmxology::__private::http::Method::GET,
+                Self::Search { .. } => htmxology::__private::http::Method::GET,
+                Self::DeletePost { .. } => htmxology::__private::http::Method::DELETE,
+                Self::Login { .. } => htmxology::__private::http::Method::POST,
                 Self::Admin { route, .. } => route.method(),
                 Self::NotFound(catch_all) => catch_all.method(),
             }
         }
     }
-    impl std::fmt::Display for AppRoute {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    impl ::std::fmt::Display for AppRoute {
+        fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
             match self {
                 Self::Home => {
-                    std::fmt::Write::write_char(f, '/')?;
+                    ::std::fmt::Write::write_char(f, '/')?;
                 }
                 Self::UserProfile { user_id } => {
-                    std::fmt::Write::write_char(f, '/')?;
+                    ::std::fmt::Write::write_char(f, '/')?;
                     f.write_str("users")?;
-                    std::fmt::Write::write_char(f, '/')?;
+                    ::std::fmt::Write::write_char(f, '/')?;
                     htmxology::PathSegment(&user_id).fmt(f)?;
                 }
                 Self::Search { q } => {
-                    std::fmt::Write::write_char(f, '/')?;
+                    ::std::fmt::Write::write_char(f, '/')?;
                     f.write_str("search")?;
-                    let qs = &serde_html_form::to_string(&q)
-                        .map_err(|_| std::fmt::Error)?;
+                    let qs = &htmxology::__private::serde_html_form::to_string(&q)
+                        .map_err(|_| ::std::fmt::Error)?;
                     if !qs.is_empty() {
-                        std::fmt::Write::write_char(f, '?')?;
+                        ::std::fmt::Write::write_char(f, '?')?;
                         f.write_str(&qs)?;
                     }
                 }
                 Self::DeletePost { post_id } => {
-                    std::fmt::Write::write_char(f, '/')?;
+                    ::std::fmt::Write::write_char(f, '/')?;
                     f.write_str("posts")?;
-                    std::fmt::Write::write_char(f, '/')?;
+                    ::std::fmt::Write::write_char(f, '/')?;
                     htmxology::PathSegment(&post_id).fmt(f)?;
                 }
                 Self::Login { credentials: _ } => {
-                    std::fmt::Write::write_char(f, '/')?;
+                    ::std::fmt::Write::write_char(f, '/')?;
                     f.write_str("login")?;
                 }
                 Self::Admin { route } => {
-                    std::fmt::Write::write_char(f, '/')?;
+                    ::std::fmt::Write::write_char(f, '/')?;
                     f.write_str("admin")?;
                     route.fmt(f)?;
                 }
@@ -60,12 +59,17 @@ mod __test {
             Ok(())
         }
     }
-    impl std::str::FromStr for AppRoute {
+    impl ::std::str::FromStr for AppRoute {
         type Err = htmxology::ParseError;
         fn from_str(__s: &str) -> Result<Self, Self::Err> {
             {
-                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
-                regex::Regex::new("^/users/(?P<user_id>[^/]+)$").unwrap());
+                static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(||
+                {
+                    htmxology::__private::regex::Regex::new(
+                            "^/users/(?P<user_id>[^/]+)$",
+                        )
+                        .unwrap()
+                });
                 let (__path, __query_str): (&str, &str) = match __s.split_once('?') {
                     Some((p, q)) => (p, q),
                     None => (__s, ""),
@@ -86,15 +90,17 @@ mod __test {
                 }
             }
             {
-                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
-                regex::Regex::new("^/search$").unwrap());
+                static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(||
+                htmxology::__private::regex::Regex::new("^/search$").unwrap());
                 let (__path, __query_str): (&str, &str) = match __s.split_once('?') {
                     Some((p, q)) => (p, q),
                     None => (__s, ""),
                 };
                 if let Some(__captures) = RE.captures(__path) {
                     return Ok({
-                        let q = serde_html_form::from_str::<String>(__query_str)
+                        let q = htmxology::__private::serde_html_form::from_str::<
+                            String,
+                        >(__query_str)
                             .map_err(|e| htmxology::ParseError::QueryStringParse {
                                 error: e.to_string(),
                             })?;
@@ -103,8 +109,11 @@ mod __test {
                 }
             }
             {
-                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
-                regex::Regex::new("^/admin(?P<subroute>/.*)$").unwrap());
+                static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(||
+                {
+                    htmxology::__private::regex::Regex::new("^/admin(?P<subroute>/.*)$")
+                        .unwrap()
+                });
                 let (__path, __query_str): (&str, &str) = match __s.split_once('?') {
                     Some((p, q)) => (p, q),
                     None => (__s, ""),
@@ -121,8 +130,8 @@ mod __test {
                 }
             }
             {
-                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
-                regex::Regex::new("^/$").unwrap());
+                static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(||
+                htmxology::__private::regex::Regex::new("^/$").unwrap());
                 let (__path, __query_str): (&str, &str) = match __s.split_once('?') {
                     Some((p, q)) => (p, q),
                     None => (__s, ""),
@@ -137,16 +146,22 @@ mod __test {
             })
         }
     }
-    impl<S: Send + Sync> axum::extract::FromRequest<S> for AppRoute {
-        type Rejection = axum::response::Response;
+    impl<S: Send + Sync> htmxology::__private::axum::extract::FromRequest<S>
+    for AppRoute {
+        type Rejection = htmxology::__private::axum::response::Response;
         async fn from_request(
-            __req: axum::extract::Request,
+            __req: htmxology::__private::axum::extract::Request,
             __state: &S,
         ) -> Result<Self, Self::Rejection> {
-            use axum::extract::FromRequestParts;
+            use htmxology::__private::axum::extract::FromRequest as _;
+            use htmxology::__private::axum::extract::FromRequestParts as _;
+            use htmxology::__private::axum::response::IntoResponse as _;
             {
-                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
-                regex::Regex::new("^/admin(?P<subroute>/.*)$").unwrap());
+                static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(||
+                {
+                    htmxology::__private::regex::Regex::new("^/admin(?P<subroute>/.*)$")
+                        .unwrap()
+                });
                 if let Some(__captures) = RE.captures(&__req.uri().path()) {
                     {
                         let __new_path = __captures["subroute"].to_owned();
@@ -157,11 +172,16 @@ mod __test {
                 }
             }
             {
-                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
-                regex::Regex::new("^/users/(?P<user_id>[^/]+)$").unwrap());
+                static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(||
+                {
+                    htmxology::__private::regex::Regex::new(
+                            "^/users/(?P<user_id>[^/]+)$",
+                        )
+                        .unwrap()
+                });
                 if let Some(__captures) = RE.captures(&__req.uri().path()) {
                     return match __req.method() {
-                        &http::Method::GET => {
+                        &htmxology::__private::http::Method::GET => {
                             Ok({
                                 let user_id = htmxology::decode_path_argument(
                                     stringify!(user_id),
@@ -170,38 +190,56 @@ mod __test {
                                 Self::UserProfile { user_id }
                             })
                         }
-                        _ => Err(http::StatusCode::METHOD_NOT_ALLOWED.into_response()),
+                        _ => {
+                            Err(
+                                htmxology::__private::http::StatusCode::METHOD_NOT_ALLOWED
+                                    .into_response(),
+                            )
+                        }
                     };
                 }
             }
             {
-                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
-                regex::Regex::new("^/search$").unwrap());
+                static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(||
+                htmxology::__private::regex::Regex::new("^/search$").unwrap());
                 if let Some(__captures) = RE.captures(&__req.uri().path()) {
                     return match __req.method() {
-                        &http::Method::GET => {
+                        &htmxology::__private::http::Method::GET => {
                             Ok({
                                 let (mut __parts, __body) = __req.into_parts();
-                                let axum_extra::extract::Query(q) = axum_extra::extract::Query::from_request_parts(
+                                let htmxology::__private::axum_extra::extract::Query(q) = htmxology::__private::axum_extra::extract::Query::from_request_parts(
                                         &mut __parts,
                                         __state,
                                     )
                                     .await
                                     .map_err(|err| err.into_response())?;
-                                let __req = http::Request::from_parts(__parts, __body);
+                                let __req = htmxology::__private::http::Request::from_parts(
+                                    __parts,
+                                    __body,
+                                );
                                 Self::Search { q }
                             })
                         }
-                        _ => Err(http::StatusCode::METHOD_NOT_ALLOWED.into_response()),
+                        _ => {
+                            Err(
+                                htmxology::__private::http::StatusCode::METHOD_NOT_ALLOWED
+                                    .into_response(),
+                            )
+                        }
                     };
                 }
             }
             {
-                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
-                regex::Regex::new("^/posts/(?P<post_id>[^/]+)$").unwrap());
+                static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(||
+                {
+                    htmxology::__private::regex::Regex::new(
+                            "^/posts/(?P<post_id>[^/]+)$",
+                        )
+                        .unwrap()
+                });
                 if let Some(__captures) = RE.captures(&__req.uri().path()) {
                     return match __req.method() {
-                        &http::Method::DELETE => {
+                        &htmxology::__private::http::Method::DELETE => {
                             Ok({
                                 let post_id = htmxology::decode_path_argument(
                                     stringify!(post_id),
@@ -210,18 +248,25 @@ mod __test {
                                 Self::DeletePost { post_id }
                             })
                         }
-                        _ => Err(http::StatusCode::METHOD_NOT_ALLOWED.into_response()),
+                        _ => {
+                            Err(
+                                htmxology::__private::http::StatusCode::METHOD_NOT_ALLOWED
+                                    .into_response(),
+                            )
+                        }
                     };
                 }
             }
             {
-                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
-                regex::Regex::new("^/login$").unwrap());
+                static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(||
+                htmxology::__private::regex::Regex::new("^/login$").unwrap());
                 if let Some(__captures) = RE.captures(&__req.uri().path()) {
                     return match __req.method() {
-                        &http::Method::POST => {
+                        &htmxology::__private::http::Method::POST => {
                             Ok({
-                                let axum_extra::extract::Form(credentials) = axum_extra::extract::Form::from_request(
+                                let htmxology::__private::axum_extra::extract::Form(
+                                    credentials,
+                                ) = htmxology::__private::axum_extra::extract::Form::from_request(
                                         __req,
                                         __state,
                                     )
@@ -230,22 +275,32 @@ mod __test {
                                 Self::Login { credentials }
                             })
                         }
-                        _ => Err(http::StatusCode::METHOD_NOT_ALLOWED.into_response()),
+                        _ => {
+                            Err(
+                                htmxology::__private::http::StatusCode::METHOD_NOT_ALLOWED
+                                    .into_response(),
+                            )
+                        }
                     };
                 }
             }
             {
-                static RE: std::sync::LazyLock<regex::Regex> = std::sync::LazyLock::new(||
-                regex::Regex::new("^/$").unwrap());
+                static RE: ::std::sync::LazyLock<htmxology::__private::regex::Regex> = ::std::sync::LazyLock::new(||
+                htmxology::__private::regex::Regex::new("^/$").unwrap());
                 if let Some(__captures) = RE.captures(&__req.uri().path()) {
                     return match __req.method() {
-                        &http::Method::GET => Ok(Self::Home),
-                        _ => Err(http::StatusCode::METHOD_NOT_ALLOWED.into_response()),
+                        &htmxology::__private::http::Method::GET => Ok(Self::Home),
+                        _ => {
+                            Err(
+                                htmxology::__private::http::StatusCode::METHOD_NOT_ALLOWED
+                                    .into_response(),
+                            )
+                        }
                     };
                 }
             }
             {
-                <NotFoundRoute as axum::extract::FromRequest<
+                <NotFoundRoute as htmxology::__private::axum::extract::FromRequest<
                     S,
                 >>::from_request(__req, __state)
                     .await

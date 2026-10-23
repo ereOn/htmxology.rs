@@ -71,6 +71,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - docs.rs now builds the documentation with all features enabled.
 
 ### Fixed
+- The derive macros no longer require consumers to depend on the crates their generated code
+  uses. Generated code used to name `axum`, `axum_extra`, `http`, `regex` and `serde_html_form`
+  by bare path, so a crate using `#[derive(Route)]` had to add `regex`, `serde_html_form` and
+  `axum-extra` to its own `Cargo.toml` (or fail with "unresolved import"). Those crates are now
+  reached through the hidden `htmxology::__private` module, and `std` is referenced as `::std`.
+  A workspace crate (`tests/hygiene`) that depends only on `htmxology`, `axum`, `http` and
+  `serde` compiles every derive to keep it that way.
 - The `Route` derive ignored the content type given to `#[body("...")]`: `#[body("application/json")]`
   compiled but parsed the body as a form, so every JSON request was rejected with a `415` at
   runtime.

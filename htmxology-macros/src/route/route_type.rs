@@ -54,9 +54,9 @@ impl MethodExt for http::Method {
 pub(crate) fn append_query_arg(statements: &mut Vec<TokenStream>, query_arg: Option<&Ident>) {
     if let Some(query_arg) = query_arg {
         statements.push(quote! {
-            let qs = &serde_html_form::to_string(&#query_arg).map_err(|_| std::fmt::Error)?;
+            let qs = &htmxology::__private::serde_html_form::to_string(&#query_arg).map_err(|_| ::std::fmt::Error)?;
             if !qs.is_empty() {
-                std::fmt::Write::write_char(f, '?')?;
+                ::std::fmt::Write::write_char(f, '?')?;
                 f.write_str(&qs)?;
             }
         });

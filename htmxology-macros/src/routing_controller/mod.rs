@@ -218,9 +218,14 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
     };
 
     let route_ident = controller_spec.route_ident;
-    let response_type = controller_spec.response_type.unwrap_or_else(
-        || parse_quote!(Result<axum::response::Response, axum::response::Response>),
-    );
+    let response_type = controller_spec.response_type.unwrap_or_else(|| {
+        parse_quote!(
+            Result<
+                htmxology::__private::axum::response::Response,
+                htmxology::__private::axum::response::Response,
+            >
+        )
+    });
     let args_type = controller_spec
         .args_type
         .unwrap_or_else(|| parse_quote!(()));
@@ -266,7 +271,7 @@ pub fn derive(input: &mut syn::DeriveInput) -> syn::Result<proc_macro2::TokenStr
                 &self,
                 route: Self::Route,
                 htmx: htmxology::htmx::Request,
-                parts: http::request::Parts,
+                parts: htmxology::__private::http::request::Parts,
                 server_info: &htmxology::ServerInfo,
                 #args_mutability args: Self::Args,
             ) -> Self::Response {
