@@ -1,13 +1,16 @@
-//! HTMX-SSR
-//!
-//! Server-side rendering framework for Rust, using HTMX.
-//!
-//! # Features
-//!
-//! - `auto-reload`: Automatically reload the server when the source code changes. Useful for
-//!   development. **Not enabled by default.**
-//! - `interfaces`: Enrich the local base URL guessing logic with the ability to inspect the
-//!   workstation's network interfaces. Useful for development. **Not enabled by default.**
+// The crate documentation is the project README, so that its examples are compiled and run as
+// doctests. The examples need the `derive` and `templating` features; without them, fall back
+// to a short summary so that `cargo doc`/`cargo test` still work with any feature set.
+#![cfg_attr(
+    all(feature = "derive", feature = "templating"),
+    doc = include_str!("../README.md")
+)]
+#![cfg_attr(
+    not(all(feature = "derive", feature = "templating")),
+    doc = "HTMX server-side rendering framework for Rust, based on Axum.\n\n\
+           Enable the `derive` and `templating` features (or `full`) to build the complete \
+           documentation, which is generated from the project README."
+)]
 
 pub mod htmx;
 

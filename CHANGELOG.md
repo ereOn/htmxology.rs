@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Rewrote the README for the current API: quick start, routes, controller composition, HTMX
+  helpers, templates, caching, development server and feature flags. The crate README is now
+  the project README (shared with crates.io and docs.rs), and it is included as the crate-level
+  documentation so that every code sample is compiled and run as a doctest.
+- docs.rs now builds the documentation with all features enabled.
+
 ### Fixed
+- The `blocks` and `components` examples declared `required-features` without `derive` (and
+  `templating` for `blocks`), so `cargo run --example` with exactly those features failed to
+  compile.
 - `components` example: the "Save Changes" button on the edit-post page did nothing (the form had no `method`/`action`, its fields had no `name`, and no POST route existed — a browser submit was a GET back to the same page). Added a `UserPostRoute::Save` POST route with a form body, an in-memory post store shared through `MainController`, and a `303` redirect back to the post after saving.
 
 ### Removed

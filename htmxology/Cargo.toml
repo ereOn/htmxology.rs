@@ -12,6 +12,9 @@ categories = ["web-programming"]
 [badges]
 maintenance = { status = "actively-developed" }
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 default = []
 full = ["auto-reload", "interfaces", "ws", "derive", "templating"]
@@ -28,15 +31,15 @@ name = "htmxology"
 [[example]]
 name = "blocks"
 path = "../examples/blocks.rs"
-required-features = ["auto-reload", "interfaces", "examples"]
+required-features = ["auto-reload", "interfaces", "examples", "derive", "templating"]
 
 [[example]]
 name = "components"
 path = "../examples/components.rs"
-required-features = ["auto-reload", "interfaces", "examples"]
+required-features = ["auto-reload", "interfaces", "examples", "derive"]
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt", "rt-multi-thread"] }
 http = { workspace = true }
 
 [dependencies]
