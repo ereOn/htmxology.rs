@@ -129,7 +129,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 Run it and open <http://127.0.0.1:3000/>. Requests that match no route get a `404`; a known
 path with the wrong method gets a `405`; a path parameter or query that fails to parse gets a
-`400`, and a form body that fails to deserialize gets a `422`.
+`400`, a body that fails to deserialize gets a `422`, and a body with the wrong `Content-Type`
+gets a `415`.
 
 ## Routes
 
@@ -213,7 +214,7 @@ assert_eq!(
 | `#[route("path/{param}", method = "POST")]` | variant | URL pattern and method. Each `{param}` must match a field (by name for struct variants, by position for tuple variants). |
 | `#[route("prefix/")]` + `#[subroute]` | variant + field | A trailing `/` makes the variant a prefix for another `Route` enum held in the marked field. |
 | `#[query]` | field | The field is deserialized from the query string (`serde::Deserialize`; `serde::Serialize` to render). |
-| `#[body]` | field | The field is the request body, deserialized as a URL-encoded form (`serde::Deserialize`). A content type may be written for documentation, as in `#[body("application/x-www-form-urlencoded")]`, but only forms are supported today. |
+| `#[body("content-type")]` | field | The field is the request body (`serde::Deserialize`). `application/x-www-form-urlencoded` (the default, so plain `#[body]` works) and `application/json` are supported; anything else is a compile error. A request with another `Content-Type` gets a `415`. |
 | `#[catch_all]` | variant | A fallback variant, tried after every other route. It holds another `Route` enum. |
 
 Path parameters are percent-encoded when a route is rendered and decoded when it is parsed, so

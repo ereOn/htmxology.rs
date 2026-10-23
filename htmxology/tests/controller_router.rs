@@ -27,6 +27,12 @@ enum TestRoute {
         form: CreateForm,
     },
 
+    #[route("api/items", method = "POST")]
+    CreateJson {
+        #[body("application/json")]
+        item: CreateForm,
+    },
+
     #[route("info")]
     Info,
 }
@@ -56,6 +62,9 @@ impl Controller for TestController {
             TestRoute::Home => Html("home").into_response(),
             TestRoute::Item { id } => Html(format!("item {id}")).into_response(),
             TestRoute::Create { form } => (StatusCode::CREATED, form.name).into_response(),
+            TestRoute::CreateJson { item } => {
+                (StatusCode::CREATED, format!("json:{}", item.name)).into_response()
+            }
             TestRoute::Info => server_info.base_url.to_string().into_response(),
         })
     }
@@ -138,6 +147,46 @@ async fn form_body_is_deserialized() {
 #[tokio::test]
 async fn invalid_form_body_is_unprocessable() {
     let (status, _, _) = send(router(), form_request("/items", "nope=1")).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
+}
+
+fn json_request(uri: &str, body: &str) -> Request<Body> {
+    Request::builder()
+        .method(http::Method::POST)
+        .uri(uri)
+        .header(http::header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body.to_owned()))
+        .unwrap()
+}
+
+#[tokio::test]
+async fn json_body_is_deserialized() {
+    let (status, _, body) =
+        send(router(), json_request("/api/items", r#"{"name":"widget"}"#)).await;
+    assert_eq!(status, StatusCode::CREATED);
+    assert_eq!(body, "json:widget");
+}
+
+#[tokio::test]
+async fn json_route_rejects_a_form_content_type() {
+    let (status, _, _) = send(router(), form_request("/api/items", "name=widget")).await;
+    assert_eq!(status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+}
+
+#[tokio::test]
+async fn form_route_rejects_a_json_content_type() {
+    let (status, _, _) = send(router(), json_request("/items", r#"{"name":"widget"}"#)).await;
+    assert_eq!(status, StatusCode::UNSUPPORTED_MEDIA_TYPE);
+}
+
+#[tokio::test]
+async fn invalid_json_body_is_rejected() {
+    // Syntactically invalid JSON.
+    let (status, _, _) = send(router(), json_request("/api/items", "{not json")).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+
+    // Valid JSON that does not match the type.
+    let (status, _, _) = send(router(), json_request("/api/items", r#"{"nope":1}"#)).await;
     assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY);
 }
 

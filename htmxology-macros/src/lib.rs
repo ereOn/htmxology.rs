@@ -13,6 +13,18 @@ mod utils;
 /// Derive a route type.
 ///
 /// Route types are enum types that represent the possible routes in an HTMX application.
+///
+/// # Attributes
+///
+/// - `#[route("path/{param}", method = "POST")]` on a variant: the URL pattern and HTTP method
+///   (`GET` by default). A trailing `/` marks a prefix whose remainder is parsed by the field
+///   marked `#[subroute]`.
+/// - `#[catch_all]` on a variant: a fallback tried after every other route, holding another
+///   route enum.
+/// - `#[query]` on a field: deserialized from the query string.
+/// - `#[body]` or `#[body("content-type")]` on a field: deserialized from the request body.
+///   Supported content types are `application/x-www-form-urlencoded` (the default) and
+///   `application/json`; anything else is a compile error.
 #[proc_macro_derive(Route, attributes(route, subroute, catch_all, query, body))]
 pub fn derive_route(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let mut input = parse_macro_input!(input as syn::DeriveInput);

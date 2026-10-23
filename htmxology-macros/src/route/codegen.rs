@@ -275,11 +275,25 @@ fn generate_query_parsing(config: &VariantConfig) -> TokenStream {
 }
 
 /// Generates body parameter parsing code.
+///
+/// The extractor depends on the content type declared with `#[body("...")]`:
+/// `axum_extra::extract::Form` for URL-encoded forms (the default) and `axum::Json` for JSON.
+/// Both reject a mismatched `Content-Type` header and a malformed body with the appropriate
+/// 4xx status.
 fn generate_body_parsing(config: &VariantConfig) -> TokenStream {
     if let Some(body_field) = config.body_param() {
         let ident = &body_field.ident;
+        let format = body_field
+            .body_format()
+            .expect("body param always has a body format");
+
+        let extractor = match format {
+            super::config::BodyFormat::Form => quote!(axum_extra::extract::Form),
+            super::config::BodyFormat::Json => quote!(axum::Json),
+        };
+
         quote! {
-            let axum_extra::extract::Form(#ident) = axum_extra::extract::Form::from_request(
+            let #extractor(#ident) = #extractor::from_request(
                 __req,
                 __state
             )

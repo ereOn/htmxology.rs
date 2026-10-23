@@ -710,6 +710,66 @@ mod snapshot_tests {
     }
 
     #[test]
+    fn body_param_without_content_type_defaults_to_form() {
+        let input = r#"
+            enum MyRoute {
+                #[route("submit", method = "POST")]
+                Submit {
+                    #[body]
+                    form: FormData,
+                },
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn named_json_body_param() {
+        let input = r#"
+            enum MyRoute {
+                #[route("api/items", method = "POST")]
+                Create {
+                    #[body("application/json")]
+                    item: NewItem,
+                },
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn unnamed_json_body_param() {
+        let input = r#"
+            enum MyRoute {
+                #[route("api/items/{id}", method = "PUT")]
+                Update(u32, #[body("application/json")] Item),
+            }
+        "#;
+        assert_snapshot!(test_route_derive(input));
+    }
+
+    #[test]
+    fn unsupported_body_content_type_is_an_error() {
+        let input = r#"
+            enum MyRoute {
+                #[route("upload", method = "POST")]
+                Upload {
+                    #[body("multipart/form-data")]
+                    data: Upload,
+                },
+            }
+        "#;
+        let mut input: syn::DeriveInput = syn::parse_str(input).expect("valid input");
+        let err = derive(&mut input).expect_err("unsupported content type must be rejected");
+
+        assert_eq!(
+            err.to_string(),
+            "unsupported body content type `multipart/form-data`: expected \
+             `application/x-www-form-urlencoded` or `application/json`"
+        );
+    }
+
+    #[test]
     fn query_and_body_params() {
         let input = r#"
             enum MyRoute {

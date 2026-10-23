@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `#[body("application/json")]` deserializes the request body with `axum::Json`. Plain `#[body]`
+  and `#[body("application/x-www-form-urlencoded")]` keep using `axum_extra::extract::Form`.
+  Any other content type is now a compile error instead of being silently treated as a form.
 - `ControllerRouter` can be extended without `unsafe`: `route`, `route_service`, `nest`,
   `nest_service`, `merge`, `layer`, `route_layer` mirror the `axum::Router` methods, and
   `map_router` gives access to any other one. Added routes take precedence over the controller.
@@ -68,6 +71,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - docs.rs now builds the documentation with all features enabled.
 
 ### Fixed
+- The `Route` derive ignored the content type given to `#[body("...")]`: `#[body("application/json")]`
+  compiled but parsed the body as a form, so every JSON request was rejected with a `415` at
+  runtime.
 - The `blocks` and `components` examples declared `required-features` without `derive` (and
   `templating` for `blocks`), so `cargo run --example` with exactly those features failed to
   compile.

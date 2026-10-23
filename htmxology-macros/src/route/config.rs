@@ -99,7 +99,7 @@ impl FieldsConfig {
                         ));
                     }
                 }
-                FieldRole::Body => {
+                FieldRole::Body(_) => {
                     body_count += 1;
                     if body_count > 1 {
                         return Err(Error::new_spanned(
@@ -193,10 +193,10 @@ impl FieldConfig {
             .iter()
             .any(|attr| attr.path().is_ident(attributes::QUERY));
 
-        let is_body = field
+        let body_attr = field
             .attrs
             .iter()
-            .any(|attr| attr.path().is_ident(attributes::BODY));
+            .find(|attr| attr.path().is_ident(attributes::BODY));
 
         let is_subroute = field
             .attrs
@@ -204,7 +204,7 @@ impl FieldConfig {
             .any(|attr| attr.path().is_ident(attributes::SUBROUTE));
 
         // Validate that only one attribute is present
-        let attr_count = [is_query, is_body, is_subroute]
+        let attr_count = [is_query, body_attr.is_some(), is_subroute]
             .iter()
             .filter(|&&b| b)
             .count();
@@ -219,8 +219,8 @@ impl FieldConfig {
         // Determine the role
         if is_query {
             Ok(FieldRole::Query)
-        } else if is_body {
-            Ok(FieldRole::Body)
+        } else if let Some(body_attr) = body_attr {
+            Ok(FieldRole::Body(BodyFormat::from_attribute(body_attr)?))
         } else if is_subroute {
             // Validate that subroute is only used with SubRoute route type
             if !matches!(route_type, RouteType::SubRoute) {
@@ -251,7 +251,15 @@ impl FieldConfig {
 
     /// Returns true if this field is a body parameter.
     pub fn is_body(&self) -> bool {
-        matches!(self.role, FieldRole::Body)
+        matches!(self.role, FieldRole::Body(_))
+    }
+
+    /// Returns the body format of this field, if it is a body parameter.
+    pub fn body_format(&self) -> Option<BodyFormat> {
+        match self.role {
+            FieldRole::Body(format) => Some(format),
+            _ => None,
+        }
     }
 
     /// Returns true if this field is a subroute.
@@ -283,14 +291,60 @@ pub enum FieldRole {
     /// A query parameter extracted from the query string (annotated with `#[query]`).
     Query,
 
-    /// A body parameter extracted from the request body (annotated with `#[body]`).
-    Body,
+    /// A body parameter extracted from the request body (annotated with `#[body]` or
+    /// `#[body("content-type")]`).
+    Body(BodyFormat),
 
     /// A subroute that delegates to another route type (annotated with `#[subroute]`).
     Subroute,
 
     /// A catch-all field that handles unmatched routes (used in `#[catch_all]` variants).
     CatchAll,
+}
+
+/// The format a request body is deserialized from, as declared by `#[body("content-type")]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BodyFormat {
+    /// `application/x-www-form-urlencoded`, the default when no content type is given.
+    Form,
+
+    /// `application/json`.
+    Json,
+}
+
+impl BodyFormat {
+    /// The content type of the form format.
+    pub const FORM: &'static str = "application/x-www-form-urlencoded";
+
+    /// The content type of the JSON format.
+    pub const JSON: &'static str = "application/json";
+
+    /// Parses the body format from a `#[body]` or `#[body("content-type")]` attribute.
+    pub fn from_attribute(attr: &syn::Attribute) -> syn::Result<Self> {
+        match &attr.meta {
+            syn::Meta::Path(_) => Ok(Self::Form),
+            syn::Meta::List(_) => {
+                let content_type: syn::LitStr = attr.parse_args()?;
+
+                match content_type.value().as_str() {
+                    Self::FORM => Ok(Self::Form),
+                    Self::JSON => Ok(Self::Json),
+                    other => Err(Error::new_spanned(
+                        &content_type,
+                        format!(
+                            "unsupported body content type `{other}`: expected `{}` or `{}`",
+                            Self::FORM,
+                            Self::JSON
+                        ),
+                    )),
+                }
+            }
+            syn::Meta::NameValue(_) => Err(Error::new_spanned(
+                attr,
+                "expected `#[body]` or `#[body(\"content-type\")]`",
+            )),
+        }
+    }
 }
 
 impl VariantConfig {
