@@ -40,10 +40,11 @@ async fn main() -> anyhow::Result<()> {
 
 mod controller {
 
+    use std::collections::HashMap;
     use std::sync::Arc;
 
     use axum::response::IntoResponse;
-    use htmxology::{Controller, htmx::Request as HtmxRequest};
+    use htmxology::{Controller, RouteExt, htmx::Request as HtmxRequest};
     use htmxology::{Route, RoutingController, ServerInfo};
     use tokio::sync::RwLock;
 
@@ -80,6 +81,11 @@ mod controller {
 
     type UserSession = Arc<RwLock<UserSessionImpl>>;
 
+    /// In-memory storage for post contents, keyed by `(user_id, post_id)`.
+    ///
+    /// This stands in for a database so that the "Edit Post" form has something to save to.
+    type PostStore = Arc<RwLock<HashMap<(u32, String), String>>>;
+
     /// The main controller implementation.
     #[derive(Debug, Clone, RoutingController)]
     #[controller(AppRoute, args = UserSession)]
@@ -90,6 +96,7 @@ mod controller {
     pub struct MainController {
         image_gallery_base_url: String,
         session: UserSession,
+        posts: PostStore,
     }
 
     impl MainController {
@@ -97,6 +104,7 @@ mod controller {
             Self {
                 image_gallery_base_url: "https://picsum.photos/id/".to_string(),
                 session,
+                posts: Default::default(),
             }
         }
 
@@ -120,8 +128,10 @@ mod controller {
     }
 
     impl From<&MainController> for UserPostController {
-        fn from(_: &MainController) -> Self {
-            Self
+        fn from(main_controller: &MainController) -> Self {
+            Self {
+                posts: main_controller.posts.clone(),
+            }
         }
     }
 
@@ -340,7 +350,15 @@ mod controller {
     // Params are passed as Args to handle_request, not stored in the controller.
 
     #[derive(Debug, Clone, Default)]
-    pub struct UserPostController;
+    pub struct UserPostController {
+        posts: PostStore,
+    }
+
+    /// The form submitted by the "Edit Post" page.
+    #[derive(Debug, Clone, Default, serde::Deserialize)]
+    pub struct EditPostForm {
+        pub content: String,
+    }
 
     // Args struct for UserPostController - receives parent args + path parameters
     // Since MainController has Args = UserSession, we receive (UserSession, u32, String)
@@ -374,6 +392,13 @@ mod controller {
         /// Edit the post.
         #[route("edit")]
         Edit,
+
+        /// Save the edited post.
+        #[route("edit", method = "POST")]
+        Save {
+            #[body("application/x-www-form-urlencoded")]
+            form: EditPostForm,
+        },
     }
 
     impl Controller for UserPostController {
@@ -399,8 +424,29 @@ mod controller {
                 subroute: UserPostRoute::Index,
             };
 
-            // `post_id` comes straight from the URL: escape it before embedding it in HTML.
+            // Saving is a POST to the same `edit` path: the route carries the form body, so the
+            // URL is rendered from a default (empty) form.
+            let save_route = AppRoute::UserPost {
+                user_id,
+                post_id: args.post_id.clone(),
+                subroute: UserPostRoute::Save {
+                    form: Default::default(),
+                },
+            };
+
+            let post_key = (user_id, args.post_id.clone());
+
+            // `post_id` and the stored content come from the client: escape them before
+            // embedding them in HTML.
             let post_id = html_escape(&args.post_id);
+            let content = html_escape(
+                self.posts
+                    .read()
+                    .await
+                    .get(&post_key)
+                    .map(String::as_str)
+                    .unwrap_or("This post has no content yet."),
+            );
 
             match route {
                 UserPostRoute::Index => Ok((
@@ -413,6 +459,7 @@ mod controller {
                         <p>Viewing as: {} (Authenticated: {})</p>
                         <p>Session visits: {}</p>
                         <p>Path parameters AND session flow through Args to handle_request!</p>
+                        <blockquote>{content}</blockquote>
                         <nav>
                             <a href="comments">View Comments</a> |
                             <a href="edit">Edit Post</a>
@@ -450,9 +497,9 @@ mod controller {
                         <h2>Edit Post: {post_id}</h2>
                         <p>Editing post by User #{user_id}</p>
                         <p>Editor: {} (Visits: {})</p>
-                        <form>
+                        <form method="post" action="{save_route}">
                             <label>Post ID: <input type="text" value="{post_id}" readonly /></label><br/>
-                            <label>Content: <textarea rows="5" cols="50">Content for user {user_id}'s post "{post_id}"</textarea></label><br/>
+                            <label>Content: <textarea name="content" rows="5" cols="50">{content}</textarea></label><br/>
                             <button type="submit">Save Changes</button>
                         </form>
                         <p><a href="{base_route}">Cancel and go back</a></p>
@@ -462,6 +509,12 @@ mod controller {
                     ),
                 )
                     .into_response()),
+                UserPostRoute::Save { form } => {
+                    self.posts.write().await.insert(post_key, form.content);
+
+                    // Redirect (303) back to the post so a refresh does not re-submit the form.
+                    Ok(base_route.as_redirect_response())
+                }
             }
         }
     }
