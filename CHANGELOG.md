@@ -8,6 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `htmx::Response` covers the remaining HTMX response headers: `with_refresh` (`HX-Refresh`),
+  `with_replace_url` / `without_replace_url` (`HX-Replace-Url`), `with_reswap` (`HX-Reswap`,
+  from an `InsertStrategy`), `with_reselect` (`HX-Reselect`), and `with_trigger`,
+  `with_trigger_detail` and their `_after_settle` / `_after_swap` variants (`HX-Trigger`,
+  `HX-Trigger-After-Settle`, `HX-Trigger-After-Swap`). Events without details are sent as a
+  comma-separated list; as soon as one has a detail the header becomes a JSON object, with
+  non-ASCII characters escaped so the header is always valid.
+- `htmx::Response::with_status` sets the HTTP status code (previously always `200`).
 - GitHub Actions CI (`.github/workflows/ci.yml`): formatting, clippy and rustdoc with warnings
   denied, build and tests with all features, `cargo check` across feature combinations, and
   `cargo deny`. Dependabot keeps the actions and the Cargo manifests current.

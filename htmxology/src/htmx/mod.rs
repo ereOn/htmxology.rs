@@ -26,7 +26,17 @@ mod header {
     pub(super) const HX_LOCATION: http::HeaderName = http::HeaderName::from_static("hx-location");
     pub(super) const HX_PUSH_URL: http::HeaderName = http::HeaderName::from_static("hx-push-url");
     pub(super) const HX_REDIRECT: http::HeaderName = http::HeaderName::from_static("hx-redirect");
+    pub(super) const HX_REFRESH: http::HeaderName = http::HeaderName::from_static("hx-refresh");
+    pub(super) const HX_REPLACE_URL: http::HeaderName =
+        http::HeaderName::from_static("hx-replace-url");
+    pub(super) const HX_RESWAP: http::HeaderName = http::HeaderName::from_static("hx-reswap");
     pub(super) const HX_RETARGET: http::HeaderName = http::HeaderName::from_static("hx-retarget");
+    pub(super) const HX_RESELECT: http::HeaderName = http::HeaderName::from_static("hx-reselect");
+    // `HX-Trigger` is both a request and a response header; the constant above is reused.
+    pub(super) const HX_TRIGGER_AFTER_SETTLE: http::HeaderName =
+        http::HeaderName::from_static("hx-trigger-after-settle");
+    pub(super) const HX_TRIGGER_AFTER_SWAP: http::HeaderName =
+        http::HeaderName::from_static("hx-trigger-after-swap");
 }
 
 /// An HTMX request header extractor.
@@ -99,6 +109,9 @@ pub struct Response<T> {
     /// The main insert that constitutes the body of the response.
     body: T,
 
+    /// The HTTP status code of the response.
+    status: http::StatusCode,
+
     /// The content-type of the response.
     content_type: http::HeaderValue,
 
@@ -107,6 +120,11 @@ pub struct Response<T> {
 
     /// Some extra HTTP headers that are added to the response.
     extra_headers: http::HeaderMap,
+
+    /// Client-side events to trigger as soon as the response is received (`HX-Trigger`), after
+    /// the settle step (`HX-Trigger-After-Settle`) and after the swap step
+    /// (`HX-Trigger-After-Swap`), each as `(event name, detail)` pairs in insertion order.
+    triggers: [Vec<(String, serde_json::Value)>; 3],
 
     /// The out-of-band inserts that are added to the body of the response, but will be processed
     /// out-of-band by HTMX.
@@ -303,11 +321,22 @@ impl<T> Response<T> {
     pub fn new(body: T) -> Self {
         Self {
             body,
+            status: http::StatusCode::OK,
             content_type: http::HeaderValue::from_static("text/html; charset=utf-8"),
             htmx_retarget: None,
             extra_headers: http::HeaderMap::new(),
+            triggers: Default::default(),
             oob_elements: vec![],
         }
+    }
+
+    /// Set the HTTP status code of the response (`200 OK` by default).
+    ///
+    /// Note that, by default, HTMX only swaps `2xx` responses; see the `htmx:beforeSwap` event
+    /// or the `responseHandling` configuration to change that on the client.
+    pub fn with_status(mut self, status: http::StatusCode) -> Self {
+        self.status = status;
+        self
     }
 
     /// Set the content type of the response.
@@ -380,6 +409,196 @@ impl<T> Response<T> {
         self
     }
 
+    /// Insert a header that may only be set once, panicking if it is already present.
+    fn insert_unique_header(&mut self, name: http::HeaderName, value: http::HeaderValue) {
+        let was_absent = self.extra_headers.insert(name.clone(), value).is_none();
+
+        assert!(was_absent, "{name} header already present");
+    }
+
+    /// Ask the client to do a full page refresh (`HX-Refresh`).
+    ///
+    /// # Panics
+    ///
+    /// If another `hx-refresh` header is already present, the call will panic.
+    pub fn with_refresh(mut self) -> Self {
+        self.insert_unique_header(header::HX_REFRESH, http::HeaderValue::from_static("true"));
+        self
+    }
+
+    /// Replace the current URL in the browser's location bar, without adding a history entry
+    /// (`HX-Replace-Url`).
+    ///
+    /// # Panics
+    ///
+    /// If another `hx-replace-url` header is already present, or if the URL is not a valid HTTP
+    /// header value, the call will panic.
+    pub fn with_replace_url(mut self, url: &http::Uri) -> Self {
+        let header_value = http::HeaderValue::from_str(&url.to_string()).expect("invalid URL");
+
+        self.insert_unique_header(header::HX_REPLACE_URL, header_value);
+        self
+    }
+
+    /// Prevent the client from replacing the URL in the location bar (`HX-Replace-Url: false`).
+    ///
+    /// # Panics
+    ///
+    /// If another `hx-replace-url` header is already present, the call will panic.
+    pub fn without_replace_url(mut self) -> Self {
+        self.insert_unique_header(
+            header::HX_REPLACE_URL,
+            http::HeaderValue::from_static("false"),
+        );
+        self
+    }
+
+    /// Override the swap strategy the client will use for the main insert (`HX-Reswap`).
+    ///
+    /// Swap modifiers (for instance `innerHTML transition:true`) can be given with
+    /// [`InsertStrategy::Custom`].
+    ///
+    /// # Panics
+    ///
+    /// If another `hx-reswap` header is already present, or if the strategy is not a valid HTTP
+    /// header value, the call will panic.
+    pub fn with_reswap(mut self, strategy: InsertStrategy) -> Self {
+        let header_value =
+            http::HeaderValue::from_str(&strategy.to_string()).expect("invalid swap strategy");
+
+        self.insert_unique_header(header::HX_RESWAP, header_value);
+        self
+    }
+
+    /// Select a part of the response to swap in, with a CSS selector (`HX-Reselect`).
+    ///
+    /// # Panics
+    ///
+    /// If another `hx-reselect` header is already present, or if the selector is not a valid
+    /// HTTP header value, the call will panic.
+    pub fn with_reselect(mut self, selector: impl AsRef<str>) -> Self {
+        let header_value =
+            http::HeaderValue::from_str(selector.as_ref()).expect("invalid reselect selector");
+
+        self.insert_unique_header(header::HX_RESELECT, header_value);
+        self
+    }
+
+    /// Trigger a client-side event as soon as the response is received (`HX-Trigger`).
+    ///
+    /// Several events can be triggered by calling this method several times. Triggering the
+    /// same event twice replaces its detail.
+    pub fn with_trigger(self, event: impl Into<String>) -> Self {
+        self.with_trigger_detail(event, serde_json::Value::Null)
+    }
+
+    /// Trigger a client-side event with a detail payload as soon as the response is received
+    /// (`HX-Trigger`).
+    ///
+    /// The detail is available to the listener as `event.detail`.
+    pub fn with_trigger_detail(
+        mut self,
+        event: impl Into<String>,
+        detail: impl Into<serde_json::Value>,
+    ) -> Self {
+        Self::add_trigger(&mut self.triggers[0], event.into(), detail.into());
+        self
+    }
+
+    /// Trigger a client-side event after the settle step (`HX-Trigger-After-Settle`).
+    pub fn with_trigger_after_settle(self, event: impl Into<String>) -> Self {
+        self.with_trigger_after_settle_detail(event, serde_json::Value::Null)
+    }
+
+    /// Trigger a client-side event with a detail payload after the settle step
+    /// (`HX-Trigger-After-Settle`).
+    pub fn with_trigger_after_settle_detail(
+        mut self,
+        event: impl Into<String>,
+        detail: impl Into<serde_json::Value>,
+    ) -> Self {
+        Self::add_trigger(&mut self.triggers[1], event.into(), detail.into());
+        self
+    }
+
+    /// Trigger a client-side event after the swap step (`HX-Trigger-After-Swap`).
+    pub fn with_trigger_after_swap(self, event: impl Into<String>) -> Self {
+        self.with_trigger_after_swap_detail(event, serde_json::Value::Null)
+    }
+
+    /// Trigger a client-side event with a detail payload after the swap step
+    /// (`HX-Trigger-After-Swap`).
+    pub fn with_trigger_after_swap_detail(
+        mut self,
+        event: impl Into<String>,
+        detail: impl Into<serde_json::Value>,
+    ) -> Self {
+        Self::add_trigger(&mut self.triggers[2], event.into(), detail.into());
+        self
+    }
+
+    fn add_trigger(
+        triggers: &mut Vec<(String, serde_json::Value)>,
+        event: String,
+        detail: serde_json::Value,
+    ) {
+        match triggers.iter_mut().find(|(name, _)| *name == event) {
+            Some((_, existing)) => *existing = detail,
+            None => triggers.push((event, detail)),
+        }
+    }
+}
+
+/// Render the value of an `HX-Trigger*` header.
+///
+/// Events without a detail are rendered as a comma-separated list of names, which is the simplest
+/// form HTMX accepts. As soon as one event carries a detail, the whole header becomes a JSON
+/// object mapping event names to details, with non-ASCII characters escaped so that the result is
+/// always a valid header value.
+///
+/// # Panics
+///
+/// If an event name contains characters that are not allowed in an HTTP header value.
+fn trigger_header_value(triggers: &[(String, serde_json::Value)]) -> http::HeaderValue {
+    let value = if triggers.iter().all(|(_, detail)| detail.is_null()) {
+        triggers
+            .iter()
+            .map(|(name, _)| name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    } else {
+        let object: serde_json::Map<String, serde_json::Value> = triggers
+            .iter()
+            .map(|(name, detail)| (name.clone(), detail.clone()))
+            .collect();
+
+        escape_non_ascii(&serde_json::Value::Object(object).to_string())
+    };
+
+    http::HeaderValue::from_str(&value).expect("invalid event name in HX-Trigger header")
+}
+
+/// Escape every non-ASCII character of a JSON document as `\uXXXX`.
+///
+/// Non-ASCII characters can only appear inside JSON strings, where such escapes are always valid,
+/// so this keeps the document equivalent while making it a valid HTTP header value.
+fn escape_non_ascii(json: &str) -> String {
+    let mut escaped = String::with_capacity(json.len());
+
+    for c in json.chars() {
+        if c.is_ascii() {
+            escaped.push(c);
+        } else {
+            for unit in c.encode_utf16(&mut [0; 2]) {
+                escaped.push_str(&format!("\\u{unit:04x}"));
+            }
+        }
+    }
+
+    escaped
+}
+
+impl<T> Response<T> {
     /// Indicate that the response should not push the URL to the browser history.
     ///
     /// # Panics
@@ -539,12 +758,23 @@ impl<T> Response<T> {
 
 impl<T: Display> axum::response::IntoResponse for Response<T> {
     fn into_response(self) -> axum::response::Response {
+        let [triggers, triggers_after_settle, triggers_after_swap] = self.triggers;
+        let trigger_headers = [
+            (header::HX_TRIGGER, triggers),
+            (header::HX_TRIGGER_AFTER_SETTLE, triggers_after_settle),
+            (header::HX_TRIGGER_AFTER_SWAP, triggers_after_swap),
+        ]
+        .into_iter()
+        .filter(|(_, triggers)| !triggers.is_empty())
+        .map(|(name, triggers)| (name, trigger_header_value(&triggers)));
+
         let headers: http::HeaderMap = [(http::header::CONTENT_TYPE, self.content_type)]
             .into_iter()
             .chain(
                 self.htmx_retarget
                     .map(|htmx_target| (header::HX_RETARGET, htmx_target)),
             )
+            .chain(trigger_headers)
             .chain(
                 self.extra_headers
                     .into_iter()
@@ -560,7 +790,7 @@ impl<T: Display> axum::response::IntoResponse for Response<T> {
             body.push_str(&injected_html);
         }
 
-        (headers, body).into_response()
+        (self.status, headers, body).into_response()
     }
 }
 
@@ -1301,6 +1531,130 @@ mod tests {
         // Compile-time assertion that Response<T> is Send when T is Send
         fn assert_send<T: Send>() {}
         assert_send::<Response<String>>();
+    }
+
+    #[test]
+    fn test_with_status() {
+        use axum::response::IntoResponse;
+
+        let response = Response::new("created")
+            .with_status(http::StatusCode::CREATED)
+            .into_response();
+
+        assert_eq!(response.status(), http::StatusCode::CREATED);
+        assert_eq!(
+            response.headers()["content-type"],
+            "text/html; charset=utf-8"
+        );
+
+        let response = Response::new("default").into_response();
+        assert_eq!(response.status(), http::StatusCode::OK);
+    }
+
+    #[test]
+    fn test_with_refresh_replace_url_reswap_reselect() {
+        use axum::response::IntoResponse;
+
+        let response = Response::new("body")
+            .with_refresh()
+            .with_replace_url(&"/items/42?tab=1".parse().unwrap())
+            .with_reswap(InsertStrategy::Custom(
+                "innerHTML transition:true".to_owned(),
+            ))
+            .with_reselect("#main > .content")
+            .into_response();
+
+        let headers = response.headers();
+        assert_eq!(headers["hx-refresh"], "true");
+        assert_eq!(headers["hx-replace-url"], "/items/42?tab=1");
+        assert_eq!(headers["hx-reswap"], "innerHTML transition:true");
+        assert_eq!(headers["hx-reselect"], "#main > .content");
+
+        let response = Response::new("body")
+            .without_replace_url()
+            .with_reswap(InsertStrategy::OuterHtml)
+            .into_response();
+
+        assert_eq!(response.headers()["hx-replace-url"], "false");
+        assert_eq!(response.headers()["hx-reswap"], "outerHTML");
+    }
+
+    #[test]
+    #[should_panic(expected = "hx-reswap header already present")]
+    fn test_with_reswap_duplicate_panics() {
+        let _ = Response::new("body")
+            .with_reswap(InsertStrategy::InnerHtml)
+            .with_reswap(InsertStrategy::OuterHtml);
+    }
+
+    #[test]
+    fn test_triggers_without_details_are_a_name_list() {
+        use axum::response::IntoResponse;
+
+        let response = Response::new("body")
+            .with_trigger("saved")
+            .with_trigger("closeModal")
+            .with_trigger_after_settle("focusInput")
+            .with_trigger_after_swap("highlight")
+            .into_response();
+
+        let headers = response.headers();
+        assert_eq!(headers["hx-trigger"], "saved, closeModal");
+        assert_eq!(headers["hx-trigger-after-settle"], "focusInput");
+        assert_eq!(headers["hx-trigger-after-swap"], "highlight");
+    }
+
+    #[test]
+    fn test_triggers_with_details_are_a_json_object() {
+        use axum::response::IntoResponse;
+
+        let response = Response::new("body")
+            .with_trigger("closeModal")
+            .with_trigger_detail(
+                "showMessage",
+                serde_json::json!({ "level": "info", "text": "Saved" }),
+            )
+            .with_trigger_after_swap_detail("count", 3)
+            .into_response();
+
+        let headers = response.headers();
+        assert_eq!(
+            headers["hx-trigger"],
+            r#"{"closeModal":null,"showMessage":{"level":"info","text":"Saved"}}"#
+        );
+        assert_eq!(headers["hx-trigger-after-swap"], r#"{"count":3}"#);
+        assert!(headers.get("hx-trigger-after-settle").is_none());
+    }
+
+    #[test]
+    fn test_trigger_detail_replaces_previous_detail() {
+        use axum::response::IntoResponse;
+
+        let response = Response::new("body")
+            .with_trigger_detail("count", 1)
+            .with_trigger_detail("count", 2)
+            .into_response();
+
+        assert_eq!(response.headers()["hx-trigger"], r#"{"count":2}"#);
+    }
+
+    #[test]
+    fn test_trigger_detail_with_non_ascii_is_a_valid_header() {
+        use axum::response::IntoResponse;
+
+        let response = Response::new("body")
+            .with_trigger_detail("showMessage", "Enregistré ✓ 👍")
+            .into_response();
+
+        // `to_str` only succeeds for visible ASCII, and the non-ASCII characters are escaped.
+        let value = response.headers()["hx-trigger"].to_str().unwrap();
+        assert!(value.is_ascii());
+        assert!(value.contains("Enregistr\\u"), "{value}");
+        assert!(!value.contains('é'));
+
+        // The escaped document still decodes to the original text.
+        let decoded: serde_json::Value = serde_json::from_str(value).unwrap();
+        assert_eq!(decoded["showMessage"], "Enregistré ✓ 👍");
     }
 
     #[test]

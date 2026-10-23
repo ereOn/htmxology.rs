@@ -465,10 +465,13 @@ fn page(htmx: &Request, content: &'static str) -> axum::response::Response {
 assert_eq!(page(&Request::Classic, "<p>Hello</p>").status(), 200);
 ```
 
-`htmx::Response` wraps any `Display` body and adds the HTMX response headers: `with_push_url`,
-`with_redirect` (`HX-Redirect`), `with_location` (`HX-Location`), `with_retarget` and
-`with_header`. Out-of-band fragments get their `hx-swap-oob` attribute injected into their root
-element, so templates stay free of HTMX plumbing.
+`htmx::Response` wraps any `Display` body and adds the HTMX response headers: `with_push_url`
+and `with_replace_url` for the location bar, `with_redirect` (`HX-Redirect`), `with_location`
+(`HX-Location`), `with_refresh`, `with_retarget`, `with_reswap`, `with_reselect`, and
+`with_trigger` / `with_trigger_detail` (plus `_after_settle` and `_after_swap` variants) to fire
+client-side events, with `with_status` and `with_header` for anything else. Out-of-band
+fragments get their `hx-swap-oob` attribute injected into their root element, so templates stay
+free of HTMX plumbing.
 
 `Identity`, `Fragment` and `Named` are small traits for HTML elements that carry an `id`, a swap
 strategy or a form `name`; `HtmlId` and `HtmlName` validate those values. `htmx::ResultExt` and
